@@ -36,15 +36,17 @@ outputs = model(**inputs, output_hidden_states = True, output_attentions = True)
 shape = (1, 12, 6, 6)
 intervene_layer = 10
 
-attn_override_mask = torch.ones(shape, dtype=torch.bool)
-override_attention = torch.zeros(shape) 
+# attn_override_mask = torch.ones(shape, dtype=torch.bool)
+# override_attention = torch.zeros(shape) 
 
-# attn_override_mask = torch.ones(outputs.attentions[intervene_layer][:,:,:6,:6].shape, dtype=torch.bool)
-# override_attention =  outputs.attentions[intervene_layer][:,:,:6,:6] 
+
+attn_override_mask = torch.ones(outputs.attentions[intervene_layer][:,:,:6,:6].shape, dtype=torch.bool)
+override_attention =  outputs.attentions[intervene_layer][:,:,:6,:6] 
 
 # hidden_state = outputs.hidden_states
 
 # Todo: create forward hook
+breakpoint()
 
 
 with torch.no_grad():
@@ -63,7 +65,6 @@ with torch.no_grad():
 
     new = new_outputs.attentions[-1][0, :3, :, :]
     old =  original_outputs.attentions[-1][0, :3, :, :]
-
 
     # print(old)
     # print(f"torch.all(new.eq(old)) : {torch.all(new.eq(old))}")

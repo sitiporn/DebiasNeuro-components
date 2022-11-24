@@ -1,2 +1,9 @@
+# Tiny Nueral Counterfactual nlu
+
+
 ## Todo
-- [ ] testing intervention
+- [x] testing attention intervention
+- [ ] applying or derrive allennlp style by noticing from old repo and so on
+- [ ] try on nlu model of huggingface
+- [ ] testing neural intervention
+- [ ] try to localize attention heads and neural is reponsible for our problem
