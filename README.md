@@ -1,4 +1,4 @@
-# Debias neural component leveraging Causal mediation analysis
+# Debias neural components leveraging Causal mediation analysis
 
 
 ## Todo
