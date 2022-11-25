@@ -7,3 +7,4 @@
 - [ ] try on nlu model on huggingface
 - [ ] testing neural intervention
 - [ ] try to localize attention heads and neural is reponsible for our problem
+- [ ] understand how bias work existing in dataset
