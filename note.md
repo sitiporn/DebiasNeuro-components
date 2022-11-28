@@ -1,10 +1,11 @@
 # Tiny Counterfactual 
 
 
-Objective
+dataset
 ---
-* try to localize attention nueral and attention head that responsible
-    how bias work in our dataset
+* HANS : word overlap 
+* MNLLI- Hard : set of data model predict wrong when model use only hypothesis 
+* Fever(fact verification) : use claim format 
 
 
 
