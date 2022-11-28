@@ -12,15 +12,13 @@
 
 
 
-
 ## dataset
 
- * bias models for all seed in /pred_data
- * main models just one seed 
-    - many seed in /raid/can
+ * all bias models in /pred_data  but main models just one seed 
+
+ * many seed in /raid/can
   
- * qqp for all seed in 
-    - /raid/can/nli_models/qqp_bias
+ * qqp for all seed in  /raid/can/nli_models/qqp_bias
 
  * fever not found
     - run 
