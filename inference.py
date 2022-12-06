@@ -3,7 +3,25 @@ import torch
 from utils import BertAttentionOverride
 import torch.nn.functional as F
 
+# Step of previous project
+# 1. training main models: using bias model's  predicted scores to aggregrate in training main models for every methods
+#    - objective : let's model learn from low bias samples
 
+# 2. inference: every models do counterfactual
+
+# ** bias models used in training step and inference are the same
+
+"""
+Todo: 
+ 1. previous proj: get qqp file jsonl
+    - Create features for training the bias model
+    - train bias model used in the paper
+ 2. current proj : using model from previous project and performing intervene on model and get inference result
+
+"""
+
+# information structure
+#  model name : normal prediction, intervene model's predictions
 
 
 def attention_intervention(attn_override, attn_override_mask):
@@ -38,7 +56,6 @@ intervene_layer = 10
 
 # attn_override_mask = torch.ones(shape, dtype=torch.bool)
 # override_attention = torch.zeros(shape) 
-
 
 attn_override_mask = torch.ones(outputs.attentions[intervene_layer][:,:,:6,:6].shape, dtype=torch.bool)
 override_attention =  outputs.attentions[intervene_layer][:,:,:6,:6] 
@@ -75,8 +92,6 @@ with torch.no_grad():
     print(f"==== new distribution of model") 
     print(F.softmax(new_outputs.logits, dim=-1))
     print(f"new prediction : {torch.argmax(new_outputs.logits, dim=-1)}")
-
-
 
 breakpoint()
 
