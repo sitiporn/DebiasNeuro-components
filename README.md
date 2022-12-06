@@ -3,10 +3,11 @@
 
 ## Todo
 - [x] testing attention intervention
-- [ ] exploit models from previous project to experiment on counterfactual inference
+- [ ] exploit models from previous project to experiment on mediator between input and output
 - [ ] testing neurons intervention
 - [ ] try to localize attention heads and neural is reponsible for our problem
-- [ ] understand how bias work existing in dataset
+- [ ] comparing result debias compontents w/o counterfactual inference 
+
 
 
 
