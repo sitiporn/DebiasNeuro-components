@@ -107,3 +107,35 @@ class BertAttentionOverride(nn.Module):
         outputs = (context_layer, attention_probs) if self.output_attentions else (context_layer,)
 
         return outputs
+
+
+def get_overlap_score(pair_label):
+    prem_words = []
+    hyp_words = []
+
+    premise = pair_label[0].strip()
+    hypothesis = pair_label[1].strip()
+    gold_label = pair_label[2].strip()
+
+    for word in premise.split():
+        if word not in [".", "?", "!"]:
+            prem_words.append(word.lower())
+
+    for word in hypothesis.split():
+        if word not in [".", "?", "!"]:
+            hyp_words.append(word.lower())
+
+    prem_filtered = " ".join(prem_words)
+    hyp_filtered = " ".join(hyp_words)
+
+    count = 0
+    for word in hyp_words:
+        if word in prem_words:
+            count+=1
+
+    overlap_score = count/len(hyp_words)        
+    return overlap_score
+
+
+
+
