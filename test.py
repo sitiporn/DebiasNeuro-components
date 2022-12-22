@@ -1,21 +1,22 @@
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig
-import torch 
-from utils import BertAttentionOverride
-import torch.nn.functional as F
+import os 
+import pandas as pd
+import json
+from utils import get_overlap_score
 
-"""
-mnli 
+data_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
+json_file = 'multinli_1.0_train.jsonl'
 
-"""
+data_path = os.path.join(data_path,json_file)
 
-# model fine-tune on mnli
+df = pd.read_json(data_path, lines=True) 
 
-model_name = 'sileod/roberta-base-mnli'
-model = AutoModelForSequenceClassification(model_name)
-config = AutoConfig.from_pretrained(model_name)
+print(df.columns)
 
-# intervention model's attention on 
-# hans eval set
+pair_and_label = []
 
+for i in range(len(df)):
+    pair_and_label.append((df['sentence1'][i], df['sentence2'][i], df['gold_label'][i]))
 
-# Load hans set
+df['pair_label'] = pair_and_label
+
+df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
