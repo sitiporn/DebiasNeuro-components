@@ -4,8 +4,7 @@
 ## Todo
 - [x] testing attention intervention
 - [ ] testing neurons intervention
-- [x] grouping entailment by treatment
-- [ ] perform data analysis to get theshold used to divide entailment set into w/o do treatment groups
+- [x] grouping entailments by treatment
 - [ ] naive approach computation
 
 
