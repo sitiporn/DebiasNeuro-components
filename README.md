@@ -6,6 +6,7 @@
 - [ ] testing neurons intervention
 - [x] grouping entailments by treatment
 - [ ] naive approach computation
+- [ ] Download wordnet from nltk before sending jobs
 
 
 ## Tackles
