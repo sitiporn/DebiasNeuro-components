@@ -110,6 +110,7 @@ class BertAttentionOverride(nn.Module):
 
 
 def get_overlap_score(pair_label):
+
     prem_words = []
     hyp_words = []
 
@@ -134,7 +135,27 @@ def get_overlap_score(pair_label):
             count+=1
 
     overlap_score = count/len(hyp_words)        
+
     return overlap_score
+
+
+
+class Intervention():
+    """Wrapper all possible interventions """
+    def __init__(self, tokenizer, base_string:str, substitutes: list, candidates: list, device = 'cpu') -> None:
+
+        super()
+        
+        self.tokenizer = tokenizer
+        # All the initial strings
+        # First item should be neutral, others tainted ? 
+        self.base_strings = [base_string.format(s) for s in substitutes]
+
+        # Where to intervene
+        # Text position ?
+        self.position = base_string.split().index('{}')
+
+
 
 
 
