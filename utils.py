@@ -1,7 +1,11 @@
+import os 
+import pandas as pd
+import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+import numpy as np
 
 
 class BertAttentionOverride(nn.Module):
@@ -142,7 +146,12 @@ def get_overlap_score(pair_label):
 
 class Intervention():
     """Wrapper all possible interventions """
-    def __init__(self, tokenizer, base_string:str, substitutes: list, candidates: list, device = 'cpu') -> None:
+    def __init__(self, 
+                tokenizer, 
+                sentence_with_:str, 
+                substitutes: list, 
+                candidates: list, 
+                device = 'cpu') -> None:
 
         super()
         
@@ -154,6 +163,48 @@ class Intervention():
         # Where to intervene
         # Text position ?
         self.position = base_string.split().index('{}')
+
+"""
+neuron_intervention
+- context
+- outputs
+- rep
+- layers
+- neurons
+- position
+- intervention_type
+- alpha
+
+intervention_hook:
+- pos : input, output
+- alternative : positiion, neurons, intervention, intervention_type
+
+others:
+- base_string: eg. doctor said that {}
+- substitutes : male or female pronoun 
+- candidates : occupation of male and female : list 
+- position: index of word that is last position of base_string that will be replaced
+    * we dont use because we considering word overlap decomposed into high_word_overlap, low_word_overlap
+
+- context; eg. the teacher said that 
+- intervention.condidates_tok
+- rep
+- layer_to_search
+- neuron_to_search
+- interventoin.position
+
+base_sentence = "The {} said that"
+biased_word = "teacher"
+intervention = Intervention(
+        tokenizer,
+        base_string = base_sentence,
+        substitutes = [biased_word, "man", "woman"],
+        candidates = ["he", "she"],
+        device=DEVICE)
+
+interventions = {biased_word: intervention}
+
+"""
 
 
 
