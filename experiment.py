@@ -26,11 +26,15 @@ class ExperimentDataset(Dataset):
         # get w/o treatment on entailment set
         self.df['is_treatment'] = self.df.apply(lambda row: group_by_treatment(thresholds, row.overlap_scores, row.gold_label), axis=1)
 
+    def get_intervention_set(self):
 
-    def get_dataframe(self):
+        # get do-treatment pair
+        return self.df[self.df['is_treatment'] == "treatment"]
 
-        return self.df
+    def get_base_set(self):
 
+        # get no-treatment pair
+        return self.df[self.df['is_treatment'] == "no-treatment"]
 
 def main():
 
@@ -48,9 +52,10 @@ def main():
                              lower_bound = lower_bound,
                             )
 
-    df = experiment_set.get_dataframe()
-
-
+    intervention_set = experiment_set.get_intervention_set()
+    base_set = experiment_set.get_base_set()
+    
+    breakpoint()
     
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
@@ -64,8 +69,6 @@ def main():
     biased_word = "teacher"
     
     
-    
-    breakpoint()
 
     # do-treatment, word overlap  more than 80 percent
     # no-treatment, word overlap less than 50 percent
