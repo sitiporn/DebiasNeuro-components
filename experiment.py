@@ -2,8 +2,14 @@ import os
 import pandas as pd
 import json
 import torch
+from fairseq.data.data_utils import collate_tokens
+from fairseq.models.roberta import RobertaModel
 from torch.utils.data import Dataset
+
+"""
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoModel, AutoTokenizer
+"""
 from utils import Intervention, get_overlap_thresholds, group_by_treatment
 
 
@@ -17,6 +23,7 @@ class ExperimentDataset(Dataset):
         if DEBUG: print(self.df.columns)
 
         pair_and_label = []
+
         for i in range(len(self.df)):
             pair_and_label.append((self.df['sentence1'][i], self.df['sentence2'][i], self.df['gold_label'][i]))
 
@@ -28,23 +35,76 @@ class ExperimentDataset(Dataset):
 
     def get_intervention_set(self):
 
-        # get do-treatment pair
+        # get high overlap score pairs
         return self.df[self.df['is_treatment'] == "treatment"]
 
     def get_base_set(self):
 
-        # get no-treatment pair
+        # get low overlap score pairs
         return self.df[self.df['is_treatment'] == "no-treatment"]
 
-def main():
+def neuron_intervention(model,
+                        layers,
+                        neurons,
+                        intervention,
+                        intervention_type='replace'):
+        # Hook for changing representation during forward pass
+        def intervention_hook(module,
+                              input,
+                              output):
 
+            # overwrite value in the output
+            # define mask where to overwrite
+            scatter_mask = torch.zeros_like(output, dtype = torch.bool)
+
+            # torch.Size([1, 41, 1024]: (bz, seq_len, out_dim)
+            # (bz, seq_len, input_dim) @ (input_dim, output_dim)
+            print(f"== inside intervention hook ==")
+            print(f"output shape : {output.shape} ")
+            print(f"scatter_mask : {scatter_mask.shape}")
+            
+        neuron_layer = lambda layer : model.model.encoder.sentence_encoder.layers[layer].final_layer_norm
+        
+        handle_list = []
+
+        for layer in layers:
+            handle_list.append(neuron_layer(layer).register_forward_hook(intervention_hook))
+            break
+
+        #outputs = model(**intervention.string_tok)
+        logprobs = model.predict('mnli', intervention.batch_tok)
+        predictions = logprobs.argmax(dim=1)
+        print(predictions)
+
+        
+        for hndle in handle_list:
+            hndle.remove() 
+        
+        # predictions = logprobs.argmax(dim=1)
+        # print(predictions)
+
+        
+        breakpoint()
+
+
+def main():
 
     DEBUG = True
     
     data_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     json_file = 'multinli_1.0_train.jsonl'
     upper_bound = 80
-    lower_bound = 50
+    lower_bound = 20
+
+    premises = {"do-treatment": None, 
+                "no-treatment": None}
+
+    hypothesises = {"do-treatment": None, 
+                    "no-treatment" : None}
+
+    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
 
     experiment_set = ExperimentDataset(data_path,
                              json_file,
@@ -54,25 +114,35 @@ def main():
 
     intervention_set = experiment_set.get_intervention_set()
     base_set = experiment_set.get_base_set()
-    
-    breakpoint()
-    
-    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    
-    model_name = 'bert-base-uncased'
-    
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    # word overlap  more than 80 percent
+    premises["do-treatment"] = list(intervention_set.sentence1)
+    hypothesises["do-treatment"] = list(intervention_set.sentence2)
 
-    base_sentence = "The {} said that"
-    biased_word = "teacher"
+
+
+    # word overlap less than 20 percent
+    premises["no-treatment"] = list(base_set.sentence1)
+    hypothesises["no-treatment"] = list(base_set.sentence2)
     
+    #model_name = '../models/roberta.large.mnli/model.pt'
     
+    # model = torch.hub.load('pytorch/fairseq', model_name)
+    model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt')
 
-    # do-treatment, word overlap  more than 80 percent
-    # no-treatment, word overlap less than 50 percent
+    #tokenizer = AutoTokenizer.from_pretrained(model_name)
 
+    intervention  = Intervention(encode = model.encode,
+                                 premises = premises["do-treatment"],
+                                 hypothesises = hypothesises["do-treatment"] 
+                                )
+    
+    # Todo: average score of each neuron's activation across batch
+    neuron_intervention(model = model,
+                        layers = [4,5,6],
+                        neurons = [1,2,3],
+                        intervention = intervention)
+    
     """
     intervention = Intervention(
             tokenizer,
@@ -81,6 +151,7 @@ def main():
             ["he", "she"],
             device=DEVICE)
     interventions = {biased_word: intervention}
+
     """
 
 if __name__ == "__main__":
