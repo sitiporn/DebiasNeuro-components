@@ -57,13 +57,34 @@ def neuron_intervention(model,
             # define mask where to overwrite
             scatter_mask = torch.zeros_like(output, dtype = torch.bool)
 
-            # torch.Size([1, 41, 1024]: (bz, seq_len, out_dim)
+            # value to replace
+            value = torch.zeros_like(output, dtype = torch.float)
+
+            #neuron_pos = 3
+
+            print("output before intervene")
+            print(output[:3,:3, 995:1005])
+
+            scatter_mask[:,:,:1000] = 1
+
             # (bz, seq_len, input_dim) @ (input_dim, output_dim)
+            #  seq_len, batch_size, hidden_dim 
             print(f"== inside intervention hook ==")
             print(f"output shape : {output.shape} ")
             print(f"scatter_mask : {scatter_mask.shape}")
+            output.masked_scatter_(scatter_mask, value)
+
+
+            print("output after intervene")
+            print(output[:3,:3, 995:1005])
+
+
+            # intervene output value 
             
         neuron_layer = lambda layer : model.model.encoder.sentence_encoder.layers[layer].final_layer_norm
+        
+        
+        #prime_logprobs = model.predict('mnli',intervention.batch_tok[0:30])
         
         handle_list = []
 
@@ -72,18 +93,23 @@ def neuron_intervention(model,
             break
 
         #outputs = model(**intervention.string_tok)
-        logprobs = model.predict('mnli', intervention.batch_tok)
-        predictions = logprobs.argmax(dim=1)
+        #logprobs = model.predict('mnli', intervention.batch_tok[0])
+        new_logprobs = model.predict('mnli',intervention.batch_tok[0:30])
+        predictions = new_logprobs.argmax(dim=1)
         print(predictions)
-
         
+        #print(f"==== intervention ===")
+
         for hndle in handle_list:
             hndle.remove() 
         
-        # predictions = logprobs.argmax(dim=1)
-        # print(predictions)
-
+        logprobs = model.predict('mnli',intervention.batch_tok[0:30])
+        #print(f"==== without intervention ===")
         
+        
+        # predictions = logprobs.argmax(dim=1)
+        print(predictions)
+
         breakpoint()
 
 
@@ -139,7 +165,7 @@ def main():
     
     # Todo: average score of each neuron's activation across batch
     neuron_intervention(model = model,
-                        layers = [4,5,6],
+                        layers = [23],
                         neurons = [1,2,3],
                         intervention = intervention)
     
