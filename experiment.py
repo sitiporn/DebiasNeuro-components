@@ -5,13 +5,12 @@ import torch
 from fairseq.data.data_utils import collate_tokens
 from fairseq.models.roberta import RobertaModel
 from torch.utils.data import Dataset
+from utils import Intervention, get_overlap_thresholds, group_by_treatment
 
 """
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from transformers import AutoModel, AutoTokenizer
 """
-from utils import Intervention, get_overlap_thresholds, group_by_treatment
-
 
 class ExperimentDataset(Dataset):
     def __init__(self, data_path, json_file,upper_bound, lower_bound, DEBUG = False) -> None:
@@ -57,15 +56,13 @@ def neuron_intervention(model,
             # define mask where to overwrite
             scatter_mask = torch.zeros_like(output, dtype = torch.bool)
 
-            # value to replace
+            # value to replace : (seq_len, batch_size, output_dim)
             value = torch.zeros_like(output, dtype = torch.float)
-
-            #neuron_pos = 3
 
             print("output before intervene")
             print(output[:3,:3, 995:1005])
 
-            scatter_mask[:,:,:1000] = 1
+            scatter_mask[:,:,:] = 1
 
             # (bz, seq_len, input_dim) @ (input_dim, output_dim)
             #  seq_len, batch_size, hidden_dim 
@@ -74,17 +71,11 @@ def neuron_intervention(model,
             print(f"scatter_mask : {scatter_mask.shape}")
             output.masked_scatter_(scatter_mask, value)
 
-
             print("output after intervene")
             print(output[:3,:3, 995:1005])
 
-
-            # intervene output value 
             
         neuron_layer = lambda layer : model.model.encoder.sentence_encoder.layers[layer].final_layer_norm
-        
-        
-        #prime_logprobs = model.predict('mnli',intervention.batch_tok[0:30])
         
         handle_list = []
 
@@ -92,22 +83,20 @@ def neuron_intervention(model,
             handle_list.append(neuron_layer(layer).register_forward_hook(intervention_hook))
             break
 
-        #outputs = model(**intervention.string_tok)
-        #logprobs = model.predict('mnli', intervention.batch_tok[0])
-        new_logprobs = model.predict('mnli',intervention.batch_tok[0:30])
+        new_logprobs = model.predict('mnli',intervention.batch_tok[0:8])
         predictions = new_logprobs.argmax(dim=1)
+        print(f"=== with intervene ====")
+        print(new_logprobs[:3,:])
         print(predictions)
-        
-        #print(f"==== intervention ===")
 
         for hndle in handle_list:
             hndle.remove() 
         
-        logprobs = model.predict('mnli',intervention.batch_tok[0:30])
-        #print(f"==== without intervention ===")
+        logprobs = model.predict('mnli',intervention.batch_tok[0:8])
+        predictions = logprobs.argmax(dim=1)
         
-        
-        # predictions = logprobs.argmax(dim=1)
+        print(f"=== without intervene ====")
+        print(logprobs[:3,:])
         print(predictions)
 
         breakpoint()
@@ -122,6 +111,8 @@ def main():
     upper_bound = 80
     lower_bound = 20
 
+    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     premises = {"do-treatment": None, 
                 "no-treatment": None}
 
@@ -129,7 +120,6 @@ def main():
                     "no-treatment" : None}
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 
     experiment_set = ExperimentDataset(data_path,
@@ -146,39 +136,37 @@ def main():
     hypothesises["do-treatment"] = list(intervention_set.sentence2)
 
 
-
     # word overlap less than 20 percent
     premises["no-treatment"] = list(base_set.sentence1)
     hypothesises["no-treatment"] = list(base_set.sentence2)
     
-    #model_name = '../models/roberta.large.mnli/model.pt'
-    
+    # model_name = '../models/roberta.large.mnli/model.pt'
     # model = torch.hub.load('pytorch/fairseq', model_name)
-    model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt')
-
     #tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    # Todo:  fixing hardcode of vocab.bpe and encoder.json
+    model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt') #, bpe='../models/encoder.json')
+
+    model = model.to(DEVICE)
+
 
     intervention  = Intervention(encode = model.encode,
                                  premises = premises["do-treatment"],
                                  hypothesises = hypothesises["do-treatment"] 
                                 )
     
+    """
+    note: do we need to intervene entire sequence of text 
+
+    neuron output : [seq_len, batch_size, out_dim] 
+    
+    """
     # Todo: average score of each neuron's activation across batch
     neuron_intervention(model = model,
                         layers = [23],
                         neurons = [1,2,3],
                         intervention = intervention)
     
-    """
-    intervention = Intervention(
-            tokenizer,
-            base_sentence,
-            [biased_word, "man", "woman"],
-            ["he", "she"],
-            device=DEVICE)
-    interventions = {biased_word: intervention}
-
-    """
 
 if __name__ == "__main__":
     main()
