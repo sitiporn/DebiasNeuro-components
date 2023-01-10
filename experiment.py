@@ -13,24 +13,52 @@ from transformers import AutoModel, AutoTokenizer
 """
 
 class ExperimentDataset(Dataset):
-    def __init__(self, data_path, json_file,upper_bound, lower_bound, DEBUG = False) -> None:
+    def __init__(self, data_path, json_file,upper_bound, lower_bound, encode ,DEBUG = False) -> None:
         
         data_path = os.path.join(data_path,json_file)
 
         self.df = pd.read_json(data_path, lines=True) 
 
-        if DEBUG: print(self.df.columns)
+        self.encode = encode
+
+        self.premises = {"do-treatment": None, 
+                         "no-treatment": None}
+
+        self.hypothesises = {"do-treatment": None, 
+                             "no-treatment" : None}
 
         pair_and_label = []
+        
+        if DEBUG: print(self.df.columns)
+
 
         for i in range(len(self.df)):
             pair_and_label.append((self.df['sentence1'][i], self.df['sentence2'][i], self.df['gold_label'][i]))
 
+        
         self.df['pair_label'] = pair_and_label
         thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound)
 
         # get w/o treatment on entailment set
         self.df['is_treatment'] = self.df.apply(lambda row: group_by_treatment(thresholds, row.overlap_scores, row.gold_label), axis=1)
+
+        intervention_set = self.get_intervention_set()
+        base_set = self.get_base_set()
+
+        # word overlap  more than 80 percent
+        self.premises["do-treatment"] = list(intervention_set.sentence1)
+        self.hypothesises["do-treatment"] = list(intervention_set.sentence2)
+
+        # word overlap less than 20 percent
+        self.premises["no-treatment"] = list(base_set.sentence1)
+        self.hypothesises["no-treatment"] = list(base_set.sentence2)
+    
+        self.intervention  = Intervention(encode = self.encode,
+                                 premises = self.premises["do-treatment"],
+                                 hypothesises = self.hypothesises["do-treatment"] 
+                                )
+
+
 
     def get_intervention_set(self):
 
@@ -53,27 +81,26 @@ def neuron_intervention(model,
                               output):
 
             # overwrite value in the output
-            # define mask where to overwrite
+            # define mask to overwrite
             scatter_mask = torch.zeros_like(output, dtype = torch.bool)
+            
+            print(f"set of neurons to intervene {neurons}")
+            
+            # where to intervene
+            scatter_mask[:,:, neurons] = 1
 
             # value to replace : (seq_len, batch_size, output_dim)
             value = torch.zeros_like(output, dtype = torch.float)
 
-            print("output before intervene")
-            print(output[:3,:3, 995:1005])
-
-            scatter_mask[:,:,:] = 1
-
             # (bz, seq_len, input_dim) @ (input_dim, output_dim)
             #  seq_len, batch_size, hidden_dim 
+            
+            """
             print(f"== inside intervention hook ==")
             print(f"output shape : {output.shape} ")
             print(f"scatter_mask : {scatter_mask.shape}")
             output.masked_scatter_(scatter_mask, value)
-
-            print("output after intervene")
-            print(output[:3,:3, 995:1005])
-
+            """
             
         neuron_layer = lambda layer : model.model.encoder.sentence_encoder.layers[layer].final_layer_norm
         
@@ -81,22 +108,22 @@ def neuron_intervention(model,
 
         for layer in layers:
             handle_list.append(neuron_layer(layer).register_forward_hook(intervention_hook))
-            break
 
         new_logprobs = model.predict('mnli',intervention.batch_tok[0:8])
         predictions = new_logprobs.argmax(dim=1)
+       
         print(f"=== with intervene ====")
-        print(new_logprobs[:3,:])
+        print(new_logprobs[:8,:])
         print(predictions)
 
         for hndle in handle_list:
             hndle.remove() 
         
-        logprobs = model.predict('mnli',intervention.batch_tok[0:8])
+        logprobs = model.predict('mnli', intervention.batch_tok[0:8])
         predictions = logprobs.argmax(dim=1)
         
         print(f"=== without intervene ====")
-        print(logprobs[:3,:])
+        print(logprobs[:8,:])
         print(predictions)
 
         breakpoint()
@@ -112,60 +139,43 @@ def main():
     lower_bound = 20
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    
+    model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt') #, bpe='../models/encoder.json')
 
-    premises = {"do-treatment": None, 
-                "no-treatment": None}
-
-    hypothesises = {"do-treatment": None, 
-                    "no-treatment" : None}
-
-    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+    model = model.to(DEVICE)
 
     experiment_set = ExperimentDataset(data_path,
                              json_file,
                              upper_bound = upper_bound,
                              lower_bound = lower_bound,
+                             encode = model.encode
                             )
 
-    intervention_set = experiment_set.get_intervention_set()
-    base_set = experiment_set.get_base_set()
 
-    # word overlap  more than 80 percent
-    premises["do-treatment"] = list(intervention_set.sentence1)
-    hypothesises["do-treatment"] = list(intervention_set.sentence2)
-
-
-    # word overlap less than 20 percent
-    premises["no-treatment"] = list(base_set.sentence1)
-    hypothesises["no-treatment"] = list(base_set.sentence2)
     
     # model_name = '../models/roberta.large.mnli/model.pt'
     # model = torch.hub.load('pytorch/fairseq', model_name)
     #tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     # Todo:  fixing hardcode of vocab.bpe and encoder.json
-    model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt') #, bpe='../models/encoder.json')
 
-    model = model.to(DEVICE)
-
-
-    intervention  = Intervention(encode = model.encode,
-                                 premises = premises["do-treatment"],
-                                 hypothesises = hypothesises["do-treatment"] 
-                                )
-    
     """
-    note: do we need to intervene entire sequence of text 
+    Research Question: intervene entire seq of text is the right thing ? 
+        1. entire seq -> the representation ?
+        2. intervene only hypothesises word constructed from a premise ? 
 
+    shortcut: 
+        - assume that a premise entail hypothesises constructed from words in the premise
+    
     neuron output : [seq_len, batch_size, out_dim] 
     
     """
     # Todo: average score of each neuron's activation across batch
+
     neuron_intervention(model = model,
-                        layers = [23],
+                        layers = [9, 8, 12 ,16, 18, 20],
                         neurons = [1,2,3],
-                        intervention = intervention)
+                        intervention = experiment_set.intervention)
     
 
 if __name__ == "__main__":
