@@ -1,12 +1,11 @@
 # Debias neural components leveraging Causal mediation analysis
 
-
 ## Todo
 - [x] testing attention intervention
 - [x] testing neurons intervention
 - [x] grouping entailments by treatment
 - [ ] naive approach on Indirect effect
-    - [ ] save output pickle file of 
+    - [ ] logging all neurons into pickle file
     - [ ] compute average score of every neurons from HOL set
     - [ ] compute average score of every neurons from LOL set
     - [ ] compute causal effect between HOL set and HOL set replaced by average output neurons of LOL set 
