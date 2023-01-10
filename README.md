@@ -3,7 +3,7 @@
 
 ## Todo
 - [x] testing attention intervention
-- [ ] testing neurons intervention
+- [x] testing neurons intervention
 - [x] grouping entailments by treatment
 - [ ] naive approach on Indirect effect
     - [ ] save output pickle file of 
