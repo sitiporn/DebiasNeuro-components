@@ -21,20 +21,9 @@ class ExperimentDataset(Dataset):
 
         self.encode = encode
 
-        self.premises = {"do-treatment": None, 
-                         "no-treatment": None,
-                        }
-
-        self.hypothesises = {"do-treatment": None, 
-                             "no-treatment" : None
-                             }
-        exp_set = {"do-treatment": None,
-                   "no-treatment": None}
-
-        self.labels =   {"do-treatment": None,
-                        "no-treatment": None
-                        }
-
+        self.premises = {}
+        self.hypothesises = {}
+        self.labels =   {}
         pair_and_label = []
         
         if DEBUG: print(self.df.columns)
@@ -175,6 +164,8 @@ def main():
 
     model = model.to(DEVICE)
 
+    
+    # Todo: balance example between HOL and LOL
     experiment_set = ExperimentDataset(data_path,
                              json_file,
                              upper_bound = upper_bound,
@@ -185,7 +176,7 @@ def main():
     
     # model_name = '../models/roberta.large.mnli/model.pt'
     # model = torch.hub.load('pytorch/fairseq', model_name)
-    #tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     # Todo:  fixing hardcode of vocab.bpe and encoder.json
 
