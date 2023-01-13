@@ -4,6 +4,7 @@
 - [x] testing attention intervention
 - [x] testing neurons intervention
 - [x] grouping entailments by treatment
+- [ ] intervene laster layer on feed-forward network
 - [ ] naive approach on Indirect effect
     - [ ] logging all neurons into pickle file
     - [ ] compute average score of every neurons from HOL set
@@ -12,10 +13,14 @@
     - [ ] compute causal effect between LOL set and LOL set replaced by average output neurons of HOL set
     - [ ] compute causal effect of all samples between original one and the one replaced by average output neurons of HOL set and  LOL set
 
+- [ ] compute NIE and TE using replace the feature
 
 ## Tackles
 1. modifying embedding space to do counterfactual inference
 2. modifying input and applying casual inference theory 
+3. using interpretability technique to find meaning of what we intervene and to find candidates components
+4. intervene output of activation replace feature value of [CLS] of original one (no-treatment) by treatment one 
+
 
 
 
