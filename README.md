@@ -25,13 +25,13 @@
 ## Interpretability
 
 * Purpose 
----
-1. to find tenative layers based on
+
+- to find tenative layers based on
     - assumption if each attention most attention to word overlap heavily that is the most bias component 
 as they are rely on shortcut word
 
 * Tackles
----
+
 1. Gradient Based method to find feature important
 2. Interpret attention head 
     - the assumption; most will attention word overlap
