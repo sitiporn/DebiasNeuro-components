@@ -26,8 +26,8 @@
 
 * Purpose 
 
-- to find tenative layers based on
-    - assumption if each attention most attention to word overlap heavily that is the most bias component 
+1. to find tenative layers based on
+    1.1 assumption if each attention most attention to word overlap heavily that is the most bias component 
 as they are rely on shortcut word
 
 * Tackles
