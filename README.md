@@ -15,11 +15,26 @@
 
 - [ ] compute NIE and TE using replace the feature
 
-## Tackles
+## General Tackles
 1. modifying embedding space to do counterfactual inference
 2. modifying input and applying casual inference theory 
 3. using interpretability technique to find meaning of what we intervene and to find candidates components
 4. intervene output of activation replace feature value of [CLS] of original one (no-treatment) by treatment one 
+
+
+## Interpretability
+
+* Purpose 
+---
+1. to find tenative layers based on
+    - assumption if each attention most attention to word overlap heavily that is the most bias component 
+as they are rely on shortcut word
+
+* Tackles
+---
+1. Gradient Based method to find feature important
+2. Interpret attention head 
+    - the assumption; most will attention word overlap
 
 
 
