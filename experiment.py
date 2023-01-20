@@ -1,5 +1,6 @@
-import os 
+import os
 import pandas as pd
+import random
 import json
 import torch
 import torch.nn as nn
@@ -17,54 +18,86 @@ from nn_pruning.patch_coordinator import (
 # from fairseq.data.data_utils import collate_tokens
 # from fairseq.models.roberta import RobertaModel
 
-class ExperimentDataset(Dataset):
-    def __init__(self, data_path, json_file,upper_bound, lower_bound, encode ,DEBUG = False) -> None:
-        
-        data_path = os.path.join(data_path,json_file)
 
-        self.df = pd.read_json(data_path, lines=True) 
+class ExperimentDataset(Dataset):
+    def __init__(self, data_path, json_file, upper_bound, lower_bound, encode, DEBUG=False) -> None:
+
+        data_path = os.path.join(data_path, json_file)
+
+        self.df = pd.read_json(data_path, lines=True)
 
         self.encode = encode
 
         self.premises = {}
         self.hypothesises = {}
-        self.labels =   {}
+        self.labels = {}
         pair_and_label = []
-        
+
         if DEBUG: print(self.df.columns)
 
         for i in range(len(self.df)):
-            pair_and_label.append((self.df['sentence1'][i], self.df['sentence2'][i], self.df['gold_label'][i]))
+            pair_and_label.append(
+                (self.df['sentence1'][i], self.df['sentence2'][i], self.df['gold_label'][i]))
 
-        
         self.df['pair_label'] = pair_and_label
         thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound)
 
         # get w/o treatment on entailment set
-        self.df['is_treatment'] = self.df.apply(lambda row: group_by_treatment(thresholds, row.overlap_scores, row.gold_label), axis=1)
+        self.df['is_treatment'] = self.df.apply(lambda row: group_by_treatment(
+            thresholds, row.overlap_scores, row.gold_label), axis=1)
 
-        self.exp_set = {"do-treatment": self.get_intervention_set(),
+        self.df_exp_set = {"do-treatment": self.get_intervention_set(),
                         "no-treatment": self.get_base_set()}
 
+        # Randomized Controlled Trials (RCTs)
+        self.nums = {}
+
+        self.nums['do-treatment'] = len(self.df_exp_set["do-treatment"])
+        self.nums['no-treatment'] = len(self.df_exp_set["no-treatment"])
+
+        self.equal_number = self.nums['do-treatment'] if self.nums['do-treatment'] <  self.nums['no-treatment'] else self.nums['no-treatment'] 
+
+        self.df_exp_set["do-treatment"]  = self.df_exp_set['do-treatment'].reset_index(drop=True)
+        self.df_exp_set["no-treatment"] = self.df_exp_set['no-treatment'].reset_index(drop=True)
+
+
+        indexes = [*range(0, self.equal_number, 1)]
+        sampling_idxes = []
+
+        # sampling
+        for  i in range(self.equal_number):
+            idx = random.choice(indexes)
+
+            while idx in sampling_idxes:
+                idx = random.choice(indexes)
+
+            sampling_idxes.append(idx)
+
+        assert len(set(sampling_idxes)) == self.equal_number
+        
+        # if self.nums['do-treatment'] > self.equal_number:
+        #     self.df_exp_set["do-treatment"] = 
+        # else 
+        #     self.df_exp_set["no-treatment"] = 
         
 
-        for op in ["do-treatment","no-treatment"]:
-            
+        for op in ["do-treatment", "no-treatment"]:
+
             self.premises[op] = list(self.exp_set[op].sentence1)
             self.hypothesises[op] = list(self.exp_set[op].sentence2)
             self.labels[op] = list(self.exp_set[op].gold_label)
 
-        ## word overlap  more than 80 percent
-        #self.premises["do-treatment"] = list(intervention_set.sentence1)
-        #self.hypothesises["do-treatment"] = list(intervention_set.sentence2)
+        # word overlap  more than 80 percent
+        # self.premises["do-treatment"] = list(intervention_set.sentence1)
+        # self.hypothesises["do-treatment"] = list(intervention_set.sentence2)
 
-        ## word overlap less than 20 percent
-        #self.premises["no-treatment"] = list(base_set.sentence1)
-        #self.hypothesises["no-treatment"] = list(base_set.sentence2)
-    
-        self.intervention  = Intervention(encode = self.encode,
-                                 premises = self.premises["do-treatment"],
-                                 hypothesises = self.hypothesises["do-treatment"] 
+        # word overlap less than 20 percent
+        # self.premises["no-treatment"] = list(base_set.sentence1)
+        # self.hypothesises["no-treatment"] = list(base_set.sentence2)
+
+        self.intervention = Intervention(encode=self.encode,
+                                 premises=self.premises["do-treatment"],
+                                 hypothesises=self.hypothesises["do-treatment"]
                                  )
 
 
@@ -144,7 +177,7 @@ def main():
     model = AutoModelForSequenceClassification.from_pretrained("ishan/bert-base-uncased-mnli")
     # model = model.to(DEVICE)
     
-    # Todo: balance example between HOL and LOL
+    # Todo: balance example between HOL and LOL by sampling from population
     experiment_set = ExperimentDataset(data_path,
                              json_file,
                              upper_bound = upper_bound,
