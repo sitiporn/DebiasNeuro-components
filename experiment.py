@@ -2,15 +2,20 @@ import os
 import pandas as pd
 import json
 import torch
-from fairseq.data.data_utils import collate_tokens
-from fairseq.models.roberta import RobertaModel
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from utils import Intervention, get_overlap_thresholds, group_by_treatment
-
-"""
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from transformers import AutoModel, AutoTokenizer
-"""
+from utils import Intervention, get_overlap_thresholds, group_by_treatment, neuron_intervention
+from sklearn.metrics import accuracy_score
+from tqdm import tqdm
+from nn_pruning.patch_coordinator import (
+    SparseTrainingArguments,
+    ModelPatchingCoordinator,
+)
+
+# from fairseq.data.data_utils import collate_tokens
+# from fairseq.models.roberta import RobertaModel
 
 class ExperimentDataset(Dataset):
     def __init__(self, data_path, json_file,upper_bound, lower_bound, encode ,DEBUG = False) -> None:
@@ -41,6 +46,7 @@ class ExperimentDataset(Dataset):
         self.exp_set = {"do-treatment": self.get_intervention_set(),
                         "no-treatment": self.get_base_set()}
 
+        
 
         for op in ["do-treatment","no-treatment"]:
             
@@ -61,6 +67,7 @@ class ExperimentDataset(Dataset):
                                  hypothesises = self.hypothesises["do-treatment"] 
                                  )
 
+
     def get_intervention_set(self):
 
         # get high overlap score pairs
@@ -73,79 +80,49 @@ class ExperimentDataset(Dataset):
 
     def __len__(self):
         # Todo: generalize label
-        return len(self.intervention.batch_tok)
+        return len(self.intervention.pair_sentences)
     
     def __getitem__(self, idx):
 
-        sentence_pair = self.intervention.batch_tok[idx]
+        pair_sentences = self.intervention.pair_sentences[idx]
         label = self.labels['do-treatment'][idx]
         
-        return sentence_pair, label
+        return pair_sentences , label
 
 
-def neuron_intervention(model,
-                        layers,
-                        neurons,
-                        dataloader,
-                        intervention_type='replace'):
+def prunning(model, layers):
 
-        # Hook for changing representation during forward pass
-        def intervention_hook(module,
-                              input,
-                              output):
+    # ref- https://arxiv.org/pdf/2210.16079.pdf
 
-            # overwrite value in the output
-            # define mask to overwrite
-            scatter_mask = torch.zeros_like(output, dtype = torch.bool)
-            
-            print(f"set of neurons to intervene {neurons}")
-            
-            # where to intervene
-            scatter_mask[:,:, neurons] = 1
+    # Todo: get Wl Wl_K , Wl_Q, Wl_V , Wl_AO, Wl_I , Wl_O of layer
+    Wl_Q = lambda layer : model.bert.encoder.layer[layer].attention.self.query.weight.data
+    Wl_K = lambda layer : model.bert.encoder.layer[layer].attention.self.key.weight.data
+    Wl_V = lambda layer : model.bert.encoder.layer[layer].attention.self.value.weight.data
+    Wl_AO = lambda layer : model.bert.encoder.layer[layer].output.dense.weight.data
+    Wl_I  = lambda layer : model.bert.encoder.layer[layer].intermediate.dense.weight.data
+    Wl_O =  lambda layer : model.bert.encoder.layer[layer].output.dense.weight.data
 
-            # value to replace : (seq_len, batch_size, output_dim)
-            value = torch.zeros_like(output, dtype = torch.float)
+    for layer in layers:
+        # inital all mask are value
+        Ml_Q = torch.zeros_like(Wl_Q(layer))
+        Ml_K = torch.zeros_like(Wl_K(layer))
+        Ml_V = torch.zeros_like(Wl_V(layer))
+        Ml_AO = torch.zeros_like(Wl_AO(layer))
+        Ml_I  = torch.zeros_like(Wl_I(layer))
+        Ml_O = torch.zeros_like(Wl_O(layer))
 
-            # (bz, seq_len, input_dim) @ (input_dim, output_dim)
-            #  seq_len, batch_size, hidden_dim 
-            
-            """
-            print(f"== inside intervention hook ==")
-            print(f"output shape : {output.shape} "ji)
-            print(f"scatter_mask : {scatter_mask.shape}")
-            output.masked_scatter_(scatter_mask, value)
-            
-            """
-            
-        neuron_layer = lambda layer : model.model.encoder.sentence_encoder.layers[layer].final_layer_norm
-        
-        handle_list = []
 
-        for batch_idx, (sentence_pairs, label) in enumerate(dataloader):
+        # Todo: set which component to intervene
+        with torch.no_grad(): 
+            model.bert.encoder.layer[layer].attention.self.query.weight.data.copy_(Wl_Q(layer) *  Ml_Q )
+            # model.bert.encoder.layer[layer].attention.self.key.weight = Wl_K(layer) *  Ml_K 
+            # model.bert.encoder.layer[layer].attention.self.key.value = Wl_V(layer) *  Ml_V 
+            # model.bert.encoder.layer[layer].output.dense.weight = Wl_AO(layer) *  Ml_AO
+            # model.bert.encoder.layer[layer].intermediate.dense = Wl_I(layer) *  Ml_I 
+            # model.bert.encoder.layer[layer].output.dense = Wl_O(layer) *  Ml_O 
 
-            print(f"batch_idx : {batch_idx}")
-            print(f"current sentence pair : {sentence_pairs}")
-            print(f"current label : {label}")
 
-            #for layer in layers:
-                #handle_list.append(neuron_layer(layer).register_forward_hook(intervention_hook))
-
-            #new_logprobs = model.predict('mnli', intervention.batch_tok[0:8])
-            #predictions = new_logprobs.argmax(dim=1)
-        
-            #print(f"=== with intervene ====")
-            #print(new_logprobs[:8,:])
-            #print(predictions)
-
-            #for hndle in handle_list:
-                #hndle.remove() 
-            
-            #logprobs = model.predict('mnli', intervention.batch_tok[0:8])
-            #predictions = logprobs.argmax(dim=1)
-            
-            #print(f"=== without intervene ====")
-            #print(logprobs[:8,:])
-            #print(predictions)
+        breakpoint()
 
 
 
@@ -160,57 +137,103 @@ def main():
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
-    model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt') #, bpe='../models/encoder.json')
-
-    model = model.to(DEVICE)
-
+    # model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt') 
+    # bpe='../models/encoder.json')
+    
+    tokenizer = AutoTokenizer.from_pretrained("ishan/bert-base-uncased-mnli")
+    model = AutoModelForSequenceClassification.from_pretrained("ishan/bert-base-uncased-mnli")
+    # model = model.to(DEVICE)
     
     # Todo: balance example between HOL and LOL
     experiment_set = ExperimentDataset(data_path,
                              json_file,
                              upper_bound = upper_bound,
                              lower_bound = lower_bound,
-                             encode = model.encode
+                             encode = tokenizer
                             )
 
+    df_entail =  experiment_set.df[experiment_set.df['gold_label'] == "entailment"]
+    df_contradiction = experiment_set.df[experiment_set.df['gold_label'] == "contradiction"]
+    df_neutral = experiment_set.df[experiment_set.df['gold_label'] == "neutral"]
+
+    labels = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
+    
     
     # model_name = '../models/roberta.large.mnli/model.pt'
     # model = torch.hub.load('pytorch/fairseq', model_name)
     # tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    # Todo:  fixing hardcode of vocab.bpe and encoder.json
-
-    """
-    Research Question: intervene entire seq of text is the right thing ? 
-        1. entire seq -> the representation ?
-        2. intervene only hypothesises word constructed from a premise ? 
-
-    shortcut: 
-        - assume that a premise entail hypothesises constructed from words in the premise
-    
-    neuron output : [seq_len, batch_size, out_dim] 
-    
-    """
+    # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
     
     # Todo: average score of each neuron's activation across batch
     
     dataloader = DataLoader(experiment_set, batch_size=4,
                         shuffle = False, num_workers=0)
-
-    neuron_intervention(model = model,
-                        layers = [9, 8, 12 ,16, 18, 20],
-                        neurons = [1,2,3],
-                        dataloader = dataloader) 
+ 
+    prunning(model = model,
+             layers= [0, 1, 2, 3, 4])
+    # neuron_intervention(model = model,
+    #                     tokenizer = tokenizer,
+    #                     layers = [0, 1, 2, 3, 4],
+    #                     neurons = [1,2,3],
+    #                     dataloader = dataloader) 
+                    
+    
 
 if __name__ == "__main__":
     main()
-    
-    
-    
-
 
 """
-implemtent fewshot havnt done yet
+X : population of text
+
+note: we cannot random population because text already carry word overlap 
+inside
+
+treatment: high overlap score
+no-treatment: low overlap score
+
+X[do] : population treatment group
+X[no] : population control group  
+
+ATT:
+
+eg. quantify the effect of Tylenol on headache status for people who 
+
+treatment : Tylenol 
+intermediate : taking the pill
+effect : Headache 
+
+
+Total effect:
+ amount of bais under a gendered reading
+
+
+In gender bias
+    - captured specific model compontents on pred. eg. subspaces of contextual 
+    word representations
+
+u = The nurse said that {blank}; {} = he/she
+
+base case: 
+
+y_{null}(u) =  p(anti l- streotype | u) / p(streotype | u)
+
+set u to an anti-streotype case:
+    set-gender : nurse ->  man (anti-streriotype)
+        need to  anti-steriotype compare ?
+
+y_{set-gender}(u) =  p(anti-streotype | u) / p(streotype | u)
+
+
+TE(set-gender, null;) = y_{set_gender} - y_{null} / y_{null}
+
+note :
+
+we cannot follow gender bias because the same unit cant perform counterfactual 
+while our case counterfactual are missing so we need to compute in population level
 
 """
+    
+
+
     
