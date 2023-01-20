@@ -1,11 +1,9 @@
-import os 
-import pandas as pd
-import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
 import numpy as np
+#from fairseq.data.data_utils import collate_tokens
 
 
 class BertAttentionOverride(nn.Module):
@@ -147,22 +145,139 @@ def get_overlap_score(pair_label):
 class Intervention():
     """Wrapper all possible interventions """
     def __init__(self, 
-                tokenizer, 
-                sentence_with_:str, 
-                substitutes: list, 
-                candidates: list, 
+                encode, 
+                premises: list, 
+                hypothesises: list, 
                 device = 'cpu') -> None:
 
         super()
         
-        self.tokenizer = tokenizer
+        self.encode = encode
+        self.premises = premises
+        self.hypothesises = hypothesises
+        
+        self.pair_sentences = []
+        
+        for premise, hypothesis in zip(self.premises, self.hypothesises):
+
+            # Encode a pair of sentences and make a prediction
+            self.pair_sentences.append([premise, hypothesis])
+
+        # Todo : sort text before encode to reduce  matrix size of each batch
+        # self.batch_tok = collate_tokens([self.encode(pair[0], pair[1]) for pair in self.batch_of_pairs], pad_idx=1)
+        # self.batch_tok = self.encode(self.premises, self.hypothesises,truncation=True, padding="max_length")
+
+        """
         # All the initial strings
         # First item should be neutral, others tainted ? 
+        
         self.base_strings = [base_string.format(s) for s in substitutes]
 
         # Where to intervene
         # Text position ?
         self.position = base_string.split().index('{}')
+        """
+
+def get_overlap_thresholds(df, upper_bound, lower_bound):
+    
+    thresholds = {"treatment": None, "no-treatment": None}
+
+    df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
+
+    # Todo: get overlap_score for whole entailment sets
+    entail_mask = (df['gold_label'] == "entailment").tolist()
+    overlap_scores = df['overlap_scores'][entail_mask]
+
+    thresholds["no-treatment"] = np.percentile(overlap_scores, lower_bound)
+    thresholds["treatment"] = np.percentile(overlap_scores, upper_bound)
+
+    return thresholds
+    
+def group_by_treatment(thresholds, overlap_score, gold_label):
+    
+    if gold_label == "entailment":
+        if overlap_score >= thresholds['treatment']:
+            return "treatment"
+        elif overlap_score <= thresholds['no-treatment']:              
+            return "no-treatment"
+        else:
+            return "exclude"
+    else:
+        return "exclude"
+
+
+def neuron_intervention(model,
+                        tokenizer,
+                        layers,
+                        neurons,
+                        dataloader,
+                        intervention_type='replace'):
+
+        # Hook for changing representation during forward pass
+        def intervention_hook(module,
+                              input,
+                              output):
+
+            # overwrite value in the output
+            # define mask to overwrite
+            scatter_mask = torch.zeros_like(output, dtype = torch.bool)
+            
+            print(f"set of neurons to intervene {neurons}")
+            
+            # where to intervene
+            scatter_mask[:,:, neurons] = 1
+
+            # value to replace : (seq_len, batch_size, output_dim)
+            value = torch.zeros_like(output, dtype = torch.float)
+
+            # (bz, seq_len, input_dim) @ (input_dim, output_dim)
+            #  seq_len, batch_size, hidden_dim 
+            
+        neuron_layer = lambda layer : model.model.encoder.sentence_encoder.layers[layer].final_layer_norm
+        
+        handle_list = []     
+
+        for batch_idx, (pair_sentences, label) in enumerate(dataloader):
+
+            print(f"batch_idx : {batch_idx}")
+            print(f"current pair sentences : {type(pair_sentences)}")
+            print(f"current label : {label}")
+
+            # if isinstance(pair_sentences[0], tuple)
+            pair_sentences = [[premise,hypo] for  premise, hypo in zip(pair_sentences[0],pair_sentences[1])]
+
+            # Compute token embeddings
+            with torch.no_grad():
+
+                input = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                output = model(**input)
+                logits = output.logits
+                
+                # labels 0: contradiction, 1: entailment, 2: neutral
+                predictions = logits.argmax(dim=1)
+                print(f"current prediction : {predictions}")
+
+            for layer in layers:
+                handle_list.append(neuron_layer(layer).register_forward_hook(intervention_hook))
+
+            new_logprobs = model.predict('mnli', intervention.batch_tok[0:8])
+            predictions = new_logprobs.argmax(dim=1)
+        
+            print(f"=== with intervene ====")
+            print(new_logprobs[:8,:])
+            print(predictions)
+
+            for hndle in handle_list:
+                hndle.remove() 
+            
+            logprobs = model.predict('mnli', intervention.batch_tok[0:8])
+            predictions = logprobs.argmax(dim=1)
+            
+            print(f"=== without intervene ====")
+            print(logprobs[:8,:])
+            print(predictions)
+
+
 
 """
 neuron_intervention
@@ -202,12 +317,7 @@ intervention = Intervention(
         candidates = ["he", "she"],
         device=DEVICE)
 
+
 interventions = {biased_word: intervention}
 
 """
-
-
-
-
-
-
