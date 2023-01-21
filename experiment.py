@@ -31,6 +31,7 @@ class ExperimentDataset(Dataset):
         self.premises = {}
         self.hypothesises = {}
         self.labels = {}
+        self.intervention = {}
         pair_and_label = []
 
         if DEBUG: print(self.df.columns)
@@ -60,7 +61,6 @@ class ExperimentDataset(Dataset):
         self.df_exp_set["do-treatment"]  = self.df_exp_set['do-treatment'].reset_index(drop=True)
         self.df_exp_set["no-treatment"] = self.df_exp_set['no-treatment'].reset_index(drop=True)
 
-
         indexes = [*range(0, self.equal_number, 1)]
         sampling_idxes = []
 
@@ -75,17 +75,28 @@ class ExperimentDataset(Dataset):
 
         assert len(set(sampling_idxes)) == self.equal_number
         
-        # if self.nums['do-treatment'] > self.equal_number:
-        #     self.df_exp_set["do-treatment"] = 
-        # else 
-        #     self.df_exp_set["no-treatment"] = 
+        if self.nums['do-treatment'] > self.equal_number:
+
+            self.df_exp_set["do-treatment"] = self.df_exp_set['do-treatment'].loc[sampling_idxes] 
+            self.df_exp_set["do-treatment"]  = self.df_exp_set['do-treatment'].reset_index(drop=True)
+        else:
+
+            self.df_exp_set["no-treatment"] = self.df_exp_set['no-treatment'].loc[sampling_idxes]
+            self.df_exp_set["no-treatment"] = self.df_exp_set['no-treatment'].reset_index(drop=True)
+
         
 
         for op in ["do-treatment", "no-treatment"]:
 
-            self.premises[op] = list(self.exp_set[op].sentence1)
-            self.hypothesises[op] = list(self.exp_set[op].sentence2)
-            self.labels[op] = list(self.exp_set[op].gold_label)
+            self.premises[op] = list(self.df_exp_set[op].sentence1)
+            self.hypothesises[op] = list(self.df_exp_set[op].sentence2)
+            self.labels[op] = list(self.df_exp_set[op].gold_label)
+
+
+            self.intervention[op] = Intervention(encode = self.encode,
+                                    premises = self.premises[op],
+                                    hypothesises = self.hypothesises[op]
+                                    )
 
         # word overlap  more than 80 percent
         # self.premises["do-treatment"] = list(intervention_set.sentence1)
@@ -94,13 +105,7 @@ class ExperimentDataset(Dataset):
         # word overlap less than 20 percent
         # self.premises["no-treatment"] = list(base_set.sentence1)
         # self.hypothesises["no-treatment"] = list(base_set.sentence2)
-
-        self.intervention = Intervention(encode=self.encode,
-                                 premises=self.premises["do-treatment"],
-                                 hypothesises=self.hypothesises["do-treatment"]
-                                 )
-
-
+    
     def get_intervention_set(self):
 
         # get high overlap score pairs
@@ -113,20 +118,27 @@ class ExperimentDataset(Dataset):
 
     def __len__(self):
         # Todo: generalize label
-        return len(self.intervention.pair_sentences)
+        return self.equal_number
+        # len(self.intervention.pair_sentences)
     
     def __getitem__(self, idx):
 
-        pair_sentences = self.intervention.pair_sentences[idx]
-        label = self.labels['do-treatment'][idx]
+        pair_sentences = {}
+        labels = {}
+
+        pair_sentences['do-treatment'] = self.intervention['do-treatment'].pair_sentences[idx]
+        pair_sentences['no-treatment'] = self.intervention['no-treatment'].pair_sentences[idx]
+
+        labels['do-treatment'] = self.labels['do-treatment'][idx]
+        labels['no-treatment'] = self.labels['no-treatment'][idx]
         
-        return pair_sentences , label
+        return pair_sentences , labels
 
 
 def prunning(model, layers):
 
+    # Todo: generalize for any models
     # ref- https://arxiv.org/pdf/2210.16079.pdf
-
     # Todo: get Wl Wl_K , Wl_Q, Wl_V , Wl_AO, Wl_I , Wl_O of layer
     Wl_Q = lambda layer : model.bert.encoder.layer[layer].attention.self.query.weight.data
     Wl_K = lambda layer : model.bert.encoder.layer[layer].attention.self.key.weight.data
@@ -144,8 +156,7 @@ def prunning(model, layers):
         Ml_I  = torch.zeros_like(Wl_I(layer))
         Ml_O = torch.zeros_like(Wl_O(layer))
 
-
-        # Todo: set which component to intervene
+        # Todo: change to data.copy mode
         with torch.no_grad(): 
             model.bert.encoder.layer[layer].attention.self.query.weight.data.copy_(Wl_Q(layer) *  Ml_Q )
             # model.bert.encoder.layer[layer].attention.self.key.weight = Wl_K(layer) *  Ml_K 
@@ -155,8 +166,61 @@ def prunning(model, layers):
             # model.bert.encoder.layer[layer].output.dense = Wl_O(layer) *  Ml_O 
 
 
+def collect_output_components(model, dataloader, tokenizer):
+   
+    hooks =  {"do-treatment" : None, "no-treatment": None}
+    
+    # Todo: generalize for every model 
+    layers = [*range(0, 12, 1)]
+    heads = [*range(0, 12, 1)]
+    
+    self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
+    self_output = lambda layer : model.bert.encoder.layer[layer].attention.ouput
+    intermediate = lambda layer : model.bert.encoder.layer[layer].intermediate
+    output = lambda layer : model.bert.encoder.layer[layer].output
+    
+    # AO = lambda layer : model.bert.encoder.layer[layer].output.dense 
+    # get attention weight output
+
+    attention_data = {}        
+    inputs = {}
+
+    for pair_sentences , labels in tqdm(dataloader):
+
+        for do in ['do-treatment','no-treatment']:
+        
+            pair_sentences[do] = [[premise, hypo]for premise, hypo in zip(pair_sentences[do][0], pair_sentences[do][1])]
+            inputs[do] = tokenizer(pair_sentences[do], padding=True, truncation=True, return_tensors="pt")
+            
+            outputs = model(**inputs[do], output_attentions = True)
+
+            if do not in attention_data.keys():
+                attention_data[do] = [outputs.attentions]
+            else:
+                attention_data[do].append(outputs.attentions)
+        
+        # labels['do-treatment']
+        # labels['no-treatment']
+
+        #attention_override = model(batch, target_mapping=target_mapping)[-1]
         breakpoint()
 
+    # for do in output.keys():
+    #     hooks[do] = {}
+    #     # Todo: batching  for dataloader
+    #     for layer in layers:
+    #         # get output of all attention heads and FFN 
+    #         hooks[do][layer]  = {}
+            # for module in ["attentions","l_AO","l_intermediates","l_outputs"]:
+            # with torch.no_grad():
+                #hooks[do][layer]["attentions"] = []
+                
+                # hooks[do][layer]["attentions"].append(self_attention(layer).register_forward_hook(
+                #                             attention_intervention(override_attention, attn_override_mask)))
+
+                # for hook in hooks: hook.remove()
+
+                # ,"l_AO","l_intermediates","l_outputs"]:
 
 
 def main():
@@ -185,12 +249,7 @@ def main():
                              encode = tokenizer
                             )
 
-    df_entail =  experiment_set.df[experiment_set.df['gold_label'] == "entailment"]
-    df_contradiction = experiment_set.df[experiment_set.df['gold_label'] == "contradiction"]
-    df_neutral = experiment_set.df[experiment_set.df['gold_label'] == "neutral"]
-
     labels = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
-    
     
     # model_name = '../models/roberta.large.mnli/model.pt'
     # model = torch.hub.load('pytorch/fairseq', model_name)
@@ -203,8 +262,17 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size=4,
                         shuffle = False, num_workers=0)
  
-    prunning(model = model,
-             layers= [0, 1, 2, 3, 4])
+    collect_output_components(model = model,
+                             dataloader = dataloader,
+                             tokenizer = tokenizer)
+    # prunning(model = model,
+    #          layers= [0, 1, 2, 3, 4])
+    
+    # Todo: collect output of every compontent in model 
+    # 1. do-treatment : high overlap scores
+    # 2. no-treament : low overlap scores
+
+    
     # neuron_intervention(model = model,
     #                     tokenizer = tokenizer,
     #                     layers = [0, 1, 2, 3, 4],
