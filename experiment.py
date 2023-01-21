@@ -165,11 +165,15 @@ def prunning(model, layers):
             # model.bert.encoder.layer[layer].intermediate.dense = Wl_I(layer) *  Ml_I 
             # model.bert.encoder.layer[layer].output.dense = Wl_O(layer) *  Ml_O 
 
-def get_activation(layer, activation):
+def get_activation(layer, do, activation):
   
   # the hook signature
   def hook(model, input, output):
-    activation[layer] = output.detach()
+    
+    if layer not in activation[do].keys():
+        activation[do][layer] = []
+
+    activation[do][layer].append(output.detach())
   
   return hook
 
@@ -207,13 +211,20 @@ def collect_output_components(model, dataloader, tokenizer):
 
     inputs = {}
 
+    batch_idx = 0
+
     for pair_sentences , labels in tqdm(dataloader):
+
+
+        if batch_idx == 2:
+            breakpoint()
 
         for do in ['do-treatment','no-treatment']:
 
-            # ao_activation[do] = {}
-            # intermediate_activation[do] = {}
-            # out_activation[do] = {} 
+            if do not in ao_activation.keys():
+                ao_activation[do] = {}
+                intermediate_activation[do] = {}
+                out_activation[do] = {} 
             
             pair_sentences[do] = [[premise, hypo]for premise, hypo in zip(pair_sentences[do][0], pair_sentences[do][1])]
             inputs[do] = tokenizer(pair_sentences[do], padding=True, truncation=True, return_tensors="pt")
@@ -229,9 +240,9 @@ def collect_output_components(model, dataloader, tokenizer):
             # register forward hooks on all layers
             for layer in layers:
 
-                ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, ao_activation))
-                intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, intermediate_activation))
-                out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, out_activation))
+                ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation))
+                intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation))
+                out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation))
 
             # get activatation
             outputs = model(**inputs[do])
@@ -242,11 +253,8 @@ def collect_output_components(model, dataloader, tokenizer):
                 intermediate[layer].remove()
                 out[layer].remove()
 
-
-            breakpoint()
-
-            
-
+        
+        batch_idx += 1
         
         #attention_override = model(batch, target_mapping=target_mapping)[-1]
 
