@@ -165,6 +165,13 @@ def prunning(model, layers):
             # model.bert.encoder.layer[layer].intermediate.dense = Wl_I(layer) *  Ml_I 
             # model.bert.encoder.layer[layer].output.dense = Wl_O(layer) *  Ml_O 
 
+def get_activation(layer, activation):
+  
+  # the hook signature
+  def hook(model, input, output):
+    activation[layer] = output.detach()
+  
+  return hook
 
 def collect_output_components(model, dataloader, tokenizer):
    
@@ -174,36 +181,74 @@ def collect_output_components(model, dataloader, tokenizer):
     layers = [*range(0, 12, 1)]
     heads = [*range(0, 12, 1)]
     
-    self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
-    self_output = lambda layer : model.bert.encoder.layer[layer].attention.ouput
-    intermediate = lambda layer : model.bert.encoder.layer[layer].intermediate
-    output = lambda layer : model.bert.encoder.layer[layer].output
     
     # AO = lambda layer : model.bert.encoder.layer[layer].output.dense 
     # get attention weight output
 
     attention_data = {}        
+    # a dict to store the activations
+    activation = {"AO": [], "I": [], "O" : []}
+
+    # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
+    self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
+    intermediate_layer = lambda layer : model.bert.encoder.layer[layer].intermediate
+    output_layer = lambda layer : model.bert.encoder.layer[layer].output
+
+
+    # using for register
+    ao = {}
+    intermediate = {}
+    out = {} 
+
+    # using to store activation 
+    ao_activation = {}
+    intermediate_activation = {}
+    out_activation = {} 
+
     inputs = {}
 
     for pair_sentences , labels in tqdm(dataloader):
 
         for do in ['do-treatment','no-treatment']:
-        
+
+            # ao_activation[do] = {}
+            # intermediate_activation[do] = {}
+            # out_activation[do] = {} 
+            
             pair_sentences[do] = [[premise, hypo]for premise, hypo in zip(pair_sentences[do][0], pair_sentences[do][1])]
             inputs[do] = tokenizer(pair_sentences[do], padding=True, truncation=True, return_tensors="pt")
             
+            # get attention weight 
             outputs = model(**inputs[do], output_attentions = True)
 
             if do not in attention_data.keys():
                 attention_data[do] = [outputs.attentions]
             else:
-                attention_data[do].append(outputs.attentions)
-        
-        # labels['do-treatment']
-        # labels['no-treatment']
+                attention_data[do].extend(outputs.attentions)
 
+            # register forward hooks on all layers
+            for layer in layers:
+
+                ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, ao_activation))
+                intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, intermediate_activation))
+                out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, out_activation))
+
+            # get activatation
+            outputs = model(**inputs[do])
+            
+            # detach the hooks
+            for layer in layers:
+                ao[layer].remove()
+                intermediate[layer].remove()
+                out[layer].remove()
+
+
+            breakpoint()
+
+            
+
+        
         #attention_override = model(batch, target_mapping=target_mapping)[-1]
-        breakpoint()
 
     # for do in output.keys():
     #     hooks[do] = {}
