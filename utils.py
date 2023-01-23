@@ -140,8 +140,6 @@ def get_overlap_score(pair_label):
 
     return overlap_score
 
-
-
 class Intervention():
     """Wrapper all possible interventions """
     def __init__(self, 
@@ -204,6 +202,102 @@ def group_by_treatment(thresholds, overlap_score, gold_label):
             return "exclude"
     else:
         return "exclude"
+
+def collect_output_components(model, dataloader, tokenizer, DEVICE):
+   
+    hooks =  {"do-treatment" : None, "no-treatment": None}
+    
+    # Todo: generalize for every model 
+    layers = [*range(0, 12, 1)]
+    heads = [*range(0, 12, 1)]
+    
+    
+    # AO = lambda layer : model.bert.encoder.layer[layer].output.dense 
+    # get attention weight output
+
+
+    # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
+    self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
+    intermediate_layer = lambda layer : model.bert.encoder.layer[layer].intermediate
+    output_layer = lambda layer : model.bert.encoder.layer[layer].output
+
+
+    # using for register
+    ao = {}
+    intermediate = {}
+    out = {} 
+
+    #dicts to store the activations
+    ao_activation = {}
+    intermediate_activation = {}
+    out_activation = {} 
+    attention_data = {}        
+
+    inputs = {}
+
+    batch_idx = 0
+
+    for pair_sentences , labels in tqdm(dataloader):
+
+
+        for do in ['do-treatment','no-treatment']:
+
+            if do not in ao_activation.keys():
+                ao_activation[do] = {}
+                intermediate_activation[do] = {}
+                out_activation[do] = {} 
+            
+            pair_sentences[do] = [[premise, hypo] for premise, hypo in zip(pair_sentences[do][0], pair_sentences[do][1])]
+            inputs[do] = tokenizer(pair_sentences[do], padding=True, truncation=True, return_tensors="pt")
+
+            inputs[do] = {k: v.to(DEVICE) for k,v in inputs[do].items()}
+
+            
+            # get attention weight 
+            outputs = model(**inputs[do], output_attentions = True)
+
+            logits = outputs.logits
+            # labels 0: contradiction, 1: entailment, 2: neutral
+            # predictions = logits.argmax(dim=1)
+            # print(f"current prediction of {do} : {predictions[:10]}")
+            # print(f"current labels {do} : {labels[do][:10]}")
+
+            if do not in attention_data.keys():
+                attention_data[do] = [outputs.attentions]
+            else:
+                attention_data[do].append(outputs.attentions)
+
+            # register forward hooks on all layers
+            for layer in layers:
+
+                ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation))
+                intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation))
+                out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation))
+
+            # get activatation
+            outputs = model(**inputs[do])
+ 
+            # detach the hooks
+            for layer in layers:
+                ao[layer].remove()
+                intermediate[layer].remove()
+                out[layer].remove()
+
+        
+        batch_idx += 1
+
+
+
+    with open('../pickles/activated_components.pickle', 'wb') as handle:
+
+        pickle.dump(ao_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(intermediate_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(out_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        print(f"save activate components done ! ")
+
+
 
 
 def neuron_intervention(model,
@@ -276,6 +370,7 @@ def neuron_intervention(model,
             print(f"=== without intervene ====")
             print(logprobs[:8,:])
             print(predictions)
+
 
 
 
