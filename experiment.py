@@ -1,12 +1,12 @@
 import os
 import pandas as pd
 import random
+import pickle
 import json
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from transformers import AutoModel, AutoTokenizer
 from utils import Intervention, get_overlap_thresholds, group_by_treatment, neuron_intervention
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
@@ -177,7 +177,7 @@ def get_activation(layer, do, activation):
   
   return hook
 
-def collect_output_components(model, dataloader, tokenizer):
+def collect_output_components(model, dataloader, tokenizer, DEVICE):
    
     hooks =  {"do-treatment" : None, "no-treatment": None}
     
@@ -189,9 +189,6 @@ def collect_output_components(model, dataloader, tokenizer):
     # AO = lambda layer : model.bert.encoder.layer[layer].output.dense 
     # get attention weight output
 
-    attention_data = {}        
-    # a dict to store the activations
-    activation = {"AO": [], "I": [], "O" : []}
 
     # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
     self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
@@ -204,10 +201,11 @@ def collect_output_components(model, dataloader, tokenizer):
     intermediate = {}
     out = {} 
 
-    # using to store activation 
+    #dicts to store the activations
     ao_activation = {}
     intermediate_activation = {}
     out_activation = {} 
+    attention_data = {}        
 
     inputs = {}
 
@@ -215,9 +213,10 @@ def collect_output_components(model, dataloader, tokenizer):
 
     for pair_sentences , labels in tqdm(dataloader):
 
-
-        if batch_idx == 2:
-            breakpoint()
+        if batch_idx == 4:
+            #breakpoint()
+            break
+            
 
         for do in ['do-treatment','no-treatment']:
 
@@ -226,16 +225,26 @@ def collect_output_components(model, dataloader, tokenizer):
                 intermediate_activation[do] = {}
                 out_activation[do] = {} 
             
-            pair_sentences[do] = [[premise, hypo]for premise, hypo in zip(pair_sentences[do][0], pair_sentences[do][1])]
+            pair_sentences[do] = [[premise, hypo] for premise, hypo in zip(pair_sentences[do][0], pair_sentences[do][1])]
             inputs[do] = tokenizer(pair_sentences[do], padding=True, truncation=True, return_tensors="pt")
+
+            inputs[do] = {k: v.to(DEVICE) for k,v in inputs[do].items()}
+
+            # breakpoint()
             
             # get attention weight 
             outputs = model(**inputs[do], output_attentions = True)
 
+            logits = outputs.logits
+            # labels 0: contradiction, 1: entailment, 2: neutral
+            # predictions = logits.argmax(dim=1)
+            # print(f"current prediction of {do} : {predictions[:10]}")
+            # print(f"current labels {do} : {labels[do][:10]}")
+
             if do not in attention_data.keys():
                 attention_data[do] = [outputs.attentions]
             else:
-                attention_data[do].extend(outputs.attentions)
+                attention_data[do].append(outputs.attentions)
 
             # register forward hooks on all layers
             for layer in layers:
@@ -246,7 +255,7 @@ def collect_output_components(model, dataloader, tokenizer):
 
             # get activatation
             outputs = model(**inputs[do])
-            
+ 
             # detach the hooks
             for layer in layers:
                 ao[layer].remove()
@@ -255,6 +264,22 @@ def collect_output_components(model, dataloader, tokenizer):
 
         
         batch_idx += 1
+
+
+
+    with open('../pickles/activated_components.pickle', 'wb') as handle:
+
+        pickle.dump(ao_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(intermediate_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(out_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        print(f"save activate components done ! ")
+    
+    
+    # note: cannot concate because batching different seq_len
+    # just save it to pickles
+
         
         #attention_override = model(batch, target_mapping=target_mapping)[-1]
 
@@ -290,9 +315,14 @@ def main():
     # model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt') 
     # bpe='../models/encoder.json')
     
-    tokenizer = AutoTokenizer.from_pretrained("ishan/bert-base-uncased-mnli")
-    model = AutoModelForSequenceClassification.from_pretrained("ishan/bert-base-uncased-mnli")
-    # model = model.to(DEVICE)
+    tokenizer = AutoTokenizer.from_pretrained("../bert-base-uncased-mnli/")
+    model = AutoModelForSequenceClassification.from_pretrained("../bert-base-uncased-mnli/")
+    model = model.to(DEVICE)
+
+    # model2 = AutoModelForSequenceClassification.from_pretrained("ishan/bert-base-uncased-mnli")
+
+    
+    #
     
     # Todo: balance example between HOL and LOL by sampling from population
     experiment_set = ExperimentDataset(data_path,
@@ -312,12 +342,28 @@ def main():
     
     # Todo: average score of each neuron's activation across batch
     
-    dataloader = DataLoader(experiment_set, batch_size=4,
-                        shuffle = False, num_workers=0)
+    dataloader = DataLoader(experiment_set, 
+                            batch_size = 32,
+                            shuffle = False, 
+                            num_workers=0)
  
-    collect_output_components(model = model,
-                             dataloader = dataloader,
-                             tokenizer = tokenizer)
+    # collect_output_components(model = model,
+    #                          dataloader = dataloader,
+    #                          tokenizer = tokenizer,
+    #                          DEVICE = DEVICE)
+
+
+    with open('../pickles/activated_components.pickle', 'rb') as handle:
+        ao_activation = pickle.load(handle)
+        intermediate_activation = pickle.load(handle)
+        out_activation = pickle.load(handle)
+        attention_data = pickle.load(handle)
+
+    breakpoint()
+
+
+
+    
     # prunning(model = model,
     #          layers= [0, 1, 2, 3, 4])
     
