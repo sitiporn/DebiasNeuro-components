@@ -167,7 +167,7 @@ def prunning(model, layers):
             # model.bert.encoder.layer[layer].intermediate.dense = Wl_I(layer) *  Ml_I 
             # model.bert.encoder.layer[layer].output.dense = Wl_O(layer) *  Ml_O 
 
-def cma_analysis(path, layers, heads):
+def get_average_activations(path, layers, heads):
 
     # load all output components 
     with open(path, 'rb') as handle:
@@ -230,6 +230,15 @@ def cma_analysis(path, layers, heads):
             ao_cls[do][layer] = torch.mean(ao_cls[do][layer], dim=0)
             intermediate_cls[do][layer] = torch.mean(intermediate_cls[do][layer] , dim=0)
             out_cls[do][layer] = torch.mean(out_cls[do][layer], dim=0)
+
+    return ao_cls, intermediate_cls,  out_cls
+
+
+def cma_analysis(path, layers, heads):
+
+    ao_cls, intermediate_cls,  out_cls = get_average_activations(path, layers, heads)
+
+    breakpoint()
 
 
 def main():
