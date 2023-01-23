@@ -1,3 +1,4 @@
+import pickle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -202,6 +203,21 @@ def group_by_treatment(thresholds, overlap_score, gold_label):
             return "exclude"
     else:
         return "exclude"
+
+
+def get_activation(layer, do, activation):
+  
+  # the hook signature
+  def hook(model, input, output):
+    
+    if layer not in activation[do].keys():
+        activation[do][layer] = []
+
+    activation[do][layer].append(output.detach())
+  
+  return hook
+
+
 
 def collect_output_components(model, dataloader, tokenizer, DEVICE):
    
