@@ -189,6 +189,7 @@ def cma_analysis(path, layers, heads):
     # Todo: loop over [CLS] token across batches 
     # compute average of [CLS]
 
+
     for batch_idx in range(len(attention_data['do-treatment'])):
 
         for do in ['do-treatment','no-treatment']:
@@ -218,16 +219,17 @@ def cma_analysis(path, layers, heads):
                 #     attention_data['do-treatment'][batch_idx][layer][heads] 
     
     for do in ['do-treatment','no-treatment']:
+         
          # concate all batches
-         ao_cls[do][layer] = torch.cat(ao_cls[do][layer], dim=0)    
-         intermediate_cls[do][layer] = torch.cat(intermediate_cls[do][layer], dim=0)    
-         out_cls[do][layer] = torch.cat(out_cls[do][layer], dim=0)    
+        for layer in layers:
+            ao_cls[do][layer] = torch.cat(ao_cls[do][layer], dim=0)    
+            intermediate_cls[do][layer] = torch.cat(intermediate_cls[do][layer], dim=0)    
+            out_cls[do][layer] = torch.cat(out_cls[do][layer], dim=0)    
 
-         # compute average over samples
-         ao_cls[do][layer] = torch.mean(ao_cls[do][layer], dim=0)
-         intermediate_cls[do][layer] = torch.mean(intermediate_cls[do][layer] , dim=0)
-         out_cls[do][layer] = torch.mean(out_cls[do][layer], dim=0)
-
+            # compute average over samples
+            ao_cls[do][layer] = torch.mean(ao_cls[do][layer], dim=0)
+            intermediate_cls[do][layer] = torch.mean(intermediate_cls[do][layer] , dim=0)
+            out_cls[do][layer] = torch.mean(out_cls[do][layer], dim=0)
 
 
 def main():
