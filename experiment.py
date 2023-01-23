@@ -1,4 +1,5 @@
 import os
+import os.path
 import pandas as pd
 import random
 import pickle
@@ -8,6 +9,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import Intervention, get_overlap_thresholds, group_by_treatment, neuron_intervention
+from utils import collect_output_components
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 from nn_pruning.patch_coordinator import (
@@ -165,150 +167,87 @@ def prunning(model, layers):
             # model.bert.encoder.layer[layer].intermediate.dense = Wl_I(layer) *  Ml_I 
             # model.bert.encoder.layer[layer].output.dense = Wl_O(layer) *  Ml_O 
 
-def get_activation(layer, do, activation):
-  
-  # the hook signature
-  def hook(model, input, output):
-    
-    if layer not in activation[do].keys():
-        activation[do][layer] = []
+def cma_analysis(path, layers, heads):
 
-    activation[do][layer].append(output.detach())
-  
-  return hook
+    # load all output components 
+    with open(path, 'rb') as handle:
+        ao_activation = pickle.load(handle)
+        intermediate_activation = pickle.load(handle)
+        out_activation = pickle.load(handle)
+        attention_data = pickle.load(handle)
 
-def collect_output_components(model, dataloader, tokenizer, DEVICE):
-   
-    hooks =  {"do-treatment" : None, "no-treatment": None}
-    
-    # Todo: generalize for every model 
-    layers = [*range(0, 12, 1)]
-    heads = [*range(0, 12, 1)]
-    
-    
-    # AO = lambda layer : model.bert.encoder.layer[layer].output.dense 
-    # get attention weight output
+    ao_cls = {}
+    intermediate_cls = {}
+    out_cls = {}
+    attention_cls = {}
 
 
-    # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
-    self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
-    intermediate_layer = lambda layer : model.bert.encoder.layer[layer].intermediate
-    output_layer = lambda layer : model.bert.encoder.layer[layer].output
+    # Todo: 
+    # 1. get average over [CLS] of High overlap; do-treatment
+    # 2. get average over [CLS] of High overlap; no-treatment
 
+    # Todo: loop over [CLS] token across batches 
+    # compute average of [CLS]
 
-    # using for register
-    ao = {}
-    intermediate = {}
-    out = {} 
-
-    #dicts to store the activations
-    ao_activation = {}
-    intermediate_activation = {}
-    out_activation = {} 
-    attention_data = {}        
-
-    inputs = {}
-
-    batch_idx = 0
-
-    for pair_sentences , labels in tqdm(dataloader):
-
-        if batch_idx == 4:
-            #breakpoint()
-            break
-            
+    for batch_idx in range(len(attention_data['do-treatment'])):
 
         for do in ['do-treatment','no-treatment']:
 
-            if do not in ao_activation.keys():
-                ao_activation[do] = {}
-                intermediate_activation[do] = {}
-                out_activation[do] = {} 
-            
-            pair_sentences[do] = [[premise, hypo] for premise, hypo in zip(pair_sentences[do][0], pair_sentences[do][1])]
-            inputs[do] = tokenizer(pair_sentences[do], padding=True, truncation=True, return_tensors="pt")
+            if do not in ao_cls.keys():
+                ao_cls[do] = {}
+                intermediate_cls[do] = {}
+                out_cls[do] = {}
+                # attention_cls[do] = {}
 
-            inputs[do] = {k: v.to(DEVICE) for k,v in inputs[do].items()}
-
-            # breakpoint()
-            
-            # get attention weight 
-            outputs = model(**inputs[do], output_attentions = True)
-
-            logits = outputs.logits
-            # labels 0: contradiction, 1: entailment, 2: neutral
-            # predictions = logits.argmax(dim=1)
-            # print(f"current prediction of {do} : {predictions[:10]}")
-            # print(f"current labels {do} : {labels[do][:10]}")
-
-            if do not in attention_data.keys():
-                attention_data[do] = [outputs.attentions]
-            else:
-                attention_data[do].append(outputs.attentions)
-
-            # register forward hooks on all layers
             for layer in layers:
 
-                ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation))
-                intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation))
-                out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation))
+                if  layer not in ao_cls[do].keys():
+                    
+                    ao_cls[do][layer] = []
+                    intermediate_cls[do][layer] = []
+                    out_cls[do][layer] = []
 
-            # get activatation
-            outputs = model(**inputs[do])
- 
-            # detach the hooks
-            for layer in layers:
-                ao[layer].remove()
-                intermediate[layer].remove()
-                out[layer].remove()
+                # grab [CLS]
+                # batch_size, seq_len, hidden_dim
+                ao_cls[do][layer].append(ao_activation[do][layer][batch_idx][:, 0, :])
+                intermediate_cls[do][layer].append(intermediate_activation[do][layer][batch_idx][:, 0, :])
+                out_cls[do][layer].append(out_activation[do][layer][batch_idx][:, 0, :])
 
-        
-        batch_idx += 1
-
-
-
-    with open('../pickles/activated_components.pickle', 'wb') as handle:
-
-        pickle.dump(ao_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(intermediate_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(out_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        print(f"save activate components done ! ")
+                #  in heads:
+                #     # batch_size, num_heads, seq_len, seq_len
+                #     attention_data['do-treatment'][batch_idx][layer][heads] 
     
-    
-    # note: cannot concate because batching different seq_len
-    # just save it to pickles
+    for do in ['do-treatment','no-treatment']:
+         # concate all batches
+         ao_cls[do][layer] = torch.cat(ao_cls[do][layer], dim=0)    
+         intermediate_cls[do][layer] = torch.cat(intermediate_cls[do][layer], dim=0)    
+         out_cls[do][layer] = torch.cat(out_cls[do][layer], dim=0)    
 
-        
-        #attention_override = model(batch, target_mapping=target_mapping)[-1]
+         # compute average over samples
+         ao_cls[do][layer] = torch.mean(ao_cls[do][layer], dim=0)
+         intermediate_cls[do][layer] = torch.mean(intermediate_cls[do][layer] , dim=0)
+         out_cls[do][layer] = torch.mean(out_cls[do][layer], dim=0)
 
-    # for do in output.keys():
-    #     hooks[do] = {}
-    #     # Todo: batching  for dataloader
-    #     for layer in layers:
-    #         # get output of all attention heads and FFN 
-    #         hooks[do][layer]  = {}
-            # for module in ["attentions","l_AO","l_intermediates","l_outputs"]:
-            # with torch.no_grad():
-                #hooks[do][layer]["attentions"] = []
-                
-                # hooks[do][layer]["attentions"].append(self_attention(layer).register_forward_hook(
-                #                             attention_intervention(override_attention, attn_override_mask)))
-
-                # for hook in hooks: hook.remove()
-
-                # ,"l_AO","l_intermediates","l_outputs"]:
 
 
 def main():
 
+    # note: cannot concate because batching different seq_len
+    # so that we select only the [CLS] token as sentence representation
+    # just save it to pickles
+    
+    
     DEBUG = True
     
     data_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
+    component_path = '../pickles/activated_components.pickle'
     json_file = 'multinli_1.0_train.jsonl'
     upper_bound = 80
     lower_bound = 20
+    
+    # Todo: generalize for every model 
+    layers = [*range(0, 12, 1)]
+    heads = [*range(0, 12, 1)]
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
@@ -319,10 +258,8 @@ def main():
     model = AutoModelForSequenceClassification.from_pretrained("../bert-base-uncased-mnli/")
     model = model.to(DEVICE)
 
-    # model2 = AutoModelForSequenceClassification.from_pretrained("ishan/bert-base-uncased-mnli")
-
     
-    #
+    # model2 = AutoModelForSequenceClassification.from_pretrained("ishan/bert-base-uncased-mnli")
     
     # Todo: balance example between HOL and LOL by sampling from population
     experiment_set = ExperimentDataset(data_path,
@@ -347,21 +284,18 @@ def main():
                             shuffle = False, 
                             num_workers=0)
  
-    # collect_output_components(model = model,
-    #                          dataloader = dataloader,
-    #                          tokenizer = tokenizer,
-    #                          DEVICE = DEVICE)
+    if not os.path.isfile(component_path):
+        collect_output_components(model = model,
+                             dataloader = dataloader,
+                             tokenizer = tokenizer,
+                             DEVICE = DEVICE,
+                             layers = layers,
+                             heads = heads)
 
 
-    with open('../pickles/activated_components.pickle', 'rb') as handle:
-        ao_activation = pickle.load(handle)
-        intermediate_activation = pickle.load(handle)
-        out_activation = pickle.load(handle)
-        attention_data = pickle.load(handle)
-
-    breakpoint()
-
-
+    cma_analysis(path = component_path,
+                 layers = layers,
+                 heads  =  heads)
 
     
     # prunning(model = model,
