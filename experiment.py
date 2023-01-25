@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import Intervention, get_overlap_thresholds, group_by_treatment, neuron_intervention
+from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask
 from utils import collect_output_components
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
@@ -249,12 +249,12 @@ def neuron_intervention(neuron_ids,
 
         # # where to intervene
         # bz, seq_len, hidden_dim
-        scatter_mask[:,0, neuron_ids] = 1
+        # scatter_mask[:,0, neuron_ids] = 1
         
-        print(f"before, value : {value[:4]}")
+        # print(f"before, value : {value[:4]}")
         neuron_values = value[neuron_ids]
 
-        print(f"after, value : {neuron_values}")
+        # print(f"after, value : {neuron_values}")
     
         neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1)
 
@@ -314,24 +314,25 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
             for layer in layers:
                 
                 # get each prediction for nueron intervention
-                for neuron_id in range(ao_cls_avg[do][layer].shape[0]):
-                    # select layer to register  and input which neurons to intervene
-                    hooks = [] 
+                # for neuron_id in range(ao_cls_avg[do][layer].shape[0]):
+                #     # select layer to register  and input which neurons to intervene
+                #     hooks = [] 
 
+                #     neuron_ids = [*range(0, ao_cls_avg[do][layer].shape[0], 1)]
 
-                    hooks.append(self_output(layer).register_forward_hook(neuron_intervention(neuron_ids = [0, 3], 
-                                                                              value = ao_cls_avg[do][layer])))
+                #     # dont forget to change 11th to layer variable !
+                #     hooks.append(self_output(layer).register_forward_hook(neuron_intervention(neuron_ids = neuron_ids, 
+                #                                                               value = ao_cls_avg[do][11])))
 
-                    outputs = model(**inputs)
-                    logits = outputs.logits
-                    predictions = logits.argmax(dim=1)
+                #     outputs = model(**inputs)
+                #     logits = outputs.logits
+                #     new_predictions = logits.argmax(dim=1)
 
-                    print(f"intervene prediction")
-                    print(predictions)
+                #     print(f"intervene prediction")
+                #     print(predictions.eq(new_predictions))
                     
-                    for hook in hooks: hook.remove() 
+                #     for hook in hooks: hook.remove() 
 
-                    # breakpoint()
 
                 # for nueron_id in range(intermediate_cls_avg[do][layer].shape[0]):
 
@@ -344,52 +345,31 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
                     
                 #     for hook in hooks: hook.remove() 
                 
-                # for nueron_id in range(out_cls_avg[do][layer].shape[0]):
+                for nueron_id in range(out_cls_avg[do][layer].shape[0]):
                     
-                #     hooks = [] 
+                    hooks = [] 
+
+                    neuron_ids = [*range(0, out_cls_avg[do][layer].shape[0], 1)]
                     
-                #     hooks.append(output_layer(layer).register_forward_hook(get_activation(neuron)))
+                    # dont forget to change 11th to layer variable !
+                    hooks.append(output_layer(layer).register_forward_hook(neuron_intervention(neuron_ids = neuron_ids, 
+                                                                    value = out_cls_avg[do][11])))
+                        
+                    outputs = model(**inputs)
+                    logits = outputs.logits
+                    new_predictions = logits.argmax(dim=1)
 
-                #     outputs = model(**inputs)
-                #     logits = outputs.logits
-                #     predictions = logits.argmax(dim=1)
+                    print(f"intervene prediction")
+                    print(new_predictions)
+
+                    print(f"== compare result ==")
+                    print(predictions.eq(new_predictions))
+                    print(f"# not change : {torch.sum(predictions.eq(new_predictions))}")
                     
-                #     for hook in hooks: hook.remove() 
+                    for hook in hooks: hook.remove() 
 
-def test_mask(neuron_candidates =[]):
+                    breakpoint()
 
-    x  = torch.tensor([[ [1,2,3], 
-                         [4,5,6]
-                       ],
-                       [
-                         [1,2,3],
-                         [4,5,6]                           
-                       ],
-                       [
-                         [1,2,3],
-                         [4,5,6]                           
-                       
-                       ]])
-
-    neuron_ids = [0, 1, 2]
-
-    # define used to intervene
-    mask = torch.zeros_like(x, dtype= torch.bool) 
-    
-    # bz, seq_len, hidden_dim
-    mask[:, 0, neuron_ids] = 1
-
-    print(f"Before masking X")
-    print(x)
-
-    print(f" ===  mask list of neurons : {neuron_ids}  and [CLS] ====")
-    print(mask)
-
-    value = torch.tensor([11, 12, 13])[neuron_ids]
-    value = value.repeat(x.shape[0], x.shape[1], 1)
-    
-    print(f"after masking X ")
-    print(x.masked_scatter_(mask, value))
 
 def main():
 
