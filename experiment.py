@@ -234,9 +234,173 @@ def get_average_activations(path, layers, heads):
     return ao_cls, intermediate_cls,  out_cls
 
 
-def cma_analysis(path, layers, heads):
 
-    ao_cls, intermediate_cls,  out_cls = get_average_activations(path, layers, heads)
+def neuron_intervention(neuron_id, value,
+                        intervention_type='replace'):
+    
+    # Hook for changing representation during forward pass
+    def intervention_hook(module,
+                            input,
+                            output):
+        
+        # define mask where to overwrite
+        scatter_mask = torch.zeros_like(output, dtype = torch.bool)
+
+        # # where to intervene
+        # (bz, seq_len, hidden_dim)
+        scatter_mask[:,0, neuron_id] = 1
+
+        # value = 
+        
+        print(f"value shape : {value.shape}")
+
+        breakpoint()
+        
+         # Then take values from base and scatter
+        # output.masked_scatter_(scatter_mask, base.flatten())
+
+    return intervention_hook
+
+
+def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
+
+    ao_cls_avg, intermediate_cls_avg,  out_cls_avg = get_average_activations(path, layers, heads)
+
+    # For every samples
+    # E(Yi|Xi=1)−E(Yi|Xi=0) 
+
+    # HOL and LOL
+
+    # guess prediction
+    # for pair_sentences , labels in tqdm(dataloader):
+
+    # Todo get pair sentences of all overlap scores
+    pair_labels = list(experiment_set.df.pair_label)
+    dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pair_labels)]
+    dataloader = DataLoader(dataset, batch_size=32)
+
+    # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
+    self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
+    intermediate_layer = lambda layer : model.bert.encoder.layer[layer].intermediate
+    output_layer = lambda layer : model.bert.encoder.layer[layer].output
+
+
+    for i, (sentences, labels) in enumerate(dataloader):
+
+        premise, hypo = sentences
+
+        pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
+        
+        inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+        inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+
+        outputs = model(**inputs)
+        logits = outputs.logits
+        predictions = logits.argmax(dim=1)
+
+        # run one full neuron intervention experiment
+        for do in ['do-treatment','no-treatment']:
+            for layer in layers:
+                
+                # get each prediction for nueron intervention
+                for neuron_id in range(ao_cls_avg[do][layer].shape[0]):
+                    # select layer to register  and input which neurons to intervene
+                    hooks = [] 
+                    hooks.append(self_output(layer).register_forward_hook(neuron_intervention(neuron_id, value = ao_cls_avg[do][layer])))
+
+                    outputs = model(**inputs)
+                    logits = outputs.logits
+                    predictions = logits.argmax(dim=1)
+                    
+                    for hook in hooks: hook.remove() 
+
+                    # breakpoint()
+
+                # for nueron_id in range(intermediate_cls_avg[do][layer].shape[0]):
+
+                #     hooks = [] 
+                #     hooks.append(intermediate_layer(layer).register_forward_hook(neuron_intervention()))
+
+                #     outputs = model(**inputs)
+                #     logits = outputs.logits
+                #     predictions = logits.argmax(dim=1)
+                    
+                #     for hook in hooks: hook.remove() 
+                
+                # for nueron_id in range(out_cls_avg[do][layer].shape[0]):
+                    
+                #     hooks = [] 
+                    
+                #     hooks.append(output_layer(layer).register_forward_hook(get_activation(neuron)))
+
+                #     outputs = model(**inputs)
+                #     logits = outputs.logits
+                #     predictions = logits.argmax(dim=1)
+                    
+                #     for hook in hooks: hook.remove() 
+
+def test_mask(neuron_candidates =[]):
+
+    x1  = torch.tensor([[ [1,2,3], 
+                         [4,5,6]
+                       ],
+                       [
+                         [1,2,3],
+                         [4,5,6]                           
+                       ],
+                       [
+                         [1,2,3],
+                         [4,5,6]                           
+                       
+                       ]])
+
+
+    
+    x2  = torch.tensor([[ [1,2,3], 
+                         [4,5,6]
+                       ],
+                       [
+                         [1,2,3],
+                         [4,5,6]                           
+                       ],
+                       [
+                         [1,2,3],
+                         [4,5,6]                           
+                       
+                       ]])
+
+    mask1 = torch.zeros_like(x1, dtype= torch.bool) 
+    mask2 = torch.zeros_like(x2, dtype= torch.bool) 
+
+    # bz, seq_len, hidden_dim
+    # all neurons in current layer
+    mask1[:, 0, :] = 1
+
+    neuron_ids = [0, 1]
+    
+    # neuron th in current layer
+    mask2[:, 0, neuron_ids] = 1
+    
+    print(f" ===  x ====")
+    
+    print(f" ===  mask 1 for all neurons and [CLS] ====")
+    print(mask1)
+    
+    print(f" ===  mask 2 for {neuron_ids}th of neurons and [CLS] ====")
+    print(mask2)
+
+    value = torch.tensor([11, 12, 13])
+    value = value.repeat(x1.shape[0], x2.shape[1], 1)
+
+    print(f"for all neurons")
+    print(x1.masked_scatter_(mask1, value))
+
+
+    value = torch.tensor([11, 12, 13])[neuron_ids]
+    value = value.repeat(x2.shape[0], x2.shape[1], 1)
+    
+    print(f"for specific neurons ")
+    print(x2.masked_scatter_(mask2, value))
 
     breakpoint()
 
@@ -246,7 +410,6 @@ def main():
     # note: cannot concate because batching different seq_len
     # so that we select only the [CLS] token as sentence representation
     # just save it to pickles
-    
     
     DEBUG = True
     
@@ -261,54 +424,58 @@ def main():
     heads = [*range(0, 12, 1)]
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    test_mask()
     
     # model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt') 
     # bpe='../models/encoder.json')
     
-    tokenizer = AutoTokenizer.from_pretrained("../bert-base-uncased-mnli/")
-    model = AutoModelForSequenceClassification.from_pretrained("../bert-base-uncased-mnli/")
-    model = model.to(DEVICE)
 
+    # tokenizer = AutoTokenizer.from_pretrained("../bert-base-uncased-mnli/")
+    # model = AutoModelForSequenceClassification.from_pretrained("../bert-base-uncased-mnli/")
+    # model = model.to(DEVICE)
     
-    # model2 = AutoModelForSequenceClassification.from_pretrained("ishan/bert-base-uncased-mnli")
+    # # model2 = AutoModelForSequenceClassification.from_pretrained("ishan/bert-base-uncased-mnli")
     
-    # Todo: balance example between HOL and LOL by sampling from population
-    experiment_set = ExperimentDataset(data_path,
-                             json_file,
-                             upper_bound = upper_bound,
-                             lower_bound = lower_bound,
-                             encode = tokenizer
-                            )
+    # # Todo: balance example between HOL and LOL by sampling from population
+    # experiment_set = ExperimentDataset(data_path,
+    #                          json_file,
+    #                          upper_bound = upper_bound,
+    #                          lower_bound = lower_bound,
+    #                          encode = tokenizer
+    #                         )
 
-    labels = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
+    # labels = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
     
-    # model_name = '../models/roberta.large.mnli/model.pt'
-    # model = torch.hub.load('pytorch/fairseq', model_name)
-    # tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # # model_name = '../models/roberta.large.mnli/model.pt'
+    # # model = torch.hub.load('pytorch/fairseq', model_name)
+    # # tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
+    # # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
     
-    # Todo: average score of each neuron's activation across batch
+    # # Todo: average score of each neuron's activation across batch
     
-    dataloader = DataLoader(experiment_set, 
-                            batch_size = 32,
-                            shuffle = False, 
-                            num_workers=0)
+    # dataloader = DataLoader(experiment_set, 
+    #                         batch_size = 32,
+    #                         shuffle = False, 
+    #                         num_workers=0)
  
-    if not os.path.isfile(component_path):
-        collect_output_components(model = model,
-                             dataloader = dataloader,
-                             tokenizer = tokenizer,
-                             DEVICE = DEVICE,
-                             layers = layers,
-                             heads = heads)
-
-
-    cma_analysis(path = component_path,
-                 layers = layers,
-                 heads  =  heads)
-
+    # # if not os.path.isfile(component_path):
+    # # collect_output_components(model = model,
+    # #                         dataloader = dataloader,
+    # #                         tokenizer = tokenizer,
+    # #                         DEVICE = DEVICE,
+    # #                         layers = layers,
+    # #                         heads = heads)
+    # cma_analysis(path = component_path,
+    #             model = model,
+    #             layers = layers,
+    #             heads  =  heads,
+    #             tokenizer = tokenizer,
+    #             experiment_set = experiment_set,
+    #             DEVICE = DEVICE)
     
+
     # prunning(model = model,
     #          layers= [0, 1, 2, 3, 4])
     
