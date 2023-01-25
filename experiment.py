@@ -235,7 +235,7 @@ def get_average_activations(path, layers, heads):
 
 
 
-def neuron_intervention(neuron_id, value,
+def neuron_intervention(neuron_ids, value,
                         intervention_type='replace'):
     
     # Hook for changing representation during forward pass
@@ -255,9 +255,6 @@ def neuron_intervention(neuron_id, value,
         print(f"value shape : {value.shape}")
 
         breakpoint()
-        
-         # Then take values from base and scatter
-        # output.masked_scatter_(scatter_mask, base.flatten())
 
     return intervention_hook
 
@@ -341,7 +338,7 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
 
 def test_mask(neuron_candidates =[]):
 
-    x1  = torch.tensor([[ [1,2,3], 
+    x  = torch.tensor([[ [1,2,3], 
                          [4,5,6]
                        ],
                        [
@@ -354,53 +351,25 @@ def test_mask(neuron_candidates =[]):
                        
                        ]])
 
+    neuron_ids = [0, 1, 2]
 
+    # define used to intervene
+    mask = torch.zeros_like(x, dtype= torch.bool) 
     
-    x2  = torch.tensor([[ [1,2,3], 
-                         [4,5,6]
-                       ],
-                       [
-                         [1,2,3],
-                         [4,5,6]                           
-                       ],
-                       [
-                         [1,2,3],
-                         [4,5,6]                           
-                       
-                       ]])
-
-    mask1 = torch.zeros_like(x1, dtype= torch.bool) 
-    mask2 = torch.zeros_like(x2, dtype= torch.bool) 
-
     # bz, seq_len, hidden_dim
-    # all neurons in current layer
-    mask1[:, 0, :] = 1
+    mask[:, 0, neuron_ids] = 1
 
-    neuron_ids = [0, 1]
-    
-    # neuron th in current layer
-    mask2[:, 0, neuron_ids] = 1
-    
-    print(f" ===  x ====")
-    
-    print(f" ===  mask 1 for all neurons and [CLS] ====")
-    print(mask1)
-    
-    print(f" ===  mask 2 for {neuron_ids}th of neurons and [CLS] ====")
-    print(mask2)
+    print(f"Before masking X")
+    print(x)
 
-    value = torch.tensor([11, 12, 13])
-    value = value.repeat(x1.shape[0], x2.shape[1], 1)
-
-    print(f"for all neurons")
-    print(x1.masked_scatter_(mask1, value))
-
+    print(f" ===  mask list of neurons : {neuron_ids}  and [CLS] ====")
+    print(mask)
 
     value = torch.tensor([11, 12, 13])[neuron_ids]
-    value = value.repeat(x2.shape[0], x2.shape[1], 1)
+    value = value.repeat(x.shape[0], x.shape[1], 1)
     
-    print(f"for specific neurons ")
-    print(x2.masked_scatter_(mask2, value))
+    print(f"after masking X ")
+    print(x.masked_scatter_(mask, value))
 
     breakpoint()
 
