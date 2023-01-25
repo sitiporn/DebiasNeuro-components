@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import pickle
 import torch
 import torch.nn as nn
@@ -219,13 +220,10 @@ def get_activation(layer, do, activation):
 
 
 
-def collect_output_components(model, dataloader, tokenizer, DEVICE):
+def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, heads):
    
     hooks =  {"do-treatment" : None, "no-treatment": None}
     
-    # Todo: generalize for every model 
-    layers = [*range(0, 12, 1)]
-    heads = [*range(0, 12, 1)]
     
     
     # AO = lambda layer : model.bert.encoder.layer[layer].output.dense 
@@ -249,12 +247,20 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE):
     out_activation = {} 
     attention_data = {}        
 
+
+    # dict to store  probabilities
+    distributions = {}
+    
+
     inputs = {}
 
     batch_idx = 0
 
     for pair_sentences , labels in tqdm(dataloader):
 
+        # if batch_idx == 4:
+        #     print(f"stop batching at index : {batch_idx}")
+        #     break
 
         for do in ['do-treatment','no-treatment']:
 
@@ -262,12 +268,12 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE):
                 ao_activation[do] = {}
                 intermediate_activation[do] = {}
                 out_activation[do] = {} 
+                distributions[do] = {} 
             
             pair_sentences[do] = [[premise, hypo] for premise, hypo in zip(pair_sentences[do][0], pair_sentences[do][1])]
             inputs[do] = tokenizer(pair_sentences[do], padding=True, truncation=True, return_tensors="pt")
 
             inputs[do] = {k: v.to(DEVICE) for k,v in inputs[do].items()}
-
             
             # get attention weight 
             outputs = model(**inputs[do], output_attentions = True)
@@ -313,79 +319,41 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE):
 
         print(f"save activate components done ! ")
 
+def test_mask(neuron_candidates =[]):
 
+    x  = torch.tensor([[ [1,2,3], 
+                         [4,5,6]
+                       ],
+                       [
+                         [1,2,3],
+                         [4,5,6]                           
+                       ],
+                       [
+                         [1,2,3],
+                         [4,5,6]                           
+                       
+                       ]])
 
+    neuron_ids = [0, 1, 2]
 
-def neuron_intervention(model,
-                        tokenizer,
-                        layers,
-                        neurons,
-                        dataloader,
-                        intervention_type='replace'):
+    # define used to intervene
+    mask = torch.zeros_like(x, dtype= torch.bool) 
+    
+    # bz, seq_len, hidden_dim
+    mask[:, 0, neuron_ids] = 1
 
-        # Hook for changing representation during forward pass
-        def intervention_hook(module,
-                              input,
-                              output):
+    print(f"Before masking X")
+    print(x)
 
-            # overwrite value in the output
-            # define mask to overwrite
-            scatter_mask = torch.zeros_like(output, dtype = torch.bool)
-            
-            print(f"set of neurons to intervene {neurons}")
-            
-            # where to intervene
-            scatter_mask[:,:, neurons] = 1
+    print(f" ===  mask list of neurons : {neuron_ids}  and [CLS] ====")
+    print(mask)
 
-            # value to replace : (seq_len, batch_size, output_dim)
-            value = torch.zeros_like(output, dtype = torch.float)
+    value = torch.tensor([11, 12, 13])[neuron_ids]
+    value = value.repeat(x.shape[0], x.shape[1], 1)
+    
+    print(f"after masking X ")
+    print(x.masked_scatter_(mask, value))
 
-            # (bz, seq_len, input_dim) @ (input_dim, output_dim)
-            #  seq_len, batch_size, hidden_dim 
-            
-        neuron_layer = lambda layer : model.model.encoder.sentence_encoder.layers[layer].final_layer_norm
-        
-        handle_list = []     
-
-        for batch_idx, (pair_sentences, label) in enumerate(dataloader):
-
-            print(f"batch_idx : {batch_idx}")
-            print(f"current pair sentences : {type(pair_sentences)}")
-            print(f"current label : {label}")
-
-            # if isinstance(pair_sentences[0], tuple)
-            pair_sentences = [[premise,hypo] for  premise, hypo in zip(pair_sentences[0],pair_sentences[1])]
-
-            # Compute token embeddings
-            with torch.no_grad():
-
-                input = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-                output = model(**input)
-                logits = output.logits
-                
-                # labels 0: contradiction, 1: entailment, 2: neutral
-                predictions = logits.argmax(dim=1)
-                print(f"current prediction : {predictions}")
-
-            for layer in layers:
-                handle_list.append(neuron_layer(layer).register_forward_hook(intervention_hook))
-
-            new_logprobs = model.predict('mnli', intervention.batch_tok[0:8])
-            predictions = new_logprobs.argmax(dim=1)
-        
-            print(f"=== with intervene ====")
-            print(new_logprobs[:8,:])
-            print(predictions)
-
-            for hndle in handle_list:
-                hndle.remove() 
-            
-            logprobs = model.predict('mnli', intervention.batch_tok[0:8])
-            predictions = logprobs.argmax(dim=1)
-            
-            print(f"=== without intervene ====")
-            print(logprobs[:8,:])
-            print(predictions)
 
 
 
