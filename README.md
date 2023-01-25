@@ -1,4 +1,4 @@
-# Debias neural components leveraging Causal mediation analysis
+# Debias Neuro-components leveraging Causal mediation analysis
 
 ## Todo
 - [x] testing attention intervention
