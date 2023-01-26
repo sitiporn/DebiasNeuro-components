@@ -218,23 +218,25 @@ def get_activation(layer, do, activation):
   
   return hook
 
-
-
 def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, heads):
    
     hooks =  {"do-treatment" : None, "no-treatment": None}
     
-    
-    
     # AO = lambda layer : model.bert.encoder.layer[layer].output.dense 
     # get attention weight output
 
-
+    # linear layer
+    q_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.query
+    k_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.key
+    v_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.value
+    
+    # output of value vector multiply with weighted scored
     # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
+
+    # linear layer
     self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
     intermediate_layer = lambda layer : model.bert.encoder.layer[layer].intermediate
     output_layer = lambda layer : model.bert.encoder.layer[layer].output
-
 
     # using for register
     ao = {}
@@ -247,10 +249,8 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
     out_activation = {} 
     attention_data = {}        
 
-
     # dict to store  probabilities
     distributions = {}
-    
 
     inputs = {}
 
@@ -304,11 +304,8 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
                 ao[layer].remove()
                 intermediate[layer].remove()
                 out[layer].remove()
-
         
         batch_idx += 1
-
-
 
     with open('../pickles/activated_components.pickle', 'wb') as handle:
 
@@ -353,9 +350,6 @@ def test_mask(neuron_candidates =[]):
     
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
-
-
-
 
 
 """
