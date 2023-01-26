@@ -171,16 +171,25 @@ def get_average_activations(path, layers, heads):
 
     # load all output components 
     with open(path, 'rb') as handle:
+        
+        q_activation = pickle.load(handle)
+        k_activation = pickle.load(handle)
+        v_activation = pickle.load(handle)
+        
         ao_activation = pickle.load(handle)
         intermediate_activation = pickle.load(handle)
         out_activation = pickle.load(handle)
+        
         attention_data = pickle.load(handle)
 
+    q_cls  = {}
+    k_cls  = {}
+    v_cls  = {}
+    
     ao_cls = {}
     intermediate_cls = {}
     out_cls = {}
     attention_cls = {}
-
 
     # Todo: 
     # 1. get average over [CLS] of High overlap; do-treatment
@@ -195,6 +204,11 @@ def get_average_activations(path, layers, heads):
         for do in ['do-treatment','no-treatment']:
 
             if do not in ao_cls.keys():
+
+                q_cls[do] = {}
+                k_cls[do] = {}
+                v_cls[do] = {} 
+                
                 ao_cls[do] = {}
                 intermediate_cls[do] = {}
                 out_cls[do] = {}
@@ -203,6 +217,10 @@ def get_average_activations(path, layers, heads):
             for layer in layers:
 
                 if  layer not in ao_cls[do].keys():
+
+                    q_cls[do][layer] = []
+                    k_cls[do][layer] = []
+                    v_cls[do][layer] = []                   
                     
                     ao_cls[do][layer] = []
                     intermediate_cls[do][layer] = []
@@ -210,6 +228,10 @@ def get_average_activations(path, layers, heads):
 
                 # grab [CLS]
                 # batch_size, seq_len, hidden_dim
+                q_cls[do][layer].append(q_activation[do][layer][batch_idx][:, 0, :])
+                k_cls[do][layer].append(k_activation[do][layer][batch_idx][:, 0, :])
+                v_cls[do][layer].append(v_activation[do][layer][batch_idx][:, 0, :])
+
                 ao_cls[do][layer].append(ao_activation[do][layer][batch_idx][:, 0, :])
                 intermediate_cls[do][layer].append(intermediate_activation[do][layer][batch_idx][:, 0, :])
                 out_cls[do][layer].append(out_activation[do][layer][batch_idx][:, 0, :])
@@ -222,18 +244,26 @@ def get_average_activations(path, layers, heads):
          
          # concate all batches
         for layer in layers:
+
+            # convert list to tensor
+            q_cls[do][layer] = torch.cat(q_cls[do][layer], dim=0)    
+            k_cls[do][layer] = torch.cat(k_cls[do][layer], dim=0)    
+            v_cls[do][layer] = torch.cat(v_cls[do][layer], dim=0)    
+
             ao_cls[do][layer] = torch.cat(ao_cls[do][layer], dim=0)    
             intermediate_cls[do][layer] = torch.cat(intermediate_cls[do][layer], dim=0)    
             out_cls[do][layer] = torch.cat(out_cls[do][layer], dim=0)    
 
             # compute average over samples
+            q_cls[do][layer] = torch.mean(q_cls[do][layer], dim=0)
+            k_cls[do][layer] = torch.mean(k_cls[do][layer], dim=0)
+            v_cls[do][layer] = torch.mean(v_cls[do][layer], dim=0)
+
             ao_cls[do][layer] = torch.mean(ao_cls[do][layer], dim=0)
             intermediate_cls[do][layer] = torch.mean(intermediate_cls[do][layer] , dim=0)
             out_cls[do][layer] = torch.mean(out_cls[do][layer], dim=0)
 
-    return ao_cls, intermediate_cls,  out_cls
-
-
+    return q_cls, k_cls, v_cls, ao_cls, intermediate_cls,  out_cls 
 
 def neuron_intervention(neuron_ids, 
                        value,
@@ -247,33 +277,23 @@ def neuron_intervention(neuron_ids,
         # define mask where to overwrite
         scatter_mask = torch.zeros_like(output, dtype = torch.bool)
 
-        # # where to intervene
+        # where to intervene
         # bz, seq_len, hidden_dim
-        # scatter_mask[:,0, neuron_ids] = 1
+        scatter_mask[:,0, neuron_ids] = 1
         
-        # print(f"before, value : {value[:4]}")
         neuron_values = value[neuron_ids]
 
-        # print(f"after, value : {neuron_values}")
-    
         neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1)
 
         output.masked_scatter_(scatter_mask, neuron_values)
-        
-        # .repeat(output.shape[0], output.shape[1], 1)
-        
-        # print(f"after masking X ")
-        # print(x.masked_scatter_(mask, value))
-        # print(x.masked_scatter_(scatter_mask, value))
-
 
     return intervention_hook
 
-
 def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
 
-    ao_cls_avg, intermediate_cls_avg,  out_cls_avg = get_average_activations(path, layers, heads)
+    q_cls_avg, k_cls_avg, v_cls_avg, ao_cls_avg, intermediate_cls_avg,  out_cls_avg = get_average_activations(path, layers, heads)
 
+    breakpoint()
     # For every samples
     # E(Yi|Xi=1)−E(Yi|Xi=0) 
 
@@ -291,7 +311,6 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
     self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
     intermediate_layer = lambda layer : model.bert.encoder.layer[layer].intermediate
     output_layer = lambda layer : model.bert.encoder.layer[layer].output
-
 
     for i, (sentences, labels) in enumerate(dataloader):
 
@@ -318,12 +337,13 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
                 #     # select layer to register  and input which neurons to intervene
                 #     hooks = [] 
 
+
                 #     neuron_ids = [*range(0, ao_cls_avg[do][layer].shape[0], 1)]
 
                 #     # dont forget to change 11th to layer variable !
                 #     hooks.append(self_output(layer).register_forward_hook(neuron_intervention(neuron_ids = neuron_ids, 
                 #                                                               value = ao_cls_avg[do][11])))
-
+                
                 #     outputs = model(**inputs)
                 #     logits = outputs.logits
                 #     new_predictions = logits.argmax(dim=1)
@@ -395,10 +415,11 @@ def main():
     
     # model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt') 
     # bpe='../models/encoder.json')
-    
 
     tokenizer = AutoTokenizer.from_pretrained("../bert-base-uncased-mnli/")
     model = AutoModelForSequenceClassification.from_pretrained("../bert-base-uncased-mnli/")
+    
+    
     model = model.to(DEVICE)
     
     # model2 = AutoModelForSequenceClassification.from_pretrained("ishan/bert-base-uncased-mnli")
@@ -416,7 +437,6 @@ def main():
     # model_name = '../models/roberta.large.mnli/model.pt'
     # model = torch.hub.load('pytorch/fairseq', model_name)
     # tokenizer = AutoTokenizer.from_pretrained(model_name)
-
     # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
     
     # Todo: average score of each neuron's activation across batch
@@ -427,12 +447,13 @@ def main():
                             num_workers=0)
  
     # if not os.path.isfile(component_path):
-    # collect_output_components(model = model,
-    #                         dataloader = dataloader,
-    #                         tokenizer = tokenizer,
-    #                         DEVICE = DEVICE,
-    #                         layers = layers,
-    #                         heads = heads)
+    collect_output_components(model = model,
+                            dataloader = dataloader,
+                            tokenizer = tokenizer,
+                            DEVICE = DEVICE,
+                            layers = layers,
+                            heads = heads)
+    
     cma_analysis(path = component_path,
                 model = model,
                 layers = layers,
@@ -441,7 +462,6 @@ def main():
                 experiment_set = experiment_set,
                 DEVICE = DEVICE)
     
-
     # prunning(model = model,
     #          layers= [0, 1, 2, 3, 4])
     

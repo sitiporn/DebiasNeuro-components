@@ -222,31 +222,38 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
    
     hooks =  {"do-treatment" : None, "no-treatment": None}
     
-    # AO = lambda layer : model.bert.encoder.layer[layer].output.dense 
-    # get attention weight output
 
     # linear layer
     q_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.query
     k_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.key
     v_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.value
     
-    # output of value vector multiply with weighted scored
-    # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
-
-    # linear layer
     self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
     intermediate_layer = lambda layer : model.bert.encoder.layer[layer].intermediate
     output_layer = lambda layer : model.bert.encoder.layer[layer].output
 
+    # output of value vector multiply with weighted scored
+    # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
+
     # using for register
+    q = {}
+    k = {}
+    v = {}
+   
     ao = {}
     intermediate = {}
     out = {} 
 
     #dicts to store the activations
+    q_activation = {}
+    k_activation = {}
+    v_activation = {}
+  
     ao_activation = {}
     intermediate_activation = {}
     out_activation = {} 
+
+    
     attention_data = {}        
 
     # dict to store  probabilities
@@ -258,16 +265,22 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
 
     for pair_sentences , labels in tqdm(dataloader):
 
-        # if batch_idx == 4:
-        #     print(f"stop batching at index : {batch_idx}")
-        #     break
+        if batch_idx == 4:
+            print(f"stop batching at index : {batch_idx}")
+            break
 
         for do in ['do-treatment','no-treatment']:
 
             if do not in ao_activation.keys():
+                
+                q_activation[do] = {}
+                k_activation[do] = {}
+                v_activation[do] = {}
+                
                 ao_activation[do] = {}
                 intermediate_activation[do] = {}
                 out_activation[do] = {} 
+                
                 distributions[do] = {} 
             
             pair_sentences[do] = [[premise, hypo] for premise, hypo in zip(pair_sentences[do][0], pair_sentences[do][1])]
@@ -292,6 +305,10 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
             # register forward hooks on all layers
             for layer in layers:
 
+                q[layer] = q_layer(layer).register_forward_hook(get_activation(layer, do, q_activation))
+                k[layer] = k_layer(layer).register_forward_hook(get_activation(layer, do, k_activation))
+                v[layer] = v_layer(layer).register_forward_hook(get_activation(layer, do, v_activation))
+                
                 ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation))
                 intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation))
                 out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation))
@@ -301,6 +318,11 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
  
             # detach the hooks
             for layer in layers:
+                
+                q[layer].remove()
+                k[layer].remove()
+                v[layer].remove()
+                
                 ao[layer].remove()
                 intermediate[layer].remove()
                 out[layer].remove()
@@ -309,9 +331,14 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
 
     with open('../pickles/activated_components.pickle', 'wb') as handle:
 
+        pickle.dump(q_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(k_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(v_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
         pickle.dump(ao_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(intermediate_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(out_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
         pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         print(f"save activate components done ! ")
