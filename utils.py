@@ -5,7 +5,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import numpy as np
+import gc
 #from fairseq.data.data_utils import collate_tokens
+
+def report_gpu():
+   print(torch.cuda.list_gpu_processes())
+#    gc.collect()
+#    torch.cuda.empty_cache()
 
 
 class BertAttentionOverride(nn.Module):
@@ -206,15 +212,19 @@ def group_by_treatment(thresholds, overlap_score, gold_label):
         return "exclude"
 
 
-def get_activation(layer, do, activation):
-  
+def get_activation(layer, do, activation, DEVICE):
+
   # the hook signature
   def hook(model, input, output):
     
+    # print(f"layer : {layer}, do : {do}, {output.shape} ")
+    
     if layer not in activation[do].keys():
-        activation[do][layer] = []
+        
+        activation[do][layer] = 0
 
-    activation[do][layer].append(output.detach())
+    # grab representation of [CLS] then sum up
+    activation[do][layer] += torch.sum(output.detach()[:,0,:], dim=0)
   
   return hook
 
@@ -259,15 +269,17 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
     # dict to store  probabilities
     distributions = {}
 
-    inputs = {}
+    counter = 0
 
     batch_idx = 0
 
     for pair_sentences , labels in tqdm(dataloader):
 
-        if batch_idx == 4:
-            print(f"stop batching at index : {batch_idx}")
-            break
+        # if batch_idx == 2:
+        #     print(f"stop batching at index : {batch_idx}")
+        #     break
+        counter += len(pair_sentences['do-treatment'][0])
+        print(f"current : {counter}")
 
         for do in ['do-treatment','no-treatment']:
 
@@ -284,62 +296,73 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
                 distributions[do] = {} 
             
             pair_sentences[do] = [[premise, hypo] for premise, hypo in zip(pair_sentences[do][0], pair_sentences[do][1])]
-            inputs[do] = tokenizer(pair_sentences[do], padding=True, truncation=True, return_tensors="pt")
 
-            inputs[do] = {k: v.to(DEVICE) for k,v in inputs[do].items()}
+            # inputs[do] = tokenizer(pair_sentences[do], padding=True, truncation=True, return_tensors="pt")
+            inputs = tokenizer(pair_sentences[do], padding=True, truncation=True, return_tensors="pt")
+
+            # inputs[do] = {k: v.to(DEVICE) for k,v in inputs[do].items()}
+            inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
             
-            # get attention weight 
-            outputs = model(**inputs[do], output_attentions = True)
-
-            logits = outputs.logits
-            # labels 0: contradiction, 1: entailment, 2: neutral
-            # predictions = logits.argmax(dim=1)
-            # print(f"current prediction of {do} : {predictions[:10]}")
-            # print(f"current labels {do} : {labels[do][:10]}")
-
-            if do not in attention_data.keys():
-                attention_data[do] = [outputs.attentions]
-            else:
-                attention_data[do].append(outputs.attentions)
-
-            # register forward hooks on all layers
-            for layer in layers:
-
-                q[layer] = q_layer(layer).register_forward_hook(get_activation(layer, do, q_activation))
-                k[layer] = k_layer(layer).register_forward_hook(get_activation(layer, do, k_activation))
-                v[layer] = v_layer(layer).register_forward_hook(get_activation(layer, do, v_activation))
+            with torch.no_grad():    
                 
-                ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation))
-                intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation))
-                out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation))
+                # get attention weight 
+                # outputs = model(**inputs[do], output_attentions = True)
+                # report_gpu()
 
-            # get activatation
-            outputs = model(**inputs[do])
- 
-            # detach the hooks
-            for layer in layers:
+                # labels 0: contradiction, 1: entailment, 2: neutral
+
+                # if do not in attention_data.keys():
+                #     attention_data[do] = [outputs.attentions]
+                # else:
+                #     attention_data[do].append(outputs.attentions)
+
+                # register forward hooks on all layers
+                for layer in layers:
+
+                    q[layer] = q_layer(layer).register_forward_hook(get_activation(layer, do, q_activation, counter ))
+                    k[layer] = k_layer(layer).register_forward_hook(get_activation(layer, do, k_activation, counter ))
+                    v[layer] = v_layer(layer).register_forward_hook(get_activation(layer, do, v_activation, counter ))
+                    
+                    ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation, counter))
+                    intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation, counter))
+                    out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation, counter))
+
+                # get activatation
+                outputs = model(**inputs)
+                # outputs = model(**inputs[do])
+
+                del outputs
                 
-                q[layer].remove()
-                k[layer].remove()
-                v[layer].remove()
+                report_gpu()
+    
+                # detach the hooks
+                for layer in layers:
+                    
+                    q[layer].remove()
+                    k[layer].remove()
+                    v[layer].remove()
+                    
+                    ao[layer].remove()
+                    intermediate[layer].remove()
+                    out[layer].remove()
+            
+            # inputs[do] = {k: v.to('cpu') for k,v in inputs[do].items()}
                 
-                ao[layer].remove()
-                intermediate[layer].remove()
-                out[layer].remove()
         
         batch_idx += 1
+
 
     with open('../pickles/activated_components.pickle', 'wb') as handle:
 
         pickle.dump(q_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(k_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(v_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
         pickle.dump(ao_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(intermediate_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(out_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
         pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
         print(f"save activate components done ! ")
 
@@ -378,46 +401,3 @@ def test_mask(neuron_candidates =[]):
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
 
-
-"""
-neuron_intervention
-- context
-- outputs
-- rep
-- layers
-- neurons
-- position
-- intervention_type
-- alpha
-
-intervention_hook:
-- pos : input, output
-- alternative : positiion, neurons, intervention, intervention_type
-
-others:
-- base_string: eg. doctor said that {}
-- substitutes : male or female pronoun 
-- candidates : occupation of male and female : list 
-- position: index of word that is last position of base_string that will be replaced
-    * we dont use because we considering word overlap decomposed into high_word_overlap, low_word_overlap
-
-- context; eg. the teacher said that 
-- intervention.condidates_tok
-- rep
-- layer_to_search
-- neuron_to_search
-- interventoin.position
-
-base_sentence = "The {} said that"
-biased_word = "teacher"
-intervention = Intervention(
-        tokenizer,
-        base_string = base_sentence,
-        substitutes = [biased_word, "man", "woman"],
-        candidates = ["he", "she"],
-        device=DEVICE)
-
-
-interventions = {biased_word: intervention}
-
-"""

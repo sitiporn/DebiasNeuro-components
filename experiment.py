@@ -9,9 +9,11 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask
-from utils import collect_output_components
+from utils import collect_output_components, report_gpu
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
+import torch.nn.functional as F
+
 from nn_pruning.patch_coordinator import (
     SparseTrainingArguments,
     ModelPatchingCoordinator,
@@ -172,98 +174,47 @@ def get_average_activations(path, layers, heads):
     # load all output components 
     with open(path, 'rb') as handle:
         
-        q_activation = pickle.load(handle)
-        k_activation = pickle.load(handle)
-        v_activation = pickle.load(handle)
-        
-        ao_activation = pickle.load(handle)
-        intermediate_activation = pickle.load(handle)
-        out_activation = pickle.load(handle)
+        # get [CLS] activation 
+        q_cls = pickle.load(handle)
+        k_cls = pickle.load(handle)
+        v_cls = pickle.load(handle)
+        ao_cls = pickle.load(handle)
+        intermediate_cls = pickle.load(handle)
+        out_cls = pickle.load(handle)
         
         attention_data = pickle.load(handle)
+        counter = pickle.load(handle)
 
-    q_cls  = {}
-    k_cls  = {}
-    v_cls  = {}
-    
-    ao_cls = {}
-    intermediate_cls = {}
-    out_cls = {}
-    attention_cls = {}
-
-    # Todo: 
-    # 1. get average over [CLS] of High overlap; do-treatment
-    # 2. get average over [CLS] of High overlap; no-treatment
-
-    # Todo: loop over [CLS] token across batches 
-    # compute average of [CLS]
-
-
-    for batch_idx in range(len(attention_data['do-treatment'])):
-
-        for do in ['do-treatment','no-treatment']:
-
-            if do not in ao_cls.keys():
-
-                q_cls[do] = {}
-                k_cls[do] = {}
-                v_cls[do] = {} 
-                
-                ao_cls[do] = {}
-                intermediate_cls[do] = {}
-                out_cls[do] = {}
-                # attention_cls[do] = {}
-
-            for layer in layers:
-
-                if  layer not in ao_cls[do].keys():
-
-                    q_cls[do][layer] = []
-                    k_cls[do][layer] = []
-                    v_cls[do][layer] = []                   
-                    
-                    ao_cls[do][layer] = []
-                    intermediate_cls[do][layer] = []
-                    out_cls[do][layer] = []
-
-                # grab [CLS]
-                # batch_size, seq_len, hidden_dim
-                q_cls[do][layer].append(q_activation[do][layer][batch_idx][:, 0, :])
-                k_cls[do][layer].append(k_activation[do][layer][batch_idx][:, 0, :])
-                v_cls[do][layer].append(v_activation[do][layer][batch_idx][:, 0, :])
-
-                ao_cls[do][layer].append(ao_activation[do][layer][batch_idx][:, 0, :])
-                intermediate_cls[do][layer].append(intermediate_activation[do][layer][batch_idx][:, 0, :])
-                out_cls[do][layer].append(out_activation[do][layer][batch_idx][:, 0, :])
-
-                #  in heads:
-                #     # batch_size, num_heads, seq_len, seq_len
-                #     attention_data['do-treatment'][batch_idx][layer][heads] 
+    # get average of [CLS] activations
+    q_cls_avg = {}
+    k_cls_avg = {}
+    v_cls_avg = {}
+    ao_cls_avg = {}
+    intermediate_cls_avg = {}
+    out_cls_avg = {}
     
     for do in ['do-treatment','no-treatment']:
+
+        q_cls_avg[do] = {}
+        k_cls_avg[do] = {}
+        v_cls_avg[do] = {}
+        ao_cls_avg[do] = {}
+        intermediate_cls_avg[do] = {}
+        out_cls_avg[do] = {}
          
          # concate all batches
         for layer in layers:
 
-            # convert list to tensor
-            q_cls[do][layer] = torch.cat(q_cls[do][layer], dim=0)    
-            k_cls[do][layer] = torch.cat(k_cls[do][layer], dim=0)    
-            v_cls[do][layer] = torch.cat(v_cls[do][layer], dim=0)    
-
-            ao_cls[do][layer] = torch.cat(ao_cls[do][layer], dim=0)    
-            intermediate_cls[do][layer] = torch.cat(intermediate_cls[do][layer], dim=0)    
-            out_cls[do][layer] = torch.cat(out_cls[do][layer], dim=0)    
-
             # compute average over samples
-            q_cls[do][layer] = torch.mean(q_cls[do][layer], dim=0)
-            k_cls[do][layer] = torch.mean(k_cls[do][layer], dim=0)
-            v_cls[do][layer] = torch.mean(v_cls[do][layer], dim=0)
+            q_cls_avg[do][layer] = q_cls[do][layer] / counter
+            k_cls_avg[do][layer] = k_cls[do][layer] / counter
+            v_cls_avg[do][layer] = v_cls[do][layer] / counter
 
-            ao_cls[do][layer] = torch.mean(ao_cls[do][layer], dim=0)
-            intermediate_cls[do][layer] = torch.mean(intermediate_cls[do][layer] , dim=0)
-            out_cls[do][layer] = torch.mean(out_cls[do][layer], dim=0)
+            ao_cls_avg[do][layer] = ao_cls[do][layer] / counter
+            intermediate_cls_avg[do][layer] = intermediate_cls[do][layer] / counter
+            out_cls_avg[do][layer] = out_cls[do][layer] / counter
 
-    return q_cls, k_cls, v_cls, ao_cls, intermediate_cls,  out_cls 
+    return q_cls_avg, k_cls_avg, v_cls_avg, ao_cls_avg, intermediate_cls_avg,  out_cls_avg
 
 def neuron_intervention(neuron_ids, 
                        value,
@@ -294,19 +245,28 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
     q_cls_avg, k_cls_avg, v_cls_avg, ao_cls_avg, intermediate_cls_avg,  out_cls_avg = get_average_activations(path, layers, heads)
 
     breakpoint()
+
+    pairs = {}
+
     # For every samples
     # E(Yi|Xi=1)−E(Yi|Xi=0) 
-
-    # HOL and LOL
 
     # guess prediction
     # for pair_sentences , labels in tqdm(dataloader):
 
-    # Todo get pair sentences of all overlap scores
-    pair_labels = list(experiment_set.df.pair_label)
-    dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pair_labels)]
+    # Todo get pair sentences of all overlap scores 
+
+    pairs["entailment"] = list(experiment_set.df[experiment_set.df.gold_label == "entailment"].pair_label)
+    
+    #pair_labels = list(experiment_set.df.pair_label)
+
+    dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
     dataloader = DataLoader(dataset, batch_size=32)
 
+    q_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.query
+    k_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.key
+    v_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.value
+    
     # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
     self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
     intermediate_layer = lambda layer : model.bert.encoder.layer[layer].intermediate
@@ -317,53 +277,59 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
         premise, hypo = sentences
 
         pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
+
+        distributions = {}
         
         inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
         inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
 
         outputs = model(**inputs)
-        logits = outputs.logits
-        predictions = logits.argmax(dim=1)
+        distributions['normal'] = F.softmax(outputs.logits ,dim=-1)
+        distributions['intervene'] = {}
 
         print(f"normal prediction : ")
-        print(predictions)
+        print(distributions['normal'])
 
         # run one full neuron intervention experiment
         for do in ['do-treatment','no-treatment']:
+            # Todo : add qeury, key and value 
             for layer in layers:
                 
-                # get each prediction for nueron intervention
-                # for neuron_id in range(ao_cls_avg[do][layer].shape[0]):
-                #     # select layer to register  and input which neurons to intervene
-                #     hooks = [] 
-
-
-                #     neuron_ids = [*range(0, ao_cls_avg[do][layer].shape[0], 1)]
-
-                #     # dont forget to change 11th to layer variable !
-                #     hooks.append(self_output(layer).register_forward_hook(neuron_intervention(neuron_ids = neuron_ids, 
-                #                                                               value = ao_cls_avg[do][11])))
+                distributions['intervene'][layer] = {}
                 
-                #     outputs = model(**inputs)
-                #     logits = outputs.logits
-                #     new_predictions = logits.argmax(dim=1)
-
-                #     print(f"intervene prediction")
-                #     print(predictions.eq(new_predictions))
+                # get each prediction for nueron intervention
+                for neuron_id in range(ao_cls_avg[do][layer].shape[0]):
                     
-                #     for hook in hooks: hook.remove() 
+                    # select layer to register  and input which neurons to intervene
+                    hooks = [] 
 
+                    neuron_ids = [*range(0, ao_cls_avg[do][layer].shape[0], 1)]
 
-                # for nueron_id in range(intermediate_cls_avg[do][layer].shape[0]):
-
-                #     hooks = [] 
-                #     hooks.append(intermediate_layer(layer).register_forward_hook(neuron_intervention()))
-
-                #     outputs = model(**inputs)
-                #     logits = outputs.logits
-                #     predictions = logits.argmax(dim=1)
+                    # dont forget to change 11th to layer variable !
+                    hooks.append(self_output(layer).register_forward_hook(neuron_intervention(neuron_ids = neuron_ids, 
+                                                                              value = ao_cls_avg[do][11])))
+                
+                    outputs = model(**inputs)
+                    logits = outputs.logits
                     
-                #     for hook in hooks: hook.remove() 
+                    distributions['intervene'][layer][neuron_id] = F.softmax(outputs.logits ,dim=-1)
+
+                    # print(f"intervene prediction")
+                    # print(predictions.eq(new_predictions))
+                    
+                    for hook in hooks: hook.remove() 
+
+
+                for nueron_id in range(intermediate_cls_avg[do][layer].shape[0]):
+
+                    hooks = [] 
+                    hooks.append(intermediate_layer(layer).register_forward_hook(neuron_intervention()))
+
+                    outputs = model(**inputs)
+                    logits = outputs.logits
+                    predictions = logits.argmax(dim=1)
+                    
+                    for hook in hooks: hook.remove() 
                 
                 for nueron_id in range(out_cls_avg[do][layer].shape[0]):
                     
@@ -379,24 +345,19 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
                     logits = outputs.logits
                     new_predictions = logits.argmax(dim=1)
 
-                    print(f"intervene prediction")
-                    print(new_predictions)
+                    # print(f"intervene prediction")
+                    # print(new_predictions)
 
-                    print(f"== compare result ==")
-                    print(predictions.eq(new_predictions))
-                    print(f"# not change : {torch.sum(predictions.eq(new_predictions))}")
+                    # print(f"== compare result ==")
+                    # print(predictions.eq(new_predictions))
+                    # print(f"# not change : {torch.sum(predictions.eq(new_predictions))}")
                     
                     for hook in hooks: hook.remove() 
 
                     breakpoint()
 
-
 def main():
 
-    # note: cannot concate because batching different seq_len
-    # so that we select only the [CLS] token as sentence representation
-    # just save it to pickles
-    
     DEBUG = True
     
     data_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
@@ -411,18 +372,9 @@ def main():
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    # test_mask()
-    
-    # model = RobertaModel.from_pretrained('../models/roberta.large.mnli', checkpoint_file='model.pt') 
-    # bpe='../models/encoder.json')
-
     tokenizer = AutoTokenizer.from_pretrained("../bert-base-uncased-mnli/")
     model = AutoModelForSequenceClassification.from_pretrained("../bert-base-uncased-mnli/")
-    
-    
     model = model.to(DEVICE)
-    
-    # model2 = AutoModelForSequenceClassification.from_pretrained("ishan/bert-base-uncased-mnli")
     
     # Todo: balance example between HOL and LOL by sampling from population
     experiment_set = ExperimentDataset(data_path,
@@ -434,25 +386,21 @@ def main():
 
     labels = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
     
-    # model_name = '../models/roberta.large.mnli/model.pt'
-    # model = torch.hub.load('pytorch/fairseq', model_name)
-    # tokenizer = AutoTokenizer.from_pretrained(model_name)
     # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
-    
-    # Todo: average score of each neuron's activation across batch
     
     dataloader = DataLoader(experiment_set, 
                             batch_size = 32,
                             shuffle = False, 
                             num_workers=0)
+
  
-    # if not os.path.isfile(component_path):
-    collect_output_components(model = model,
-                            dataloader = dataloader,
-                            tokenizer = tokenizer,
-                            DEVICE = DEVICE,
-                            layers = layers,
-                            heads = heads)
+    if not os.path.isfile(component_path):
+        collect_output_components(model = model,
+                                dataloader = dataloader,
+                                tokenizer = tokenizer,
+                                DEVICE = DEVICE,
+                                layers = layers,
+                                heads = heads)
     
     cma_analysis(path = component_path,
                 model = model,
@@ -481,57 +429,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-X : population of text
-
-note: we cannot random population because text already carry word overlap 
-inside
-
-treatment: high overlap score
-no-treatment: low overlap score
-
-X[do] : population treatment group
-X[no] : population control group  
-
-ATT:
-
-eg. quantify the effect of Tylenol on headache status for people who 
-
-treatment : Tylenol 
-intermediate : taking the pill
-effect : Headache 
-
-
-Total effect:
- amount of bais under a gendered reading
-
-
-In gender bias
-    - captured specific model compontents on pred. eg. subspaces of contextual 
-    word representations
-
-u = The nurse said that {blank}; {} = he/she
-
-base case: 
-
-y_{null}(u) =  p(anti l- streotype | u) / p(streotype | u)
-
-set u to an anti-streotype case:
-    set-gender : nurse ->  man (anti-streriotype)
-        need to  anti-steriotype compare ?
-
-y_{set-gender}(u) =  p(anti-streotype | u) / p(streotype | u)
-
-
-TE(set-gender, null;) = y_{set_gender} - y_{null} / y_{null}
-
-note :
-
-we cannot follow gender bias because the same unit cant perform counterfactual 
-while our case counterfactual are missing so we need to compute in population level
-
-"""
-    
-
-
-    
