@@ -335,22 +335,32 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, label_ma
                         if neuron_id not in NIE[do][component][layer].keys():
                             NIE[do][component][layer][neuron_id] = 0
 
-                        # -2.8014e-06
                         NIE[do][component][layer][neuron_id] += torch.sum( (intervene_probs / probs['null'])-1, dim=0)
                         
                         for hook in hooks: hook.remove() 
                         
-                        
                         print(f"batch{batch_idx}, layer : {layer}, {component}, Z :{neuron_id}")
 
-                        break
+    with open('../pickles/NIE.pickle', 'wb') as handle:
+        pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"Done saving NIE into pickle !")
 
+def get_top_scores(layers):
 
-
+    path = '../pickles/NIE.pickle'
     
-    # with open('../pickles/NIE.pickle', 'wb') as handle:
-
-    #     pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(path, 'rb') as handle:
+        NIE = pickle.load(handle)
+        counter = pickle.load(handle)
+        cls_averages = pickle.load(handle)
+        
+    for do in ['do-treatment','no-treatment']:
+        for layer in layers:
+            for component in ["Q","K","V","AO","I","O"]: 
+                for neuron_id in range(cls_averages[component][do][layer].shape[0]):
+                    NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter
 
 def main():
 
@@ -385,7 +395,7 @@ def main():
     # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
     
     dataloader = DataLoader(experiment_set, 
-                            batch_size = 32,
+                            batch_size = 64,
                             shuffle = False, 
                             num_workers=0)
 
