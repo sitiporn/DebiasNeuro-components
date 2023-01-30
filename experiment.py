@@ -240,121 +240,117 @@ def neuron_intervention(neuron_ids,
 
     return intervention_hook
 
-def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, DEVICE):
+def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, label_maps, DEVICE):
 
-    q_cls_avg, k_cls_avg, v_cls_avg, ao_cls_avg, intermediate_cls_avg,  out_cls_avg = get_average_activations(path, layers, heads)
-
-    breakpoint()
-
+    cls_averages = {}
     pairs = {}
+    NIE = {}
+    mediators = {}
+    counter = 0
 
-    # For every samples
-    # E(Yi|Xi=1)−E(Yi|Xi=0) 
+    cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(path, layers, heads)
 
-    # guess prediction
-    # for pair_sentences , labels in tqdm(dataloader):
-
-    # Todo get pair sentences of all overlap scores 
-
+    report_gpu()
+    
     pairs["entailment"] = list(experiment_set.df[experiment_set.df.gold_label == "entailment"].pair_label)
     
-    #pair_labels = list(experiment_set.df.pair_label)
 
     dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
     dataloader = DataLoader(dataset, batch_size=32)
-
-    q_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.query
-    k_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.key
-    v_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.value
     
-    # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
-    self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
-    intermediate_layer = lambda layer : model.bert.encoder.layer[layer].intermediate
-    output_layer = lambda layer : model.bert.encoder.layer[layer].output
+    # mediator used to intervene
+    mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
+    mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
+    mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
+    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
+    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
+    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
 
-    for i, (sentences, labels) in enumerate(dataloader):
+
+    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader)):
 
         premise, hypo = sentences
 
         pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
 
-        distributions = {}
+        # distributions = {}
+        probs = {}
         
         inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+        
         inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
 
-        outputs = model(**inputs)
-        distributions['normal'] = F.softmax(outputs.logits ,dim=-1)
-        distributions['intervene'] = {}
+        with torch.no_grad(): 
+            # Todo: generalize to distribution if the storage is enough
+            probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
 
-        print(f"normal prediction : ")
-        print(distributions['normal'])
+        counter += probs['null'].shape[0] 
+        
+        report_gpu()
+        
+        # To store all positions
+        probs['intervene'] = {}
 
         # run one full neuron intervention experiment
         for do in ['do-treatment','no-treatment']:
             # Todo : add qeury, key and value 
+
+            NIE[do] = {}
+            probs['intervene'][do] = {}
+
+            for component in ["Q","K","V","AO","I","O"]: 
+                if  component not in NIE[do].keys():
+                    NIE[do][component] = {}
+                
+            # get each prediction for each single nueron intervention
             for layer in layers:
                 
-                distributions['intervene'][layer] = {}
+                # probs['intervene'][do][layer] = {}
+                 
+                # neuron_ids = [*range(0, ao_cls_avg[do][layer].shape[0], 1)]
+
+                for component in ["Q","K","V","AO","I","O"]: 
+
+                    if  layer not in NIE[do][component].keys(): 
+                        NIE[do][component][layer] = {}
                 
-                # get each prediction for nueron intervention
-                for neuron_id in range(ao_cls_avg[do][layer].shape[0]):
-                    
-                    # select layer to register  and input which neurons to intervene
-                    hooks = [] 
+                    for neuron_id in range(cls_averages[component][do][layer].shape[0]):
 
-                    neuron_ids = [*range(0, ao_cls_avg[do][layer].shape[0], 1)]
-
-                    # dont forget to change 11th to layer variable !
-                    hooks.append(self_output(layer).register_forward_hook(neuron_intervention(neuron_ids = neuron_ids, 
-                                                                              value = ao_cls_avg[do][11])))
-                
-                    outputs = model(**inputs)
-                    logits = outputs.logits
-                    
-                    distributions['intervene'][layer][neuron_id] = F.softmax(outputs.logits ,dim=-1)
-
-                    # print(f"intervene prediction")
-                    # print(predictions.eq(new_predictions))
-                    
-                    for hook in hooks: hook.remove() 
-
-
-                for nueron_id in range(intermediate_cls_avg[do][layer].shape[0]):
-
-                    hooks = [] 
-                    hooks.append(intermediate_layer(layer).register_forward_hook(neuron_intervention()))
-
-                    outputs = model(**inputs)
-                    logits = outputs.logits
-                    predictions = logits.argmax(dim=1)
-                    
-                    for hook in hooks: hook.remove() 
-                
-                for nueron_id in range(out_cls_avg[do][layer].shape[0]):
-                    
-                    hooks = [] 
-
-                    neuron_ids = [*range(0, out_cls_avg[do][layer].shape[0], 1)]
-                    
-                    # dont forget to change 11th to layer variable !
-                    hooks.append(output_layer(layer).register_forward_hook(neuron_intervention(neuron_ids = neuron_ids, 
-                                                                    value = out_cls_avg[do][11])))
+                        # NIE[do][layer][neuron_id] = {}
                         
-                    outputs = model(**inputs)
-                    logits = outputs.logits
-                    new_predictions = logits.argmax(dim=1)
+                        # select layer to register and input which neurons to intervene
+                        hooks = [] 
 
-                    # print(f"intervene prediction")
-                    # print(new_predictions)
+                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], value = cls_averages[component][do][layer])))
+                        
+                        with torch.no_grad(): 
+                            # probs['intervene'][layer][neuron_id] 
+                            intervene_probs = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
 
-                    # print(f"== compare result ==")
-                    # print(predictions.eq(new_predictions))
-                    # print(f"# not change : {torch.sum(predictions.eq(new_predictions))}")
-                    
-                    for hook in hooks: hook.remove() 
 
-                    breakpoint()
+                        report_gpu()
+                        
+                        # compute NIE
+                        # Eu [ynull,zset-gender (u) (u)/ynull (u) − 1].
+                        if neuron_id not in NIE[do][component][layer].keys():
+                            NIE[do][component][layer][neuron_id] = 0
+
+                        # -2.8014e-06
+                        NIE[do][component][layer][neuron_id] += torch.sum( (intervene_probs / probs['null'])-1, dim=0)
+                        
+                        for hook in hooks: hook.remove() 
+                        
+                        
+                        print(f"batch{batch_idx}, layer : {layer}, {component}, Z :{neuron_id}")
+
+                        break
+
+
+
+    
+    # with open('../pickles/NIE.pickle', 'wb') as handle:
+
+    #     pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def main():
 
@@ -384,7 +380,7 @@ def main():
                              encode = tokenizer
                             )
 
-    labels = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
+    label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
     
     # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
     
@@ -404,10 +400,11 @@ def main():
     
     cma_analysis(path = component_path,
                 model = model,
-                layers = layers,
+                layers = layers[:4],
                 heads  =  heads,
                 tokenizer = tokenizer,
                 experiment_set = experiment_set,
+                label_maps = label_maps,
                 DEVICE = DEVICE)
     
     # prunning(model = model,
