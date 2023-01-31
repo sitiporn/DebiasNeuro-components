@@ -35,5 +35,9 @@ as they are rely on shortcut word
 2. Interpret attention head 
     - the assumption; most will attention word overlap
 
+## Urgent Tackles
 
-
+1. Tackling by reducing the size of dataset
+check amount of dataset between Gender bias and NLI set
+    - if it's huge different let sampling data get smaller chunk from population
+2. others technique from Nuerips' paper
