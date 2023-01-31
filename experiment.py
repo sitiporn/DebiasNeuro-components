@@ -12,6 +12,8 @@ from utils import Intervention, get_overlap_thresholds, group_by_treatment, test
 from utils import collect_output_components, report_gpu
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
+import argparse
+import sys
 import torch.nn.functional as F
 
 from nn_pruning.patch_coordinator import (
@@ -240,7 +242,7 @@ def neuron_intervention(neuron_ids,
 
     return intervention_hook
 
-def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, label_maps, DEVICE):
+def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, DEVICE):
 
     cls_averages = {}
     pairs = {}
@@ -250,7 +252,7 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, label_ma
 
     cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(path, layers, heads)
 
-    report_gpu()
+    # report_gpu()
     
     pairs["entailment"] = list(experiment_set.df[experiment_set.df.gold_label == "entailment"].pair_label)
     
@@ -266,8 +268,7 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, label_ma
     mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
     mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
 
-
-    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader)):
+    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc="DataLoader")):
 
         premise, hypo = sentences
 
@@ -286,13 +287,13 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, label_ma
 
         counter += probs['null'].shape[0] 
         
-        report_gpu()
+        # report_gpu()
         
         # To store all positions
         probs['intervene'] = {}
 
         # run one full neuron intervention experiment
-        for do in ['do-treatment','no-treatment']:
+        for do in treatments: # ['do-treatment','no-treatment']
             # Todo : add qeury, key and value 
 
             NIE[do] = {}
@@ -303,13 +304,12 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, label_ma
                     NIE[do][component] = {}
                 
             # get each prediction for each single nueron intervention
-            for layer in layers:
+            for layer in tqdm(layers, desc="layers"):
                 
                 # probs['intervene'][do][layer] = {}
                  
                 # neuron_ids = [*range(0, ao_cls_avg[do][layer].shape[0], 1)]
-
-                for component in ["Q","K","V","AO","I","O"]: 
+                for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
 
                     if  layer not in NIE[do][component].keys(): 
                         NIE[do][component][layer] = {}
@@ -327,8 +327,7 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, label_ma
                             # probs['intervene'][layer][neuron_id] 
                             intervene_probs = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
 
-
-                        report_gpu()
+                        # report_gpu()
                         
                         # compute NIE
                         # Eu [ynull,zset-gender (u) (u)/ynull (u) − 1].
@@ -339,9 +338,9 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, label_ma
                         
                         for hook in hooks: hook.remove() 
                         
-                        print(f"batch{batch_idx}, layer : {layer}, {component}, Z :{neuron_id}")
-
-    with open('../pickles/NIE.pickle', 'wb') as handle:
+                        # print(f"batch{batch_idx}, layer : {layer}, {component}, Z :{neuron_id}")
+    
+    with open(f'../pickles/NIE_{treatments[0]}_{layers[0]}.pickle', 'wb') as handle:
         pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -350,27 +349,54 @@ def cma_analysis(path, model, layers, heads, tokenizer, experiment_set, label_ma
 def get_top_scores(layers):
 
     path = '../pickles/NIE.pickle'
+
+    ranking_nie = {}
     
     with open(path, 'rb') as handle:
         NIE = pickle.load(handle)
         counter = pickle.load(handle)
         cls_averages = pickle.load(handle)
         
+    # compute average NIE
     for do in ['do-treatment','no-treatment']:
         for layer in layers:
             for component in ["Q","K","V","AO","I","O"]: 
                 for neuron_id in range(cls_averages[component][do][layer].shape[0]):
-                    NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter
+                    ranking_nie[do][layer][component +"-"+str(neuron_id)] = NIE[do][component][layer][neuron_id] / counter
+    
+
+    #  get top scores
 
 def main():
 
-    DEBUG = True
     
+    parser = argparse.ArgumentParser()
+
+    ## Required parameters
+    parser.add_argument("--layer",
+                        type=int,
+                        default=0,
+                        required=True,
+                        help="layers to intervene")
+    
+    parser.add_argument("--treatment",
+                        type=bool,
+                        default=True,
+                        required=True,
+                        help="high or low overlap")
+
+    args = parser.parse_args()
+
+    layer = args.layer
+    do = args.treatment
+
+    DEBUG = True
     data_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     component_path = '../pickles/activated_components.pickle'
     json_file = 'multinli_1.0_train.jsonl'
     upper_bound = 80
     lower_bound = 20
+
     
     # Todo: generalize for every model 
     layers = [*range(0, 12, 1)]
@@ -408,9 +434,20 @@ def main():
                                 layers = layers,
                                 heads = heads)
     
+    if do: 
+        treatment = ['do-treatment']
+    else:
+        treatment = ['no-treatment']
+
+    layer = [layer]
+
+    print(f"layer : {layer}") 
+    print(f"treatment : {treatment}") 
+
     cma_analysis(path = component_path,
                 model = model,
-                layers = layers[:4],
+                layers = layer,
+                treatments = treatment,
                 heads  =  heads,
                 tokenizer = tokenizer,
                 experiment_set = experiment_set,
