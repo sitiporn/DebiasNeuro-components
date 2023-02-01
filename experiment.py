@@ -14,8 +14,9 @@ from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
 import sys
+import operator
 import torch.nn.functional as F
-
+import numpy as np
 from nn_pruning.patch_coordinator import (
     SparseTrainingArguments,
     ModelPatchingCoordinator,
@@ -242,7 +243,7 @@ def neuron_intervention(neuron_ids,
 
     return intervention_hook
 
-def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, DEVICE):
+def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, num_sampling, DEVICE):
 
     cls_averages = {}
     pairs = {}
@@ -255,9 +256,27 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
     # report_gpu()
     
     pairs["entailment"] = list(experiment_set.df[experiment_set.df.gold_label == "entailment"].pair_label)
-    
 
-    dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
+    # sampling samples from population
+    indexes = [*range(0, len(pairs['entailment']), 1)]
+    
+    sampling_idxes = []
+
+    # sampling 
+    for  i in range(num_sampling):
+        idx = random.choice(indexes)
+
+        while idx in sampling_idxes:
+            idx = random.choice(indexes)
+
+        sampling_idxes.append(idx)
+
+    assert len(set(sampling_idxes)) == num_sampling
+
+    pairs['entailment'] = np.array(pairs['entailment'])[sampling_idxes,:].tolist()    
+
+    # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
+    dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
     dataloader = DataLoader(dataset, batch_size=32)
     
     # mediator used to intervene
@@ -334,6 +353,7 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
                         if neuron_id not in NIE[do][component][layer].keys():
                             NIE[do][component][layer][neuron_id] = 0
 
+                        breakpoint()
                         NIE[do][component][layer][neuron_id] += torch.sum( (intervene_probs / probs['null'])-1, dim=0)
                         
                         for hook in hooks: hook.remove() 
@@ -346,11 +366,12 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
         pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving NIE into pickle !")
 
-def get_top_scores(layers):
+def get_top_scores(layers, treatments, top_k):
 
-    path = '../pickles/NIE.pickle'
+    path = f'../pickles/NIE_{treatments[0]}_{layers[0]}.pickle'
 
     ranking_nie = {}
+    top_neurons = {}
     
     with open(path, 'rb') as handle:
         NIE = pickle.load(handle)
@@ -358,14 +379,19 @@ def get_top_scores(layers):
         cls_averages = pickle.load(handle)
         
     # compute average NIE
-    for do in ['do-treatment','no-treatment']:
+    for do in treatments: #['do-treatment','no-treatment']:
         for layer in layers:
             for component in ["Q","K","V","AO","I","O"]: 
                 for neuron_id in range(cls_averages[component][do][layer].shape[0]):
-                    ranking_nie[do][layer][component +"-"+str(neuron_id)] = NIE[do][component][layer][neuron_id] / counter
-    
+                    NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter
+
+                    ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id]
+                    # Todo: get component and neuron_id and value 
 
     #  get top scores
+    top_neurons[layers[0]] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
+
+    return top_neurons
 
 def main():
 
@@ -381,8 +407,8 @@ def main():
     
     parser.add_argument("--treatment",
                         type=bool,
-                        default=True,
-                        required=True,
+                        default=False,
+                        required=False,
                         help="high or low overlap")
 
     args = parser.parse_args()
@@ -394,6 +420,8 @@ def main():
     data_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     component_path = '../pickles/activated_components.pickle'
     json_file = 'multinli_1.0_train.jsonl'
+    num_sampling = 2000
+    
     upper_bound = 80
     lower_bound = 20
 
@@ -418,22 +446,6 @@ def main():
 
     label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
     
-    # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
-    
-    dataloader = DataLoader(experiment_set, 
-                            batch_size = 64,
-                            shuffle = False, 
-                            num_workers=0)
-
- 
-    if not os.path.isfile(component_path):
-        collect_output_components(model = model,
-                                dataloader = dataloader,
-                                tokenizer = tokenizer,
-                                DEVICE = DEVICE,
-                                layers = layers,
-                                heads = heads)
-    
     if do: 
         treatment = ['do-treatment']
     else:
@@ -441,9 +453,33 @@ def main():
 
     layer = [layer]
 
-    print(f"layer : {layer}") 
-    print(f"treatment : {treatment}") 
+    top_neurons = get_top_scores(layers = layer, treatments = treatment, top_k=5)
 
+    with open(f'../pickles/top_neuron_{treatment[0]}_{layer[0]}.pickle', 'wb') as handle:
+        pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"Done saving top neurons into pickle !")
+
+    # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
+    
+    # dataloader = DataLoader(experiment_set, 
+    #                         batch_size = 64,
+    #                         shuffle = False, 
+    #                         num_workers=0)
+
+ 
+    # if not os.path.isfile(component_path):
+    #     collect_output_components(model = model,
+    #                             dataloader = dataloader,
+    #                             tokenizer = tokenizer,
+    #                             DEVICE = DEVICE,
+    #                             layers = layers,
+    #                             heads = heads)
+  
+
+    # print(f"layer : {layer}") 
+    # print(f"treatment : {treatment}") 
+
+    """
     cma_analysis(path = component_path,
                 model = model,
                 layers = layer,
@@ -452,8 +488,9 @@ def main():
                 tokenizer = tokenizer,
                 experiment_set = experiment_set,
                 label_maps = label_maps,
+                num_sampling = num_sampling,
                 DEVICE = DEVICE)
-    
+    """
     # prunning(model = model,
     #          layers= [0, 1, 2, 3, 4])
     
