@@ -366,21 +366,23 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
         pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving NIE into pickle !")
 
-def get_top_k_(layers, treatments, top_k):
-
-    path = f'../pickles/NIE_{treatments[0]}_{layers[0]}.pickle'
-
-    
-    with open(path, 'rb') as handle:
-        NIE = pickle.load(handle)
-        counter = pickle.load(handle)
-        cls_averages = pickle.load(handle)
+def get_top_k(layers, treatments=['do-treatment','no-treatment'], top_k=5):
         
+ 
     # compute average NIE
-    for do in ['do-treatment','no-treatment']:
+    for do in treatments:
+        
         for layer in layers:
             
             ranking_nie = {}
+        
+            read_path = f'../pickles/NIE_{do}_{layer}.pickle'
+            
+            with open(read_path, 'rb') as handle:
+                NIE = pickle.load(handle)
+                counter = pickle.load(handle)
+                cls_averages = pickle.load(handle)
+                print(f"current : {read_path}")
             
             for component in ["Q","K","V","AO","I","O"]: 
             
@@ -388,12 +390,9 @@ def get_top_k_(layers, treatments, top_k):
             
                     NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter
 
-            
                     ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
             
                     # Todo: get component and neuron_id and value 
-
-            
             
             top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
             
@@ -463,11 +462,10 @@ def main():
     layer = [layer]
 
     if layer[0] == -1:
- 
+        get_top_k_(layers[:7])
 
         return
-
-    breakpoint()
+ 
 
 
     # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
