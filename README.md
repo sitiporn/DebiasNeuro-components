@@ -4,15 +4,16 @@
 - [x] testing attention intervention
 - [x] testing neurons intervention
 - [x] grouping entailments by treatment
-- [ ] naive approach on Indirect effect
-    - [x] logging all neurons into pickle file
-    - [x] compute average activations of [CLS]  from HOL set
-    - [x] compute average activations of [CLS] from LOL set
-    - [ ] compute causal effect between HOL set and HOL set replaced by average output neurons of LOL set 
-    - [ ] compute causal effect between LOL set and LOL set replaced by average output neurons of HOL set
-    - [ ] compute causal effect of all samples between original one and the one replaced by average output neurons of HOL set and  LOL set
+- [ ] NIE of individual neurons
+    - [ ]use validation set samples 2000 by balancing entailment and non-entailment(neutral and contradiction) inference from splited validation set to get predictions
+    - [ ] perform data analysis to get theshold word overlap 80 percent and 20 percent from splited validation set to get HOL and LOL set
+    - [ ] balance samples of HOL and LOL set to compute average of [CLS] of every neuron across HOL and LOL set separately
+    - [ ] Compute NIE from splited validate set (every word overlap score used)
 
-- [ ] compute NIE and TE using replace the feature
+- [ ] NIE of set of neurons
+    - [ ] intervene each set of neurons in first and second half of each linear layer of each modules (Q, K, V, AO, I, O)
+
+
 
 ## General Tackles
 1. modifying embedding space to do counterfactual inference
@@ -35,9 +36,3 @@ as they are rely on shortcut word
 2. Interpret attention head 
     - the assumption; most will attention word overlap
 
-## Urgent Tackles
-
-1. Tackling by reducing the size of dataset
-check amount of dataset between Gender bias and NLI set
-    - if it's huge different let sampling data get smaller chunk from population
-2. others technique from Nuerips' paper
