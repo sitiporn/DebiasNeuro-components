@@ -366,12 +366,10 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
         pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving NIE into pickle !")
 
-def get_top_scores(layers, treatments, top_k):
+def get_top_k_(layers, treatments, top_k):
 
     path = f'../pickles/NIE_{treatments[0]}_{layers[0]}.pickle'
 
-    ranking_nie = {}
-    top_neurons = {}
     
     with open(path, 'rb') as handle:
         NIE = pickle.load(handle)
@@ -379,19 +377,30 @@ def get_top_scores(layers, treatments, top_k):
         cls_averages = pickle.load(handle)
         
     # compute average NIE
-    for do in treatments: #['do-treatment','no-treatment']:
+    for do in ['do-treatment','no-treatment']:
         for layer in layers:
+            
+            ranking_nie = {}
+            
             for component in ["Q","K","V","AO","I","O"]: 
+            
                 for neuron_id in range(cls_averages[component][do][layer].shape[0]):
+            
                     NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter
 
-                    ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id]
+            
+                    ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+            
                     # Todo: get component and neuron_id and value 
 
-    #  get top scores
-    top_neurons[layers[0]] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
+            
+            
+            top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
+            
+            with open(f'../pickles/top_neuron_{do}_{layer}.pickle', 'wb') as handle:
+                pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f"Done saving top neurons into pickle !")
 
-    return top_neurons
 
 def main():
 
@@ -401,8 +410,8 @@ def main():
     ## Required parameters
     parser.add_argument("--layer",
                         type=int,
-                        default=0,
-                        required=True,
+                        default=-1,
+                        required=False,
                         help="layers to intervene")
     
     parser.add_argument("--treatment",
@@ -445,7 +454,7 @@ def main():
                             )
 
     label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
-    
+ 
     if do: 
         treatment = ['do-treatment']
     else:
@@ -453,11 +462,13 @@ def main():
 
     layer = [layer]
 
-    top_neurons = get_top_scores(layers = layer, treatments = treatment, top_k=5)
+    if layer[0] == -1:
+ 
 
-    with open(f'../pickles/top_neuron_{treatment[0]}_{layer[0]}.pickle', 'wb') as handle:
-        pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"Done saving top neurons into pickle !")
+        return
+
+    breakpoint()
+
 
     # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
     
@@ -479,18 +490,16 @@ def main():
     # print(f"layer : {layer}") 
     # print(f"treatment : {treatment}") 
 
-    """
-    cma_analysis(path = component_path,
-                model = model,
-                layers = layer,
-                treatments = treatment,
-                heads  =  heads,
-                tokenizer = tokenizer,
-                experiment_set = experiment_set,
-                label_maps = label_maps,
-                num_sampling = num_sampling,
-                DEVICE = DEVICE)
-    """
+    # cma_analysis(path = component_path,
+    #             model = model,
+    #             layers = layer,
+    #             treatments = treatment,
+    #             heads  =  heads,
+    #             tokenizer = tokenizer,
+    #             experiment_set = experiment_set,
+    #             label_maps = label_maps,
+    #             num_sampling = num_sampling,
+    #             DEVICE = DEVICE)
     # prunning(model = model,
     #          layers= [0, 1, 2, 3, 4])
     
