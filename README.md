@@ -1,9 +1,6 @@
 # Debias Neuro-components leveraging Causal mediation analysis
 
 ## Todo
-- [x] testing attention intervention
-- [x] testing neurons intervention
-- [x] grouping entailments by treatment
 - [ ] NIE of individual neurons
     - [ ] use validation set samples 2000 by balancing entailment and non-entailment(neutral and contradiction) inference from splited validation set to get predictions
     - [ ] perform data analysis to get theshold word overlap 80 percent and 20 percent from splited validation set to get HOL and LOL set
