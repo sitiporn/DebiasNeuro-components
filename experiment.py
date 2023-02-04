@@ -27,12 +27,62 @@ from nn_pruning.patch_coordinator import (
 
 
 class ExperimentDataset(Dataset):
-    def __init__(self, data_path, json_file, upper_bound, lower_bound, encode, DEBUG=False) -> None:
+    def __init__(self, data_path, json_file, upper_bound, lower_bound, encode, num_samples, DEBUG=False) -> None:
 
         data_path = os.path.join(data_path, json_file)
 
         self.df = pd.read_json(data_path, lines=True)
 
+        """
+        Todo:  
+        balancing data into entailment and non-entailment 
+        
+        validation set samples 2000 by balancing entailment and non-entailment(neutral and contradiction) inference from splited validation set to get predictions
+        
+        perform data analysis to get theshold word overlap 80 percent and 20 percent from splited validation set to get HOL and LOL set
+        balance samples of HOL and LOL set to compute average of [CLS] of every neuron across HOL and LOL set separately
+        Compute NIE from splited validate set (every word overlap score used)
+        """
+
+        self.entail_df = self.df[self.df.gold_label == "entailment"].reset_index(drop=True)
+
+        self.non_entail_df = self.df[self.df.gold_label != "entailment"].reset_index(drop=True)
+
+        torch.manual_seed(42)
+        self.num_balance = num_samples // 2
+
+        self.entail_ids = list(torch.randint(0,self.entail_df.shape[0], size=(self.num_balance,)))
+        self.non_entail_ids = list(torch.randint(0, self.non_entail_df.shape[0], size=(self.num_balance,)))
+
+        print(f"before of entail : {len(set(self.entail_ids))} ")
+        print(f"before of non-entail : {len(set(self.non_entail_ids))} ")
+        
+        while len(set(self.entail_ids)) < self.num_balance:
+            
+            id = int(torch.randint(0, self.entail_df.shape[0], size=(1,)))
+            
+            if id not in self.entail_ids:
+                print(f" entail : {id}")
+                self.entail_ids.append(id)
+            
+        while len(set(self.non_entail_ids)) < self.num_balance:
+            
+            id = int(torch.randint(0, self.non_entail_df.shape[0], size=(1,)))
+            
+            if id not in self.non_entail_ids:
+                print(f"non entail : {id}")
+                self.non_entail_ids.append(id)
+        
+        assert len(self.entail_ids) == self.num_balance
+        assert len(self.non_entail_ids) == self.num_balance
+
+        # get balance set
+        self.entail_df = self.entail_df.loc[self.entail_ids, :].reset_index(drop=True)
+        self.non_entail_df = self.non_entail_df.loc[self.non_entail_ids, :].reset_index(drop=True)
+
+
+        breakpoint()
+        
         self.encode = encode
 
         self.premises = {}
@@ -425,31 +475,35 @@ def main():
     do = args.treatment
 
     DEBUG = True
-    data_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
-    component_path = '../pickles/activated_components.pickle'
-    json_file = 'multinli_1.0_train.jsonl'
-    num_sampling = 2000
     
+    valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
+    json_file = 'multinli_1.0_dev_matched.jsonl'
+    
+    component_path = '../pickles/activated_components.pickle'
+    
+    # used to experiment
+    num_samples = 2000
+    
+    # percent threshold of overlap score
     upper_bound = 80
     lower_bound = 20
-
     
     # Todo: generalize for every model 
     layers = [*range(0, 12, 1)]
-    heads = [*range(0, 12, 1)]
+    heads =  [*range(0, 12, 1)]
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     tokenizer = AutoTokenizer.from_pretrained("../bert-base-uncased-mnli/")
     model = AutoModelForSequenceClassification.from_pretrained("../bert-base-uncased-mnli/")
     model = model.to(DEVICE)
-    
-    # Todo: balance example between HOL and LOL by sampling from population
-    experiment_set = ExperimentDataset(data_path,
+
+    experiment_set = ExperimentDataset(valid_path,
                              json_file,
                              upper_bound = upper_bound,
                              lower_bound = lower_bound,
-                             encode = tokenizer
+                             encode = tokenizer,
+                             num_samples = num_samples
                             )
 
     label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
@@ -462,11 +516,10 @@ def main():
     layer = [layer]
 
     if layer[0] == -1:
-        get_top_k_(layers[:7])
-
+        get_top_k(layers[:7])
+        
         return
  
-
 
     # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
     
