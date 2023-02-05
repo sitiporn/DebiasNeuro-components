@@ -27,12 +27,7 @@ from nn_pruning.patch_coordinator import (
 
 
 class ExperimentDataset(Dataset):
-    def __init__(self, data_path, json_file, upper_bound, lower_bound, encode, num_samples, DEBUG=False) -> None:
-
-        data_path = os.path.join(data_path, json_file)
-
-        self.df = pd.read_json(data_path, lines=True)
-        
+    def __init__(self, data_path, json_file, upper_bound, lower_bound, encode, num_samples, DEBUG=False) -> None: 
         # combine these two set
         self.encode = encode
 
@@ -41,6 +36,12 @@ class ExperimentDataset(Dataset):
         self.labels = {}
         self.intervention = {}
         pair_and_label = []
+
+        data_path = os.path.join(data_path, json_file)
+
+        self.df = pd.read_json(data_path, lines=True)
+        
+        torch.manual_seed(42)
 
         if DEBUG: print(self.df.columns)
 
@@ -62,8 +63,23 @@ class ExperimentDataset(Dataset):
         self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
                            "Low-overlap": self.get_low_shortcut()}
         
-        breakpoint()
+        
+        # Randomized Controlled Trials (RCTs)
+        self.nums = {}
 
+        self.nums['High-overlap'] = len(self.df_exp_set["High-overlap"])
+        self.nums['Low-overlap'] = len(self.df_exp_set["Low-overlap"])
+        
+        self.num_balance = self.nums['High-overlap'] if self.nums['High-overlap'] <  self.nums['Low-overlap'] else self.nums['Low-overlap'] 
+
+        self.df_exp_set["High-overlap"]  = self.df_exp_set['High-overlap'].reset_index(drop=True)
+        self.df_exp_set["Low-overlap"] = self.df_exp_set['Low-overlap'].reset_index(drop=True)
+        
+        self.HOL_ids = list(torch.randint(0, self.df_exp_set["High-overlap"].shape[0], size=(self.num_balance,)))
+        self.LOL_ids = list(torch.randint(0, self.df_exp_set["Low-overlap"].shape[0], size=(self.num_balance,)))
+
+        breakpoint()
+        
         """
         Todo:  
         
@@ -114,22 +130,6 @@ class ExperimentDataset(Dataset):
         # self.df = pd.concat([entail_df, non_entail_df]).reset_index(drop=True)
 
         
-        
-        # self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
-        #                    "Low-overlap": self.get_low_shortcut()}
-
-        # # Randomized Controlled Trials (RCTs)
-        # self.nums = {}
-
-        # self.nums['High-overlap'] = len(self.df_exp_set["High-overlap"])
-        # self.nums['Low-overlap'] = len(self.df_exp_set["Low-overlap"])
-
-        
-        # self.equal_number = self.nums['High-overlap'] if self.nums['High-overlap'] <  self.nums['Low-overlap'] else self.nums['Low-overlap'] 
-
-        # self.df_exp_set["High-overlap"]  = self.df_exp_set['High-overlap'].reset_index(drop=True)
-        # self.df_exp_set["Low-overlap"] = self.df_exp_set['Low-overlap'].reset_index(drop=True)
-
         # indexes = [*range(0, self.equal_number, 1)]
         # sampling_idxes = []
 
