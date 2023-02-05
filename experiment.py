@@ -32,10 +32,40 @@ class ExperimentDataset(Dataset):
         data_path = os.path.join(data_path, json_file)
 
         self.df = pd.read_json(data_path, lines=True)
+        
+        # combine these two set
+        self.encode = encode
+
+        self.premises = {}
+        self.hypothesises = {}
+        self.labels = {}
+        self.intervention = {}
+        pair_and_label = []
+
+        if DEBUG: print(self.df.columns)
+
+        for i in range(len(self.df)):
+            pair_and_label.append(
+                (self.df['sentence1'][i], self.df['sentence2'][i], self.df['gold_label'][i]))
+
+        self.df['pair_label'] = pair_and_label
+        
+        thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound)
+        
+        # get HOL and LOL set
+        self.df['Treatment'] = self.df.apply(lambda row: group_by_treatment(
+            thresholds, row.overlap_scores, row.gold_label), axis=1)
+
+        print(f"== statistic ==")
+        print(thresholds)
+        
+        self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
+                           "Low-overlap": self.get_low_shortcut()}
+        
+        breakpoint()
 
         """
         Todo:  
-        balancing data into entailment and non-entailment 
         
         validation set samples 2000 by balancing entailment and non-entailment(neutral and contradiction) inference from splited validation set to get predictions
         
@@ -44,15 +74,14 @@ class ExperimentDataset(Dataset):
         Compute NIE from splited validate set (every word overlap score used)
         """
 
-        self.entail_df = self.df[self.df.gold_label == "entailment"].reset_index(drop=True)
-
-        self.non_entail_df = self.df[self.df.gold_label != "entailment"].reset_index(drop=True)
+        entail_df = self.df[self.df.gold_label == "entailment"].reset_index(drop=True)
+        non_entail_df = self.df[self.df.gold_label != "entailment"].reset_index(drop=True)
 
         torch.manual_seed(42)
         self.num_balance = num_samples // 2
 
-        self.entail_ids = list(torch.randint(0,self.entail_df.shape[0], size=(self.num_balance,)))
-        self.non_entail_ids = list(torch.randint(0, self.non_entail_df.shape[0], size=(self.num_balance,)))
+        self.entail_ids = list(torch.randint(0, entail_df.shape[0], size=(self.num_balance,)))
+        self.non_entail_ids = list(torch.randint(0, non_entail_df.shape[0], size=(self.num_balance,)))
 
         print(f"before of entail : {len(set(self.entail_ids))} ")
         print(f"before of non-entail : {len(set(self.non_entail_ids))} ")
@@ -76,103 +105,75 @@ class ExperimentDataset(Dataset):
         assert len(self.entail_ids) == self.num_balance
         assert len(self.non_entail_ids) == self.num_balance
 
+
+
         # get balance set
-        self.entail_df = self.entail_df.loc[self.entail_ids, :].reset_index(drop=True)
-        self.non_entail_df = self.non_entail_df.loc[self.non_entail_ids, :].reset_index(drop=True)
+        # entail_df = entail_df.loc[self.entail_ids, :].reset_index(drop=True)
+        # non_entail_df = non_entail_df.loc[self.non_entail_ids, :].reset_index(drop=True)
 
-
-        breakpoint()
-        
-        self.encode = encode
-
-        self.premises = {}
-        self.hypothesises = {}
-        self.labels = {}
-        self.intervention = {}
-        pair_and_label = []
-
-        if DEBUG: print(self.df.columns)
-
-        for i in range(len(self.df)):
-            pair_and_label.append(
-                (self.df['sentence1'][i], self.df['sentence2'][i], self.df['gold_label'][i]))
-
-        self.df['pair_label'] = pair_and_label
-        thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound)
-
-        # get w/o treatment on entailment set
-        self.df['is_treatment'] = self.df.apply(lambda row: group_by_treatment(
-            thresholds, row.overlap_scores, row.gold_label), axis=1)
-
-        self.df_exp_set = {"do-treatment": self.get_intervention_set(),
-                        "no-treatment": self.get_base_set()}
-
-        # Randomized Controlled Trials (RCTs)
-        self.nums = {}
-
-        self.nums['do-treatment'] = len(self.df_exp_set["do-treatment"])
-        self.nums['no-treatment'] = len(self.df_exp_set["no-treatment"])
-
-        self.equal_number = self.nums['do-treatment'] if self.nums['do-treatment'] <  self.nums['no-treatment'] else self.nums['no-treatment'] 
-
-        self.df_exp_set["do-treatment"]  = self.df_exp_set['do-treatment'].reset_index(drop=True)
-        self.df_exp_set["no-treatment"] = self.df_exp_set['no-treatment'].reset_index(drop=True)
-
-        indexes = [*range(0, self.equal_number, 1)]
-        sampling_idxes = []
-
-        # sampling
-        for  i in range(self.equal_number):
-            idx = random.choice(indexes)
-
-            while idx in sampling_idxes:
-                idx = random.choice(indexes)
-
-            sampling_idxes.append(idx)
-
-        assert len(set(sampling_idxes)) == self.equal_number
-        
-        if self.nums['do-treatment'] > self.equal_number:
-
-            self.df_exp_set["do-treatment"] = self.df_exp_set['do-treatment'].loc[sampling_idxes] 
-            self.df_exp_set["do-treatment"]  = self.df_exp_set['do-treatment'].reset_index(drop=True)
-        else:
-
-            self.df_exp_set["no-treatment"] = self.df_exp_set['no-treatment'].loc[sampling_idxes]
-            self.df_exp_set["no-treatment"] = self.df_exp_set['no-treatment'].reset_index(drop=True)
+        # self.df = pd.concat([entail_df, non_entail_df]).reset_index(drop=True)
 
         
+        
+        # self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
+        #                    "Low-overlap": self.get_low_shortcut()}
 
-        for op in ["do-treatment", "no-treatment"]:
+        # # Randomized Controlled Trials (RCTs)
+        # self.nums = {}
 
-            self.premises[op] = list(self.df_exp_set[op].sentence1)
-            self.hypothesises[op] = list(self.df_exp_set[op].sentence2)
-            self.labels[op] = list(self.df_exp_set[op].gold_label)
+        # self.nums['High-overlap'] = len(self.df_exp_set["High-overlap"])
+        # self.nums['Low-overlap'] = len(self.df_exp_set["Low-overlap"])
 
+        
+        # self.equal_number = self.nums['High-overlap'] if self.nums['High-overlap'] <  self.nums['Low-overlap'] else self.nums['Low-overlap'] 
 
-            self.intervention[op] = Intervention(encode = self.encode,
-                                    premises = self.premises[op],
-                                    hypothesises = self.hypothesises[op]
-                                    )
+        # self.df_exp_set["High-overlap"]  = self.df_exp_set['High-overlap'].reset_index(drop=True)
+        # self.df_exp_set["Low-overlap"] = self.df_exp_set['Low-overlap'].reset_index(drop=True)
 
-        # word overlap  more than 80 percent
-        # self.premises["do-treatment"] = list(intervention_set.sentence1)
-        # self.hypothesises["do-treatment"] = list(intervention_set.sentence2)
+        # indexes = [*range(0, self.equal_number, 1)]
+        # sampling_idxes = []
 
-        # word overlap less than 20 percent
-        # self.premises["no-treatment"] = list(base_set.sentence1)
-        # self.hypothesises["no-treatment"] = list(base_set.sentence2)
+        # # sampling
+        # for  i in range(self.equal_number):
+        #     idx = random.choice(indexes)
+
+        #     while idx in sampling_idxes:
+        #         idx = random.choice(indexes)
+
+        #     sampling_idxes.append(idx)
+
+        # assert len(set(sampling_idxes)) == self.equal_number
+        
+        # if self.nums['High-overlap'] > self.equal_number:
+
+        #     self.df_exp_set["High-overlap"] = self.df_exp_set['High-overlap'].loc[sampling_idxes] 
+        #     self.df_exp_set["High-overlap"]  = self.df_exp_set['High-overlap'].reset_index(drop=True)
+        # else:
+
+        #     self.df_exp_set["Low-overlap"] = self.df_exp_set['Low-overlap'].loc[sampling_idxes]
+        #     self.df_exp_set["Low-overlap"] = self.df_exp_set['Low-overlap'].reset_index(drop=True)
+
+        # for op in ["High-overlap", "Low-overlap"]:
+
+        #     self.premises[op] = list(self.df_exp_set[op].sentence1)
+        #     self.hypothesises[op] = list(self.df_exp_set[op].sentence2)
+        #     self.labels[op] = list(self.df_exp_set[op].gold_label)
+
+        #     self.intervention[op] = Intervention(encode = self.encode,
+        #                             premises = self.premises[op],
+        #                             hypothesises = self.hypothesises[op]
+        #                             )
     
-    def get_intervention_set(self):
+    def get_high_shortcut(self):
 
         # get high overlap score pairs
-        return self.df[self.df['is_treatment'] == "treatment"]
+        return self.df[self.df['Treatment'] == "HOL"]
 
-    def get_base_set(self):
+    def get_low_shortcut(self):
 
         # get low overlap score pairs
-        return self.df[self.df['is_treatment'] == "no-treatment"]
-
+        return self.df[self.df['Treatment'] == "LOL"]
+    
     def __len__(self):
         # Todo: generalize label
         return self.equal_number
