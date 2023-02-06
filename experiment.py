@@ -62,38 +62,60 @@ class ExperimentDataset(Dataset):
         
         self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
                            "Low-overlap": self.get_low_shortcut()}
-        
-        
-        # Randomized Controlled Trials (RCTs)
-        self.nums = {}
 
-        self.nums['High-overlap'] = len(self.df_exp_set["High-overlap"])
-        self.nums['Low-overlap'] = len(self.df_exp_set["Low-overlap"])
+        sets = {"High-overlap": {}, "Low-overlap": {} }
+        nums = {"High-overlap": {}, "Low-overlap": {} }
         
-        self.num_balance = self.nums['High-overlap'] if self.nums['High-overlap'] <  self.nums['Low-overlap'] else self.nums['Low-overlap'] 
+        for do in ["High-overlap", "Low-overlap"]:
+            for type in ["entail", "non"]:
 
-        self.df_exp_set["High-overlap"]  = self.df_exp_set['High-overlap'].reset_index(drop=True)
-        self.df_exp_set["Low-overlap"] = self.df_exp_set['Low-overlap'].reset_index(drop=True)
+                type_selector = self.df_exp_set[do].gold_label == "entailment" if type == "entail" else self.df_exp_set[do].gold_label != "entailment"
+                
+                sets[do][type] = self.df_exp_set[do][type_selector].reset_index(drop=True)
+                nums[do][type] = sets[do][type].shape[0]
+
         
-        self.HOL_ids = list(torch.randint(0, self.df_exp_set["High-overlap"].shape[0], size=(self.num_balance,)))
-        self.LOL_ids = list(torch.randint(0, self.df_exp_set["Low-overlap"].shape[0], size=(self.num_balance,)))
+        # get minimum size of samples
+        self.type_balance = min({min(d.values()) for d in nums.values()})
+        balance_sets = {}
 
+        for do in ["High-overlap", "Low-overlap"]:
+            
+            balance_sets[do] = pd.DataFrame()
+
+            # create an Empty DataFrame object
+            for type in ["entail", "non"]:
+                
+                # samples data
+                ids = list(torch.randint(0, sets[do][type].shape[0], size=(self.type_balance,)))
+                sets[do][type] = sets[do][type].loc[ids].reset_index(drop=True)
+
+                #combine type 
+                balance_sets[do] = balance_sets[do].append(sets[do][type], ignore_index = True).reset_index(drop=True)
+        
         breakpoint()
         
-        """
-        Todo:  
-        
-        validation set samples 2000 by balancing entailment and non-entailment(neutral and contradiction) inference from splited validation set to get predictions
-        
-        perform data analysis to get theshold word overlap 80 percent and 20 percent from splited validation set to get HOL and LOL set
-        balance samples of HOL and LOL set to compute average of [CLS] of every neuron across HOL and LOL set separately
-        Compute NIE from splited validate set (every word overlap score used)
-        """
+        # Randomized Controlled Trials (RCTs)
+        # self.nums = {}
 
-        entail_df = self.df[self.df.gold_label == "entailment"].reset_index(drop=True)
-        non_entail_df = self.df[self.df.gold_label != "entailment"].reset_index(drop=True)
+        # self.nums['High-overlap'] = len(self.df_exp_set["High-overlap"])
+        # self.nums['Low-overlap'] = len(self.df_exp_set["Low-overlap"])
+        
+        # self.num_balance = self.nums['High-overlap'] if self.nums['High-overlap'] <  self.nums['Low-overlap'] else self.nums['Low-overlap'] 
 
-        torch.manual_seed(42)
+        # self.df_exp_set["High-overlap"]  = self.df_exp_set['High-overlap'].reset_index(drop=True)
+        # self.df_exp_set["Low-overlap"] = self.df_exp_set['Low-overlap'].reset_index(drop=True)
+        
+        # self.HOL_ids = list(torch.randint(0, self.df_exp_set["High-overlap"].shape[0], size=(self.num_balance,)))
+        # self.LOL_ids = list(torch.randint(0, self.df_exp_set["Low-overlap"].shape[0], size=(self.num_balance,)))
+
+        # self.df_exp_set["High-overlap"] = self.df_exp_set["High-overlap"].loc[self.HOL_ids].reset_index(drop=True)
+        # self.df_exp_set["Low-overlap"]  = self.df_exp_set["Low-overlap"].loc[self.LOL_ids].reset_index(drop=True)
+        
+        breakpoint()
+
+        # Todo: classes of HOL and LOL set
+
         self.num_balance = num_samples // 2
 
         self.entail_ids = list(torch.randint(0, entail_df.shape[0], size=(self.num_balance,)))
