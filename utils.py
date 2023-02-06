@@ -227,8 +227,7 @@ def get_activation(layer, do, activation, DEVICE):
 
 def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, heads):
    
-    hooks =  {"do-treatment" : None, "no-treatment": None}
-    
+    hooks =  {"High-overlap" : None, "Low-overlap": None}
 
     # linear layer
     q_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.query
@@ -270,15 +269,15 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
 
     batch_idx = 0
 
-    for pair_sentences , labels in tqdm(dataloader):
+    for pair_sentences , labels in tqdm(dataloader, desc="DataLoader"):
 
         # if batch_idx == 2:
         #     print(f"stop batching at index : {batch_idx}")
         #     break
-        counter += len(pair_sentences['do-treatment'][0])
+        counter += len(pair_sentences['High-overlap'][0])
         print(f"current : {counter}")
 
-        for do in ['do-treatment','no-treatment']:
+        for do in ["High-overlap", "Low-overlap"]:
 
             if do not in ao_activation.keys():
                 
