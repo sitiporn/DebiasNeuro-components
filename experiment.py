@@ -95,9 +95,9 @@ class ExperimentDataset(Dataset):
                 sets[do][type] = sets[do][type].loc[ids].reset_index(drop=True)
 
                 #combine type 
-                frames.append(sets[do][type], ignore_index = True).reset_index(drop=True))
+                frames.append(sets[do][type])
             
-            self.balance_sets[do] =  pd.concat(frames)
+            self.balance_sets[do] =  pd.concat(frames).reset_index(drop=True)
             
             assert self.balance_sets[do].shape[0] == (self.type_balance * 2)
 
@@ -190,7 +190,7 @@ def get_average_activations(path, layers, heads):
     intermediate_cls_avg = {}
     out_cls_avg = {}
     
-    for do in ['do-treatment','no-treatment']:
+    for do in ["High-overlap", "Low-overlap"]:
 
         q_cls_avg[do] = {}
         k_cls_avg[do] = {}
@@ -347,7 +347,6 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
                         if neuron_id not in NIE[do][component][layer].keys():
                             NIE[do][component][layer][neuron_id] = 0
 
-                        breakpoint()
                         NIE[do][component][layer][neuron_id] += torch.sum( (intervene_probs / probs['null'])-1, dim=0)
                         
                         for hook in hooks: hook.remove() 
@@ -415,7 +414,7 @@ def main():
 
     args = parser.parse_args()
 
-    layer = args.layer
+    select_layer = [args.layer]
     do = args.treatment
 
     DEBUG = True
@@ -424,7 +423,7 @@ def main():
     json_file = 'multinli_1.0_dev_matched.jsonl'
     
     component_path = '../pickles/activated_components.pickle'
-    collect_component = True
+    collect_component = False
     
     # used to experiment
     num_samples = 2000
@@ -466,39 +465,25 @@ def main():
                                 DEVICE = DEVICE,
                                 layers = layers,
                                 heads = heads)
-    breakpoint()
-    
     
     label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
  
     if do: 
-        treatment = ['do-treatment']
+        mode = ["High-overlap"] 
     else:
-        treatment = ['no-treatment']
+        mode = ["Low-overlap"]
 
-    layer = [layer]
-
-    if layer[0] == -1:
-        get_top_k(layers[:7])
-        
-        return
- 
-
-  
-
-    # print(f"layer : {layer}") 
-    # print(f"treatment : {treatment}") 
-
-    # cma_analysis(path = component_path,
-    #             model = model,
-    #             layers = layer,
-    #             treatments = treatment,
-    #             heads  =  heads,
-    #             tokenizer = tokenizer,
-    #             experiment_set = experiment_set,
-    #             label_maps = label_maps,
-    #             num_sampling = num_sampling,
-    #             DEVICE = DEVICE)
+    cma_analysis(path = component_path,
+                model = model,
+                layers = select_layer,
+                treatments = mode,
+                heads  =  heads,
+                tokenizer = tokenizer,
+                experiment_set = experiment_set,
+                label_maps = label_maps,
+                num_sampling = num_samples,
+                DEVICE = DEVICE)
+    
     # prunning(model = model,
     #          layers= [0, 1, 2, 3, 4])
     
