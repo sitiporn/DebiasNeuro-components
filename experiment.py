@@ -84,7 +84,8 @@ class ExperimentDataset(Dataset):
         # Randomized Controlled Trials (RCTs)
         for do in ["High-overlap", "Low-overlap"]:
             
-            self.balance_sets[do] = pd.DataFrame()
+            self.balance_sets[do] = None
+            frames = []
 
             # create an Empty DataFrame object
             for type in ["entail", "non"]:
@@ -94,7 +95,9 @@ class ExperimentDataset(Dataset):
                 sets[do][type] = sets[do][type].loc[ids].reset_index(drop=True)
 
                 #combine type 
-                self.balance_sets[do] = self.balance_sets[do].append(sets[do][type], ignore_index = True).reset_index(drop=True)
+                frames.append(sets[do][type], ignore_index = True).reset_index(drop=True))
+            
+            self.balance_sets[do] =  pd.concat(frames)
             
             assert self.balance_sets[do].shape[0] == (self.type_balance * 2)
 
@@ -421,6 +424,7 @@ def main():
     json_file = 'multinli_1.0_dev_matched.jsonl'
     
     component_path = '../pickles/activated_components.pickle'
+    collect_component = True
     
     # used to experiment
     num_samples = 2000
@@ -447,6 +451,24 @@ def main():
                              num_samples = num_samples
                             )
 
+    
+    dataloader = DataLoader(experiment_set, 
+                            batch_size = 64,
+                            shuffle = False, 
+                            num_workers=0)
+    
+    
+    # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
+    if collect_component:
+        collect_output_components(model = model,
+                                dataloader = dataloader,
+                                tokenizer = tokenizer,
+                                DEVICE = DEVICE,
+                                layers = layers,
+                                heads = heads)
+    breakpoint()
+    
+    
     label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
  
     if do: 
@@ -462,21 +484,6 @@ def main():
         return
  
 
-    # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
-    
-    # dataloader = DataLoader(experiment_set, 
-    #                         batch_size = 64,
-    #                         shuffle = False, 
-    #                         num_workers=0)
-
- 
-    # if not os.path.isfile(component_path):
-    #     collect_output_components(model = model,
-    #                             dataloader = dataloader,
-    #                             tokenizer = tokenizer,
-    #                             DEVICE = DEVICE,
-    #                             layers = layers,
-    #                             heads = heads)
   
 
     # print(f"layer : {layer}") 
