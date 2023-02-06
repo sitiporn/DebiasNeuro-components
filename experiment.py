@@ -56,6 +56,7 @@ class ExperimentDataset(Dataset):
         self.df['pair_label'] = pair_and_label
         
         thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound)
+
         
         # get HOL and LOL set
         self.df['Treatment'] = self.df.apply(lambda row: group_by_treatment(
@@ -65,7 +66,7 @@ class ExperimentDataset(Dataset):
         print(thresholds)
         
         self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
-                           "Low-overlap": self.get_low_shortcut()}
+                           "Low-overlap":  self.get_low_shortcut()}
 
         
         for do in ["High-overlap", "Low-overlap"]:
@@ -247,8 +248,6 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
 
     cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(path, layers, heads)
 
-    # report_gpu()
-    
     pairs["entailment"] = list(experiment_set.df[experiment_set.df.gold_label == "entailment"].pair_label)
 
     # sampling samples from population
