@@ -186,7 +186,7 @@ class Intervention():
 
 def get_overlap_thresholds(df, upper_bound, lower_bound):
     
-    thresholds = {"treatment": None, "no-treatment": None}
+    thresholds = {"High-overlap": None, "Low-overlap": None}
 
     df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
 
@@ -194,23 +194,20 @@ def get_overlap_thresholds(df, upper_bound, lower_bound):
     entail_mask = (df['gold_label'] == "entailment").tolist()
     overlap_scores = df['overlap_scores'][entail_mask]
 
-    thresholds["no-treatment"] = np.percentile(overlap_scores, lower_bound)
-    thresholds["treatment"] = np.percentile(overlap_scores, upper_bound)
+    thresholds["Low-overlap"] = np.percentile(overlap_scores, lower_bound)
+    thresholds["High-overlap"] = np.percentile(overlap_scores, upper_bound)
 
     return thresholds
     
 def group_by_treatment(thresholds, overlap_score, gold_label):
-    
-    if gold_label == "entailment":
-        if overlap_score >= thresholds['treatment']:
-            return "treatment"
-        elif overlap_score <= thresholds['no-treatment']:              
-            return "no-treatment"
-        else:
-            return "exclude"
+
+    # note : we dont care about 
+    if overlap_score >= thresholds["High-overlap"]:
+        return "HOL"
+    elif overlap_score <= thresholds["Low-overlap"]: 
+        return "LOL"
     else:
         return "exclude"
-
 
 def get_activation(layer, do, activation, DEVICE):
 
