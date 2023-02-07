@@ -237,15 +237,21 @@ def neuron_intervention(neuron_ids,
 
     return intervention_hook
 
-def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, num_sampling, DEVICE):
+def cma_analysis(save_representation_path, save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, num_sampling, DEVICE):
 
     cls_averages = {}
     pairs = {}
     NIE = {}
     mediators = {}
     counter = 0
+    combine_types = []
+    dataset = None
+    dataloader = None
 
-    cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(path, layers, heads)
+
+    cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(save_representation_path, 
+                                    layers, 
+                                    heads)
 
     
     # get the whole set of validation 
@@ -253,18 +259,37 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
     pairs["non"] = list(experiment_set.df[experiment_set.df.gold_label != "entailment"].pair_label)
     
     torch.manual_seed(42)
-
-    for type in ["entail","non"]:
-        
-        # samples data
-        ids = list(torch.randint(0, len(pairs[type]), size=(num_sampling//2,)))
-        pairs[type] = np.array(pairs[type])[ids,:].tolist()
-
-
-    # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
-    dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs['entail'])]
     
-    dataloader = DataLoader(dataset, batch_size=32)
+    if not os.path.isfile(save_nie_set_path):
+
+        for type in ["entail","non"]:
+            
+            # samples data
+            ids = list(torch.randint(0, len(pairs[type]), size=(num_sampling//2,)))
+            pairs[type] = np.array(pairs[type])[ids,:].tolist()
+            combine_types.extend(pairs[type])
+
+        # Bug: checking dataset
+
+        # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
+        dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
+        
+        dataloader = DataLoader(dataset, batch_size=32)
+        
+        with open(save_nie_set_path, 'wb') as handle:
+            pickle.dump(dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"Done saving NIE dataset into pickle !")
+    
+    else:
+        
+        with open(save_nie_set_path, 'rb') as handle:
+            
+            dataset = pickle.load(handle)
+            dataloader = pickle.load(handle)
+            
+            print(f"loading nie sets from pickle {save_nie_set_path} !")
+
     
     # mediator used to intervene
     mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
@@ -350,7 +375,6 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
         pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"Done saving NIE into pickle !")
 
 def get_top_k(layers, treatments=['do-treatment','no-treatment'], top_k=5):
         
@@ -416,6 +440,7 @@ def main():
     json_file = 'multinli_1.0_dev_matched.jsonl'
     
     save_representation_path = '../pickles/activated_components.pickle'
+    save_nie_set_path = '../pickles/nie_samples.pickle'
     collect_representation = True
     
     # used to compute nie scores
@@ -469,7 +494,7 @@ def main():
         return
     
     else:
-        print(f"HOL and LOL representation existing in {save_representation_path}")
+        print(f"HOL and LOL representation in {save_representation_path}")
  
     if do: 
         mode = ["High-overlap"] 
@@ -477,7 +502,8 @@ def main():
         mode = ["Low-overlap"]
 
     
-    cma_analysis(path = save_representation_path,
+    cma_analysis(save_representation_path = save_representation_path,
+                save_nie_set_path = save_nie_set_path,
                 model = model,
                 layers = select_layer,
                 treatments = mode,
