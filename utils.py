@@ -224,6 +224,8 @@ def get_activation(layer, do, activation):
   return hook
 
 def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, heads):
+
+    """get average hidden representation all neurons"""
    
     hooks =  {"High-overlap" : None, "Low-overlap": None}
 

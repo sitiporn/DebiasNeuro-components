@@ -77,7 +77,6 @@ class ExperimentDataset(Dataset):
                 sets[do][type] = self.df_exp_set[do][type_selector].reset_index(drop=True)
                 nums[do][type] = sets[do][type].shape[0]
 
-        
         # get minimum size of samples
         self.type_balance = min({min(d.values()) for d in nums.values()})
         self.balance_sets = {}
@@ -110,6 +109,8 @@ class ExperimentDataset(Dataset):
                                     premises = self.premises[do],
                                     hypothesises = self.hypothesises[do]
                                     )
+        
+
     def get_high_shortcut(self):
 
         # get high overlap score pairs
@@ -134,7 +135,6 @@ class ExperimentDataset(Dataset):
             labels[do] = self.labels[do][idx]
         
         return pair_sentences , labels
-
 
 def prunning(model, layers):
 
@@ -247,11 +247,12 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
 
     cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(path, layers, heads)
 
-    # Todo: samples data to compute nie by balancing ential and non-entailment 
     
     # get the whole set of validation 
     pairs["entail"] = list(experiment_set.df[experiment_set.df.gold_label == "entailment"].pair_label)
     pairs["non"] = list(experiment_set.df[experiment_set.df.gold_label != "entailment"].pair_label)
+    
+    torch.manual_seed(42)
 
     for type in ["entail","non"]:
         
@@ -261,7 +262,8 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
 
 
     # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
-    dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
+    dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs['entail'])]
+    
     dataloader = DataLoader(dataset, batch_size=32)
     
     # mediator used to intervene
@@ -413,26 +415,30 @@ def main():
     valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     json_file = 'multinli_1.0_dev_matched.jsonl'
     
-    component_path = '../pickles/activated_components.pickle'
-    collect_component = True
+    save_representation_path = '../pickles/activated_components.pickle'
+    collect_representation = True
     
-    # used to experiment
+    # used to compute nie scores
     num_samples = 2000
     
     # percent threshold of overlap score
     upper_bound = 80
     lower_bound = 20
     
-    # Todo: generalize for every model 
-    layers = [*range(0, 12, 1)]
-    heads =  [*range(0, 12, 1)]
+    
+    label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     tokenizer = AutoTokenizer.from_pretrained("../bert-base-uncased-mnli/")
     model = AutoModelForSequenceClassification.from_pretrained("../bert-base-uncased-mnli/")
     model = model.to(DEVICE)
-
+        
+    # Todo: generalize for every model 
+    layers = [*range(0, 12, 1)]
+    heads =  [*range(0, 12, 1)]
+    
+    # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(valid_path,
                              json_file,
                              upper_bound = upper_bound,
@@ -443,28 +449,35 @@ def main():
 
     
     dataloader = DataLoader(experiment_set, 
-                            batch_size = 64,
-                            shuffle = False, 
-                            num_workers=0)
+                        batch_size = 64,
+                        shuffle = False, 
+                        num_workers=0)
+
+     
+    if not os.path.isfile(save_representation_path):
     
-    
-    # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
-    if collect_component:
+        # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
         collect_output_components(model = model,
                                 dataloader = dataloader,
                                 tokenizer = tokenizer,
                                 DEVICE = DEVICE,
                                 layers = layers,
                                 heads = heads)
+        
+        print(f"done with saving representation into {save_representation_path}")
+        
+        return
     
-    label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
+    else:
+        print(f"HOL and LOL representation existing in {save_representation_path}")
  
     if do: 
         mode = ["High-overlap"] 
     else:
         mode = ["Low-overlap"]
 
-    cma_analysis(path = component_path,
+    
+    cma_analysis(path = save_representation_path,
                 model = model,
                 layers = select_layer,
                 treatments = mode,
