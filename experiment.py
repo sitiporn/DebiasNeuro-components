@@ -110,7 +110,6 @@ class ExperimentDataset(Dataset):
                                     premises = self.premises[do],
                                     hypothesises = self.hypothesises[do]
                                     )
-    
     def get_high_shortcut(self):
 
         # get high overlap score pairs
@@ -248,25 +247,18 @@ def cma_analysis(path, model, layers, treatments, heads, tokenizer, experiment_s
 
     cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(path, layers, heads)
 
-    pairs["entailment"] = list(experiment_set.df[experiment_set.df.gold_label == "entailment"].pair_label)
-
-    # sampling samples from population
-    indexes = [*range(0, len(pairs['entailment']), 1)]
+    # Todo: samples data to compute nie by balancing ential and non-entailment 
     
-    sampling_idxes = []
+    # get the whole set of validation 
+    pairs["entail"] = list(experiment_set.df[experiment_set.df.gold_label == "entailment"].pair_label)
+    pairs["non"] = list(experiment_set.df[experiment_set.df.gold_label != "entailment"].pair_label)
 
-    # sampling 
-    for  i in range(num_sampling):
-        idx = random.choice(indexes)
+    for type in ["entail","non"]:
+        
+        # samples data
+        ids = list(torch.randint(0, len(pairs[type]), size=(num_sampling//2,)))
+        pairs[type] = np.array(pairs[type])[ids,:].tolist()
 
-        while idx in sampling_idxes:
-            idx = random.choice(indexes)
-
-        sampling_idxes.append(idx)
-
-    assert len(set(sampling_idxes)) == num_sampling
-
-    pairs['entailment'] = np.array(pairs['entailment'])[sampling_idxes,:].tolist()    
 
     # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
     dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
@@ -422,7 +414,7 @@ def main():
     json_file = 'multinli_1.0_dev_matched.jsonl'
     
     component_path = '../pickles/activated_components.pickle'
-    collect_component = False
+    collect_component = True
     
     # used to experiment
     num_samples = 2000
