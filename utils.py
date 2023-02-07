@@ -190,11 +190,9 @@ def get_overlap_thresholds(df, upper_bound, lower_bound):
 
     df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
 
-    # Todo: get overlap_score for whole entailment sets
-    entail_mask = (df['gold_label'] == "entailment").tolist()
-    overlap_scores = df['overlap_scores'][entail_mask]
+    overlap_scores = df['overlap_scores'] 
 
-    thresholds["Low-overlap"] = np.percentile(overlap_scores, lower_bound)
+    thresholds["Low-overlap"]  = np.percentile(overlap_scores, lower_bound)
     thresholds["High-overlap"] = np.percentile(overlap_scores, upper_bound)
 
     return thresholds
@@ -209,7 +207,7 @@ def group_by_treatment(thresholds, overlap_score, gold_label):
     else:
         return "exclude"
 
-def get_activation(layer, do, activation, DEVICE):
+def get_activation(layer, do, activation):
 
   # the hook signature
   def hook(model, input, output):
@@ -315,13 +313,13 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
                 # register forward hooks on all layers
                 for layer in layers:
 
-                    q[layer] = q_layer(layer).register_forward_hook(get_activation(layer, do, q_activation, counter ))
-                    k[layer] = k_layer(layer).register_forward_hook(get_activation(layer, do, k_activation, counter ))
-                    v[layer] = v_layer(layer).register_forward_hook(get_activation(layer, do, v_activation, counter ))
+                    q[layer] = q_layer(layer).register_forward_hook(get_activation(layer, do, q_activation))
+                    k[layer] = k_layer(layer).register_forward_hook(get_activation(layer, do, k_activation))
+                    v[layer] = v_layer(layer).register_forward_hook(get_activation(layer, do, v_activation))
                     
-                    ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation, counter))
-                    intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation, counter))
-                    out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation, counter))
+                    ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation))
+                    intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation))
+                    out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation))
 
                 # get activatation
                 outputs = model(**inputs)
