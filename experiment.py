@@ -376,7 +376,7 @@ def cma_analysis(save_representation_path, save_nie_set_path, model, layers, tre
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-def get_top_k(layers, treatments=['do-treatment','no-treatment'], top_k=5):
+def get_top_k(layers, treatments, top_k=5):
         
  
     # compute average NIE
@@ -429,10 +429,26 @@ def main():
                         required=False,
                         help="high or low overlap")
 
+    parser.add_argument("--analysis",
+                        type=bool,
+                        default=False,
+                        required=False,
+                        help="compute cma analysis")
+    
+    parser.add_argument("--top_k",
+                        type=bool,
+                        default=False,
+                        required=False,
+                        help="get top K analysis")
+    
+    
     args = parser.parse_args()
 
     select_layer = [args.layer]
     do = args.treatment
+    is_analysis = args.analysis
+    is_topk = args.top_k
+
 
     DEBUG = True
     
@@ -501,18 +517,24 @@ def main():
     else:
         mode = ["Low-overlap"]
 
-    
-    cma_analysis(save_representation_path = save_representation_path,
-                save_nie_set_path = save_nie_set_path,
-                model = model,
-                layers = select_layer,
-                treatments = mode,
-                heads  =  heads,
-                tokenizer = tokenizer,
-                experiment_set = experiment_set,
-                label_maps = label_maps,
-                num_sampling = num_samples,
-                DEVICE = DEVICE)
+    if is_analysis: 
+        print(f"perform Causal Mediation analysis...")
+        
+        cma_analysis(save_representation_path = save_representation_path,
+                    save_nie_set_path = save_nie_set_path,
+                    model = model,
+                    layers = select_layer,
+                    treatments = mode,
+                    heads  =  heads,
+                    tokenizer = tokenizer,
+                    experiment_set = experiment_set,
+                    label_maps = label_maps,
+                    num_sampling = num_samples,
+                    DEVICE = DEVICE)
+
+    if is_topk:
+        print(f"perform ranking top neurons...")
+        get_top_k(select_layer, treatments=mode)
     
     # prunning(model = model,
     #          layers= [0, 1, 2, 3, 4])
