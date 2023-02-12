@@ -133,6 +133,7 @@ class ExperimentDataset(Dataset):
         for do in ["High-overlap", "Low-overlap"]:
             pair_sentences[do] = self.intervention[do].pair_sentences[idx]
             labels[do] = self.labels[do][idx]
+            
         
         return pair_sentences , labels
 
@@ -411,8 +412,80 @@ def get_top_k(layers, treatments, top_k=5):
                 print(f"Done saving top neurons into pickle !")
 
 
-def main():
+def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE):
+    
+    # Todo: get prediction 
+    # 1. from HOL set
+    # 2. from NIE set
+    
+    # dataloader of CLS representation set
+    # dataloader of NIE set
+    distributions = {"NIE": [], "High-overlap": [], "Low-overlap": []}
+    counters = {"NIE": 0, "High-overlap": 0, "Low-overlap": 0}
 
+    distribution_path = '../pickles/distribution.pickle'
+    
+    dataloader_representation = DataLoader(experiment_set, 
+                                                batch_size = 64,
+                                                shuffle = False, 
+                                                num_workers=0)
+    
+    
+    with open(save_nie_set_path, 'rb') as handle:
+        
+        dataset_nie = pickle.load(handle)
+        dataloader_nie = pickle.load(handle)
+        
+        print(f"Loading nie sets from pickle {save_nie_set_path} !")
+        
+    # get distributions of NIE; dont use experiment_set for dataloader; no do variable
+    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader_nie, desc="NIE_DataLoader")):
+
+        premise, hypo = sentences
+        
+        pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
+        
+        inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+        
+        inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+
+        with torch.no_grad(): 
+
+            # Todo: generalize to istribution if the storage is enough
+            distributions['NIE'].extend(F.softmax(model(**inputs).logits , dim=-1))
+
+        counters['NIE'] += inputs['input_ids'].shape[0] 
+        
+    
+
+    # using experiment set to create dataloader
+    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader_representation, desc="representation_DataLoader")):
+
+        for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+
+            premise, hypo = sentences[do]
+
+            pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
+            
+            inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+            
+            inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+
+            with torch.no_grad(): 
+
+                # Todo: generalize to distribution if the storage is enough
+                distributions[do].extend(F.softmax(model(**inputs).logits , dim=-1))
+
+            counters[do] += inputs['input_ids'].shape[0] 
+
+    
+    with open(distribution_path, 'wb') as handle:
+        pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"Done saving distribution into pickle !")
+
+
+def main():
+    
     
     parser = argparse.ArgumentParser()
 
@@ -439,7 +512,14 @@ def main():
                         type=bool,
                         default=False,
                         required=False,
-                        help="get top K analysis")
+                       help="get top K analysis")
+    
+    parser.add_argument("--distribution",
+                        type=bool,
+                        default=False,
+                        required=False,
+                        help="get top distribution")
+    
     
     
     args = parser.parse_args()
@@ -448,7 +528,7 @@ def main():
     do = args.treatment
     is_analysis = args.analysis
     is_topk = args.top_k
-
+    distribution = args.distribution
 
     DEBUG = True
     
@@ -535,6 +615,9 @@ def main():
     if is_topk:
         print(f"perform ranking top neurons...")
         get_top_k(select_layer, treatments=mode)
+    
+    if distribution:
+        get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     
     # prunning(model = model,
     #          layers= [0, 1, 2, 3, 4])
