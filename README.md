@@ -1,16 +1,17 @@
 # Debias Neuro-components leveraging Causal mediation analysis
 
 ## Todo
-- [ ] NIE of individual neurons
-    - [ ] use validation set samples 2000 by balancing entailment and non-entailment(neutral and contradiction) inference from splited validation set to get predictions
-    - [ ] perform data analysis to get theshold word overlap 80 percent and 20 percent from splited validation set to get HOL and LOL set
-    - [ ] balance samples of HOL and LOL set to compute average of [CLS] of every neuron across HOL and LOL set separately
-    - [ ] Compute NIE from splited validate set (every word overlap score used)
+- [x] NIE of individual neurons
+    - [x] computing theshold scores using data from whole set of validation to divided into HOL and LOL set
+    - [x] balances classs's HOL and LOL set to get average hidden representation outputed by neurons
+    - [x] subsample uniformly distributed from validation set used to compute  NIE scores
+    - [x] ranking top-k of NIE's neurons 
+    - [x] get top-k of HOL and LOL of individual neuron intervention
 
-- [ ] NIE of set of neurons
-    - [ ] intervene each set of neurons in first and second half of each linear layer of each modules (Q, K, V, AO, I, O)
-
-
+- [ ] preediciton analysis 
+    - [ ] HOL and LOL set
+    - [ ] subsample used to compute indirect effect 
+    - [ ] analyze distributions
 
 ## General Tackles
 1. modifying embedding space to do counterfactual inference
@@ -32,4 +33,7 @@ as they are rely on shortcut word
 1. Gradient Based method to find feature important
 2. Interpret attention head 
     - the assumption; most will attention word overlap
+
+
+
 
