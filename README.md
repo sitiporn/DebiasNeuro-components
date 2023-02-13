@@ -1,17 +1,16 @@
 # Debias Neuro-components leveraging Causal mediation analysis
 
 ## Todo
-- [x] NIE of individual neurons
-    - [x] computing theshold scores using data from whole set of validation to divided into HOL and LOL set
-    - [x] balances classs's HOL and LOL set to get average hidden representation outputed by neurons
-    - [x] subsample uniformly distributed from validation set used to compute  NIE scores
-    - [x] ranking top-k of NIE's neurons 
-    - [x] get top-k of HOL and LOL of individual neuron intervention
-
 - [ ] preediciton analysis 
-    - [ ] HOL and LOL set
-    - [ ] subsample used to compute indirect effect 
-    - [ ] analyze distributions
+    - [x] HOL and LOL set
+    - [x] subsample used to compute indirect effect 
+    - [x] analyze distributions
+
+- [ ] changing subsample methods
+    - balancing subsamples set among classes  of NIE set
+    - balancing subsamples set among classes  of HOL and LOL set
+    - get rid of samples are not belong to 3 classes
+    - compute average prob of every samples for golden answer of each samples
 
 ## General Tackles
 1. modifying embedding space to do counterfactual inference
