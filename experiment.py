@@ -422,6 +422,7 @@ def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE
     # dataloader of NIE set
     distributions = {"NIE": [], "High-overlap": [], "Low-overlap": []}
     counters = {"NIE": 0, "High-overlap": 0, "Low-overlap": 0}
+    label_collectors = {"NIE": () , "High-overlap": (), "Low-overlap": ()}
 
     distribution_path = '../pickles/distribution.pickle'
     
@@ -448,14 +449,14 @@ def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE
         inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
         
         inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
-
+        
         with torch.no_grad(): 
 
             # Todo: generalize to istribution if the storage is enough
             distributions['NIE'].extend(F.softmax(model(**inputs).logits , dim=-1))
 
         counters['NIE'] += inputs['input_ids'].shape[0] 
-        
+        label_collectors['NIE'] += labels
     
 
     # using experiment set to create dataloader
@@ -477,10 +478,12 @@ def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE
                 distributions[do].extend(F.softmax(model(**inputs).logits , dim=-1))
 
             counters[do] += inputs['input_ids'].shape[0] 
+            label_collectors[do] += tuple(labels[do])
 
     
     with open(distribution_path, 'wb') as handle:
         pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(label_collectors, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving distribution into pickle !")
 
 
