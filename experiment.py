@@ -45,7 +45,12 @@ class ExperimentDataset(Dataset):
         data_path = os.path.join(data_path, json_file)
 
         self.df = pd.read_json(data_path, lines=True)
-        
+            
+
+        # Todo: preprocessing data
+        if '-' in self.df.gold_label.unique():
+            self.df = self.df[self.df.gold_label != '-']
+
 
         if DEBUG: print(self.df.columns)
 
@@ -57,7 +62,6 @@ class ExperimentDataset(Dataset):
         
         thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound)
 
-        
         # get HOL and LOL set
         self.df['Treatment'] = self.df.apply(lambda row: group_by_treatment(
             thresholds, row.overlap_scores, row.gold_label), axis=1)
@@ -480,6 +484,7 @@ def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE
             counters[do] += inputs['input_ids'].shape[0] 
             label_collectors[do] += tuple(labels[do])
 
+    breakpoint()
     
     with open(distribution_path, 'wb') as handle:
         pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -571,7 +576,6 @@ def main():
                              num_samples = num_samples
                             )
 
-    
     dataloader = DataLoader(experiment_set, 
                         batch_size = 64,
                         shuffle = False, 
