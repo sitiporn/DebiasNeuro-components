@@ -47,10 +47,8 @@ class ExperimentDataset(Dataset):
         self.df = pd.read_json(data_path, lines=True)
             
 
-        # Todo: preprocessing data
         if '-' in self.df.gold_label.unique():
-            self.df = self.df[self.df.gold_label != '-']
-
+            self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
 
         if DEBUG: print(self.df.columns)
 
@@ -242,58 +240,27 @@ def neuron_intervention(neuron_ids,
 
     return intervention_hook
 
-def cma_analysis(save_representation_path, save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, num_sampling, DEVICE):
+def cma_analysis(save_representation_path, save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, DEVICE):
 
     cls_averages = {}
-    pairs = {}
     NIE = {}
     mediators = {}
     counter = 0
-    combine_types = []
     dataset = None
     dataloader = None
 
 
     cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(save_representation_path, 
                                     layers, 
-                                    heads)
+                                    heads) 
 
     
-    # get the whole set of validation 
-    pairs["entail"] = list(experiment_set.df[experiment_set.df.gold_label == "entailment"].pair_label)
-    pairs["non"] = list(experiment_set.df[experiment_set.df.gold_label != "entailment"].pair_label)
-    
-    torch.manual_seed(42)
-    
-    if not os.path.isfile(save_nie_set_path):
-
-        for type in ["entail","non"]:
-            
-            # samples data
-            ids = list(torch.randint(0, len(pairs[type]), size=(num_sampling//2,)))
-            pairs[type] = np.array(pairs[type])[ids,:].tolist()
-            combine_types.extend(pairs[type])
-
-        # Bug: checking dataset
-
-        # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
-        dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
+    with open(save_nie_set_path, 'rb') as handle:
         
-        dataloader = DataLoader(dataset, batch_size=32)
+        dataset = pickle.load(handle)
+        dataloader = pickle.load(handle)
         
-        with open(save_nie_set_path, 'wb') as handle:
-            pickle.dump(dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f"Done saving NIE dataset into pickle !")
-    
-    else:
-        
-        with open(save_nie_set_path, 'rb') as handle:
-            
-            dataset = pickle.load(handle)
-            dataloader = pickle.load(handle)
-            
-            print(f"loading nie sets from pickle {save_nie_set_path} !")
+        print(f"loading nie sets from pickle {save_nie_set_path} !")
 
     
     # mediator used to intervene
@@ -484,7 +451,6 @@ def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE
             counters[do] += inputs['input_ids'].shape[0] 
             label_collectors[do] += tuple(labels[do])
 
-    breakpoint()
     
     with open(distribution_path, 'wb') as handle:
         pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -567,6 +533,8 @@ def main():
     layers = [*range(0, 12, 1)]
     heads =  [*range(0, 12, 1)]
     
+    torch.manual_seed(42)
+    
     # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(valid_path,
                              json_file,
@@ -598,11 +566,43 @@ def main():
     
     else:
         print(f"HOL and LOL representation in {save_representation_path}")
- 
+    
+
+    if not os.path.isfile(save_nie_set_path):
+
+        combine_types = []
+        pairs = {}
+
+        # balacing nie set across classes
+        for type in ["contradiction","entailment","neutral"]:
+        
+            # get the whole set of validation 
+            pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
+            
+            # samples data
+            ids = list(torch.randint(0, len(pairs[type]), size=(num_samples //3,)))
+            
+            pairs[type] = np.array(pairs[type])[ids,:].tolist()
+            combine_types.extend(pairs[type])
+
+
+        # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
+        dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
+        dataloader = DataLoader(dataset, batch_size=32)
+        
+        with open(save_nie_set_path, 'wb') as handle:
+            pickle.dump(dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"Done saving NIE set  into pickle !")
+    
+        
     if do: 
         mode = ["High-overlap"] 
     else:
         mode = ["Low-overlap"]
+
+    
+
 
     if is_analysis: 
         print(f"perform Causal Mediation analysis...")
@@ -616,7 +616,6 @@ def main():
                     tokenizer = tokenizer,
                     experiment_set = experiment_set,
                     label_maps = label_maps,
-                    num_sampling = num_samples,
                     DEVICE = DEVICE)
 
     if is_topk:
