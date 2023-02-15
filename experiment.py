@@ -234,7 +234,7 @@ def neuron_intervention(neuron_ids,
         neuron_values = value[neuron_ids]
 
         neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1).to(DEVICE)
-
+        
         output.masked_scatter_(scatter_mask, neuron_values)
 
     return intervention_hook
@@ -328,7 +328,6 @@ def cma_analysis(save_representation_path, save_nie_set_path, model, layers, tre
                         with torch.no_grad(): 
                             # probs['intervene'][layer][neuron_id] 
                             intervene_probs = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
-
                         # report_gpu()
                         
                         # compute NIE
