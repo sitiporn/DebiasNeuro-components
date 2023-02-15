@@ -215,6 +215,7 @@ def get_average_activations(path, layers, heads):
     return q_cls_avg, k_cls_avg, v_cls_avg, ao_cls_avg, intermediate_cls_avg,  out_cls_avg
 
 def neuron_intervention(neuron_ids, 
+                       DEVICE,
                        value,
                        intervention_type='replace'):
     
@@ -232,7 +233,7 @@ def neuron_intervention(neuron_ids,
         
         neuron_values = value[neuron_ids]
 
-        neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1)
+        neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1).to(DEVICE)
 
         output.masked_scatter_(scatter_mask, neuron_values)
 
@@ -322,7 +323,7 @@ def cma_analysis(save_representation_path, save_nie_set_path, model, layers, tre
                         # select layer to register and input which neurons to intervene
                         hooks = [] 
 
-                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], value = cls_averages[component][do][layer])))
+                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = cls_averages[component][do][layer])))
                         
                         with torch.no_grad(): 
                             # probs['intervene'][layer][neuron_id] 
