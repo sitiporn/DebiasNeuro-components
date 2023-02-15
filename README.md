@@ -12,6 +12,13 @@
     - [x] get rid of samples are not belong to 3 classes
     - [x] compute average prob of every samples for golden answer of each samples
 
+- [ ] changing y computation by consider non-entailment class to compute indirect effect
+
+- [ ] further interventions
+    - [ ] neuron intervention by replace set of of candidates from top K of each layer (hidden representation; output)
+    - [ ] attention head interventions by changing attention weights of individual attention head; input
+    - [ ] full layer of attention head; input; to the important of attention layers
+
 ## General Tackles
 1. modifying embedding space to do counterfactual inference
 2. modifying input and applying casual inference theory 
@@ -37,3 +44,12 @@ as they are rely on shortcut word
 
 ## Problems
 - confident scores of sample that we get is high among samples 
+
+
+## Notes
+
+- how to we select candiate set to test bias ?
+    - is there statistic of model prediction incorrecly on high overlap ?
+
+
+- block entire path from X - > Y; TE = direct effect, IDE = 0; in the context of representation
