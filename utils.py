@@ -8,8 +8,8 @@ import numpy as np
 import gc
 #from fairseq.data.data_utils import collate_tokens
 
-def report_gpu():
-   print(torch.cuda.list_gpu_processes())
+#def report_gpu():
+#   print(torch.cuda.list_gpu_processes())
 #    gc.collect()
 #    torch.cuda.empty_cache()
 
@@ -223,7 +223,7 @@ def get_activation(layer, do, activation):
   
   return hook
 
-def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, heads):
+def collect_output_components(model, experiment_set, dataloader, tokenizer, DEVICE, layers, heads):
 
     """get average hidden representation all neurons"""
    
@@ -329,7 +329,7 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
 
                 del outputs
                 
-                report_gpu()
+                #report_gpu()
     
                 # detach the hooks
                 for layer in layers:
@@ -358,7 +358,8 @@ def collect_output_components(model, dataloader, tokenizer, DEVICE, layers, head
         pickle.dump(out_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
+        pickle.dump(experiment_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         print(f"save activate components done ! ")
 

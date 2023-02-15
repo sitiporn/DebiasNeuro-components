@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask
-from utils import collect_output_components, report_gpu
+from utils import collect_output_components #, report_gpu
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -45,7 +45,6 @@ class ExperimentDataset(Dataset):
         data_path = os.path.join(data_path, json_file)
 
         self.df = pd.read_json(data_path, lines=True)
-            
 
         if '-' in self.df.gold_label.unique():
             self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
@@ -69,13 +68,13 @@ class ExperimentDataset(Dataset):
         
         self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
                            "Low-overlap":  self.get_low_shortcut()}
-
+        
         
         for do in ["High-overlap", "Low-overlap"]:
-            for type in ["entail", "non"]:
+            for type in ["contradiction","entailment","neutral"]:
 
-                type_selector = self.df_exp_set[do].gold_label == "entailment" if type == "entail" else self.df_exp_set[do].gold_label != "entailment"
-                
+                type_selector = self.df_exp_set[do].gold_label == type 
+
                 sets[do][type] = self.df_exp_set[do][type_selector].reset_index(drop=True)
                 nums[do][type] = sets[do][type].shape[0]
 
@@ -90,7 +89,7 @@ class ExperimentDataset(Dataset):
             frames = []
 
             # create an Empty DataFrame object
-            for type in ["entail", "non"]:
+            for type in ["contradiction","entailment","neutral"]:
                 
                 # samples data
                 ids = list(torch.randint(0, sets[do][type].shape[0], size=(self.type_balance,)))
@@ -101,7 +100,7 @@ class ExperimentDataset(Dataset):
             
             self.balance_sets[do] =  pd.concat(frames).reset_index(drop=True)
             
-            assert self.balance_sets[do].shape[0] == (self.type_balance * 2)
+            assert self.balance_sets[do].shape[0] == (self.type_balance * 3)
 
             self.premises[do] = list(self.balance_sets[do].sentence1)
             self.hypothesises[do] = list(self.balance_sets[do].sentence2)
@@ -111,7 +110,6 @@ class ExperimentDataset(Dataset):
                                     premises = self.premises[do],
                                     hypothesises = self.hypothesises[do]
                                     )
-        
 
     def get_high_shortcut(self):
 
@@ -554,6 +552,7 @@ def main():
     
         # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
         collect_output_components(model = model,
+                                experiment_set = experiment_set,
                                 dataloader = dataloader,
                                 tokenizer = tokenizer,
                                 DEVICE = DEVICE,
@@ -561,8 +560,6 @@ def main():
                                 heads = heads)
         
         print(f"done with saving representation into {save_representation_path}")
-        
-        return
     
     else:
         print(f"HOL and LOL representation in {save_representation_path}")
