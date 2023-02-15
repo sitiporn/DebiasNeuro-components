@@ -99,7 +99,7 @@ class ExperimentDataset(Dataset):
                 frames.append(sets[do][type])
             
             self.balance_sets[do] =  pd.concat(frames).reset_index(drop=True)
-            
+
             assert self.balance_sets[do].shape[0] == (self.type_balance * 3)
 
             self.premises[do] = list(self.balance_sets[do].sentence1)
@@ -123,7 +123,7 @@ class ExperimentDataset(Dataset):
     
     def __len__(self):
         # Todo: generalize label
-        return self.type_balance * 2
+        return self.type_balance * len(set(self.labels['High-overlap']))
     
     def __getitem__(self, idx):
 
@@ -396,9 +396,9 @@ def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE
     distribution_path = '../pickles/distribution.pickle'
     
     dataloader_representation = DataLoader(experiment_set, 
-                                                batch_size = 64,
-                                                shuffle = False, 
-                                                num_workers=0)
+                                         batch_size = 64,
+                                         shuffle = False, 
+                                         num_workers=0)
     
     
     with open(save_nie_set_path, 'rb') as handle:
@@ -426,7 +426,6 @@ def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE
 
         counters['NIE'] += inputs['input_ids'].shape[0] 
         label_collectors['NIE'] += labels
-    
 
     # using experiment set to create dataloader
     for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader_representation, desc="representation_DataLoader")):
@@ -448,6 +447,8 @@ def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE
 
             counters[do] += inputs['input_ids'].shape[0] 
             label_collectors[do] += tuple(labels[do])
+            
+            print(f"labels {batch_idx} : {labels[do]}")
 
     
     with open(distribution_path, 'wb') as handle:
@@ -512,7 +513,7 @@ def main():
     collect_representation = True
     
     # used to compute nie scores
-    num_samples = 2000
+    num_samples = 3000
     
     # percent threshold of overlap score
     upper_bound = 80
@@ -584,12 +585,12 @@ def main():
 
 
         # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
-        dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
-        dataloader = DataLoader(dataset, batch_size=32)
+        nie_dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
+        nie_loader = DataLoader(dataset, batch_size=32)
         
         with open(save_nie_set_path, 'wb') as handle:
-            pickle.dump(dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(nie_dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(nie_dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Done saving NIE set  into pickle !")
     
         
@@ -620,6 +621,7 @@ def main():
         get_top_k(select_layer, treatments=mode)
     
     if distribution:
+        
         get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     
     # prunning(model = model,
