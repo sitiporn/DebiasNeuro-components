@@ -7,10 +7,10 @@
     - [x] analyze distributions
 
 - [ ] changing subsample methods
-    - balancing subsamples set among classes  of NIE set
-    - balancing subsamples set among classes  of HOL and LOL set
-    - get rid of samples are not belong to 3 classes
-    - compute average prob of every samples for golden answer of each samples
+    - [x] balancing subsamples set among classes  of NIE set
+    - [x] balancing subsamples set among classes  of HOL and LOL set
+    - [x] get rid of samples are not belong to 3 classes
+    - [x] compute average prob of every samples for golden answer of each samples
 
 ## General Tackles
 1. modifying embedding space to do counterfactual inference
@@ -35,4 +35,5 @@ as they are rely on shortcut word
 
 
 
-
+## Problems
+- confident scores of sample that we get is high among samples 
