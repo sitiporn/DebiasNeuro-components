@@ -1,0 +1,82 @@
+./data/nli/nli_models/baseline/nli/outputs_bert_base_clark_1_seed13370/
+/ist-project/scads/sit/debias_fork_clean/debias_nlu_clean
+# conda environments:
+#
+                         /ist-project/scads/sit/[/ist-project/scads/sit/anaconda3]
+base                     /ist/users/sitipornl/anaconda3
+allennlp_env             /ist/users/sitipornl/anaconda3/envs/allennlp_env
+congen                   /ist/users/sitipornl/anaconda3/envs/congen
+debias_neural_env     *  /ist/users/sitipornl/anaconda3/envs/debias_neural_env
+nmt_env                  /ist/users/sitipornl/anaconda3/envs/nmt_env
+sit_env                  /ist/users/sitipornl/anaconda3/envs/sit_env
+translation_env          /ist/users/sitipornl/anaconda3/envs/translation_env
+xporation                /ist/users/sitipornl/anaconda3/envs/xporation
+
+[nltk_data] Error loading wordnet: <urlopen error [Errno 101] Network
+[nltk_data]     is unreachable>
+[nltk_data] Error loading wordnet: <urlopen error [Errno 101] Network
+[nltk_data]     is unreachable>
+Traceback (most recent call last):
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/pattern/text/en/wordnet/__init__.py", line 57, in <module>
+    nltk.data.find("corpora/" + token)
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/nltk/data.py", line 583, in find
+    raise LookupError(resource_not_found)
+LookupError: 
+**********************************************************************
+  Resource [93mwordnet[0m not found.
+  Please use the NLTK Downloader to obtain the resource:
+
+  [31m>>> import nltk
+  >>> nltk.download('wordnet')
+  [0m
+  For more information see: https://www.nltk.org/data.html
+
+  Attempted to load [93mcorpora/wordnet[0m
+
+  Searched in:
+    - '/ist/users/sitipornl/nltk_data'
+    - '/ist/users/sitipornl/anaconda3/envs/debias_neural_env/nltk_data'
+    - '/ist/users/sitipornl/anaconda3/envs/debias_neural_env/share/nltk_data'
+    - '/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/nltk_data'
+    - '/usr/share/nltk_data'
+    - '/usr/local/share/nltk_data'
+    - '/usr/lib/nltk_data'
+    - '/usr/local/lib/nltk_data'
+**********************************************************************
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/pattern/text/en/wordnet/__init__.py", line 60, in <module>
+    nltk.download(token, quiet = True, raise_on_error = True)
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/nltk/downloader.py", line 782, in download
+    raise ValueError(msg.message)
+ValueError: Error loading wordnet: <urlopen error [Errno 101] Network is unreachable>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/bin/allennlp", line 5, in <module>
+    from allennlp.__main__ import run
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/allennlp/__main__.py", line 30, in <module>
+    from allennlp.commands import main  # noqa
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/allennlp/commands/__init__.py", line 22, in <module>
+    from allennlp.commands.checklist import CheckList
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/allennlp/commands/checklist.py", line 18, in <module>
+    from allennlp.confidence_checks.task_checklists.task_suite import TaskSuite
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/allennlp/confidence_checks/task_checklists/__init__.py", line 1, in <module>
+    from allennlp.confidence_checks.task_checklists.task_suite import TaskSuite
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/allennlp/confidence_checks/task_checklists/task_suite.py", line 9, in <module>
+    from checklist.perturb import Perturb
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/checklist/perturb.py", line 7, in <module>
+    from pattern.en import tenses
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/pattern/text/en/__init__.py", line 61, in <module>
+    from pattern.text.en.inflect import (
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/pattern/text/en/__init__.py", line 80, in <module>
+    from pattern.text.en import wordnet
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/pattern/text/en/wordnet/__init__.py", line 65, in <module>
+    d.download(token, quiet = True, raise_on_error = True)
+  File "/ist/users/sitipornl/anaconda3/envs/debias_neural_env/lib/python3.8/site-packages/nltk/downloader.py", line 782, in download
+    raise ValueError(msg.message)
+ValueError: Error loading wordnet: <urlopen error [Errno 101] Network is unreachable>

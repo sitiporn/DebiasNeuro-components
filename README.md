@@ -53,3 +53,11 @@ as they are rely on shortcut word
 
 
 - block entire path from X - > Y; TE = direct effect, IDE = 0; in the context of representation
+- do we need to find candidate sample that have high TE first ?
+
+
+## Observation 
+
+- NIE-all and NIE-sum; NIE-all << NIE-sum (componet working together); Nuerons
+- NIE-all and NIE-sum; NIE-all ~ NIE-sum (component can working indiviudually); attention head
+- ref: Causal Mediation Analysis for Interpreting Neural NLP:

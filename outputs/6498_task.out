@@ -1,0 +1,64 @@
+./data/nli/nli_models/baseline/nli/outputs_bert_base_clark_1_seed13370/
+/ist-project/scads/sit/debias_fork_clean/debias_nlu_clean
+# conda environments:
+#
+                         /ist-project/scads/sit/[/ist-project/scads/sit/anaconda3]
+base                     /ist/users/sitipornl/anaconda3
+allennlp_env             /ist/users/sitipornl/anaconda3/envs/allennlp_env
+congen                   /ist/users/sitipornl/anaconda3/envs/congen
+debias_neural_env        /ist/users/sitipornl/anaconda3/envs/debias_neural_env
+nmt_env                  /ist/users/sitipornl/anaconda3/envs/nmt_env
+sit_env               *  /ist/users/sitipornl/anaconda3/envs/sit_env
+translation_env          /ist/users/sitipornl/anaconda3/envs/translation_env
+xporation                /ist/users/sitipornl/anaconda3/envs/xporation
+
+Traceback (most recent call last):
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/bin/allennlp", line 5, in <module>
+    from allennlp.__main__ import run
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/allennlp/__main__.py", line 30, in <module>
+    from allennlp.commands import main  # noqa
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/allennlp/commands/__init__.py", line 22, in <module>
+    from allennlp.commands.checklist import CheckList
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/allennlp/commands/checklist.py", line 18, in <module>
+    from allennlp.confidence_checks.task_checklists.task_suite import TaskSuite
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/allennlp/confidence_checks/task_checklists/__init__.py", line 1, in <module>
+    from allennlp.confidence_checks.task_checklists.task_suite import TaskSuite
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/allennlp/confidence_checks/task_checklists/task_suite.py", line 6, in <module>
+    from checklist.test_suite import TestSuite
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/checklist/test_suite.py", line 5, in <module>
+    from .abstract_test import load_test, read_pred_file
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/checklist/abstract_test.py", line 8, in <module>
+    from .viewer.test_summarizer import TestSummarizer
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/checklist/viewer/test_summarizer.py", line 1, in <module>
+    import ipywidgets as widgets
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/ipywidgets/__init__.py", line 25, in <module>
+    from .widgets import *
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/ipywidgets/widgets/__init__.py", line 4, in <module>
+    from .widget import Widget, CallbackDispatcher, register, widget_serialization
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/ipywidgets/widgets/widget.py", line 12, in <module>
+    from ipykernel.comm import Comm
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/ipykernel/__init__.py", line 5, in <module>
+    from .connect import *  # noqa
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/ipykernel/connect.py", line 11, in <module>
+    import jupyter_client
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/jupyter_client/__init__.py", line 8, in <module>
+    from .asynchronous import AsyncKernelClient  # noqa
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/jupyter_client/asynchronous/__init__.py", line 1, in <module>
+    from .client import AsyncKernelClient  # noqa
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/jupyter_client/asynchronous/client.py", line 6, in <module>
+    from jupyter_client.channels import HBChannel
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/jupyter_client/channels.py", line 12, in <module>
+    import zmq.asyncio
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/zmq/__init__.py", line 103, in <module>
+    from zmq import backend
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/zmq/backend/__init__.py", line 31, in <module>
+    raise original_error from None
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/zmq/backend/__init__.py", line 26, in <module>
+    _ns = select_backend(first)
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/zmq/backend/select.py", line 31, in select_backend
+    mod = import_module(name)
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "/ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/zmq/backend/cython/__init__.py", line 6, in <module>
+    from . import (
+ImportError: /lib64/libstdc++.so.6: version `GLIBCXX_3.4.20' not found (required by /ist/users/sitipornl/anaconda3/envs/sit_env/lib/python3.8/site-packages/zmq/backend/cython/../../../../../libzmq.so.5)

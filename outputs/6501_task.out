@@ -1,0 +1,14 @@
+./data/nli/nli_models/baseline/nli/outputs_bert_base_clark_1_seed13370/
+/ist-project/scads/sit/debias_fork_clean/debias_nlu_clean
+# conda environments:
+#
+                         /ist-project/scads/sit/[/ist-project/scads/sit/anaconda3]
+base                     /ist/users/sitipornl/anaconda3
+allennlp_env          *  /ist/users/sitipornl/anaconda3/envs/allennlp_env
+congen                   /ist/users/sitipornl/anaconda3/envs/congen
+debias_neural_env        /ist/users/sitipornl/anaconda3/envs/debias_neural_env
+nmt_env                  /ist/users/sitipornl/anaconda3/envs/nmt_env
+sit_env                  /ist/users/sitipornl/anaconda3/envs/sit_env
+translation_env          /ist/users/sitipornl/anaconda3/envs/translation_env
+xporation                /ist/users/sitipornl/anaconda3/envs/xporation
+

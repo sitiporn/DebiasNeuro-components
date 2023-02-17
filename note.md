@@ -57,4 +57,17 @@ intervene each set of neurons in first and second half of each linear layer of e
 AO(attention output), I(intermediate of FFN), O(output of FFN))
 
 
+## Research problem
+
+problem Feb 13
+---
+
+hypothesis: 
+    1. HOL NIE should be increased
+    2. LOL NIE will should be decreased
+
+
+what does it mean LOL if NIE still increase 
+
+Why NIE of still 
 

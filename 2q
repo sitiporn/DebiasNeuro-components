@@ -1,0 +1,86 @@
+import torch 
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+"""
+neurons guess 
+---
+ layers : how many layers
+ neurons: how many neurons
+
+"""
+
+def neuron_intervention(rep, layers, neurons, position):
+
+    # Hook for changing representation during forward pass
+    def intervention_hook(module, input, output, position, neurons):
+
+        # Get the neurons to intervene on
+        neurons = torch.LongTensor(neurons) #.to(device)
+
+    
+    return None
+
+intervention_modes = ""
+model_name = 'bert-base-uncased'
+
+model = AutoModelForSequenceClassification.from_pretrained(model_name)
+
+# get number of neurons to intervene on
+num_neurons = model.config.hidden_size 
+print(f"The number of neurons : {num_neurons}")
+
+# First get position across batch
+
+# args: context, ouputs, rep,  layers, neurons, position, intervention_type, alpha ?
+
+# then, for each element get correct index w/ gather
+
+# neurons ?
+# slice ? 
+# position ?
+# order_dims method
+# intervention_type: "replace"
+
+#base_slice = 
+
+# Overwrite values in the output
+# First define mask where to overwrite
+#  
+
+# output ?
+# layers ?
+
+hooks.append(model.bert.encoder.layer[layer].output.register_forward_hook(neuron_intervention(
+			rep, 
+			layers, 
+			neurons, 
+			position))) 
+# intervention_hook
+# position
+# n_list
+# intervention = intervention_rep
+# intervention_type 
+
+
+"""
+with torch.no_grad():
+    
+	hooks = []
+	layer = 2
+
+	#hooks.append(model.bert.encoder.layer[layer].output.register_forward_hook(
+	#neuron_intervention(rep, layers, neurons, position)
+	#)) 
+
+	breakpoint()
+
+	"""
+	for hndle in handle_list:
+	hndole.remove()
+
+	tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+	inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
+	outputs = model(**inputs, output_hidden_states = True, output_attentions = True)
+	"""
+"""

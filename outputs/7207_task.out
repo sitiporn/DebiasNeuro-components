@@ -1,0 +1,40 @@
+./data/nli/nli_models/baseline/nli/outputs_bert_base_clark_1_seed13370/
+/ist-project/scads/sit/debias_fork_clean/debias_nlu_clean
+# conda environments:
+#
+                         /ist-project/scads/sit/[/ist-project/scads/sit/anaconda3]
+base                     /ist/users/sitipornl/anaconda3
+allennlp_env          *  /ist/users/sitipornl/anaconda3/envs/allennlp_env
+congen                   /ist/users/sitipornl/anaconda3/envs/congen
+debias_neural_env        /ist/users/sitipornl/anaconda3/envs/debias_neural_env
+nmt_env                  /ist/users/sitipornl/anaconda3/envs/nmt_env
+sit_env                  /ist/users/sitipornl/anaconda3/envs/sit_env
+translation_env          /ist/users/sitipornl/anaconda3/envs/translation_env
+xporation                /ist/users/sitipornl/anaconda3/envs/xporation
+
+2022-12-21 10:10:13,088 - INFO - allennlp.common.plugins - Plugin allennlp_models available
+2022-12-21 10:10:13,091 - ERROR - allennlp.common.plugins - Plugin my_package could not be loaded: No module named 'overrides'
+Traceback (most recent call last):
+  File "/ist/users/sitipornl/anaconda3/envs/allennlp_env/bin/allennlp", line 8, in <module>
+    sys.exit(run())
+  File "/ist/users/sitipornl/anaconda3/envs/allennlp_env/lib/python3.8/site-packages/allennlp/__main__.py", line 39, in run
+    main(prog="allennlp")
+  File "/ist/users/sitipornl/anaconda3/envs/allennlp_env/lib/python3.8/site-packages/allennlp/commands/__init__.py", line 119, in main
+    import_module_and_submodules(package_name)
+  File "/ist/users/sitipornl/anaconda3/envs/allennlp_env/lib/python3.8/site-packages/allennlp/common/util.py", line 359, in import_module_and_submodules
+    module = importlib.import_module(package_name)
+  File "/ist/users/sitipornl/anaconda3/envs/allennlp_env/lib/python3.8/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1014, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 991, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 975, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 671, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 843, in exec_module
+  File "<frozen importlib._bootstrap>", line 219, in _call_with_frames_removed
+  File "/ist-project/scads/sit/debias_fork_clean/debias_nlu_clean/my_package/__init__.py", line 1, in <module>
+    import my_package.commands
+  File "/ist-project/scads/sit/debias_fork_clean/debias_nlu_clean/my_package/commands/__init__.py", line 1, in <module>
+    from my_package.commands  import my_evaluate_command
+  File "/ist-project/scads/sit/debias_fork_clean/debias_nlu_clean/my_package/commands/my_evaluate_command.py", line 14, in <module>
+    from overrides import overrides
+ModuleNotFoundError: No module named 'overrides'
