@@ -36,8 +36,8 @@ class ExperimentDataset(Dataset):
         self.labels = {}
         self.intervention = {}
         pair_and_label = []
-
-        sets = {"High-overlap": {}, "Low-overlap": {} }
+        
+        sets = {"High-overlap": {}, "Low-overlap": {} } 
         nums = {"High-overlap": {}, "Low-overlap": {} }
         
         torch.manual_seed(42)
@@ -239,7 +239,7 @@ def neuron_intervention(neuron_ids,
 
     return intervention_hook
 
-def cma_analysis(save_representation_path, save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, DEVICE):
+def cma_analysis(save_representation_path, save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, DEVICE, DEBUG=False):
 
     cls_averages = {}
     NIE = {}
@@ -247,6 +247,7 @@ def cma_analysis(save_representation_path, save_nie_set_path, model, layers, tre
     counter = 0
     dataset = None
     dataloader = None
+    counter_predictions  = {} 
 
 
     cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(save_representation_path, 
@@ -299,11 +300,15 @@ def cma_analysis(save_representation_path, save_nie_set_path, model, layers, tre
             # Todo : add qeury, key and value 
 
             NIE[do] = {}
+            counter_predictions[do]  = {} 
+            
             probs['intervene'][do] = {}
 
             for component in ["Q","K","V","AO","I","O"]: 
                 if  component not in NIE[do].keys():
                     NIE[do][component] = {}
+                    counter_predictions[do][component]  = {} 
+
                 
             # get each prediction for each single nueron intervention
             for layer in tqdm(layers, desc="layers"):
@@ -315,6 +320,7 @@ def cma_analysis(save_representation_path, save_nie_set_path, model, layers, tre
 
                     if  layer not in NIE[do][component].keys(): 
                         NIE[do][component][layer] = {}
+                        counter_predictions[do][component][layer]  = {} 
                 
                     for neuron_id in range(cls_averages[component][do][layer].shape[0]):
 
@@ -327,15 +333,28 @@ def cma_analysis(save_representation_path, save_nie_set_path, model, layers, tre
                         
                         with torch.no_grad(): 
                             # probs['intervene'][layer][neuron_id] 
-                            intervene_probs = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
+                            intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
+
+                            entail_probs = intervene_probs[:, label_maps["entailment"]]
+                            
+                            # get prediction 
+                            """
+                            if DEBUG:
+                                predictions = torch.argmax(intervene_probs, dim=-1)
+                                if neuron_id not in counter_predictions[do][component][layer].keys():
+                                    counter_predictions[do][component][layer][neuron_id].extend(predictions.tolist())
+                            """  
+                                #counter_predictions[do][label_remaps[int(prediction)]] += 1
                         # report_gpu()
                         
                         # compute NIE
                         # Eu [ynull,zset-gender (u) (u)/ynull (u) − 1].
+                        # Todo: changing NIE computation by considering both entailment and non-entailment
+                        
                         if neuron_id not in NIE[do][component][layer].keys():
                             NIE[do][component][layer][neuron_id] = 0
 
-                        NIE[do][component][layer][neuron_id] += torch.sum( (intervene_probs / probs['null'])-1, dim=0)
+                        NIE[do][component][layer][neuron_id] += torch.sum( (entail_probs / probs['null'])-1, dim=0)
                         
                         for hook in hooks: hook.remove() 
                         
@@ -345,6 +364,7 @@ def cma_analysis(save_representation_path, save_nie_set_path, model, layers, tre
         pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(counter_predictions, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def get_top_k(layers, treatments, top_k=5):
         
@@ -379,6 +399,97 @@ def get_top_k(layers, treatments, top_k=5):
             with open(f'../pickles/top_neuron_{do}_{layer}.pickle', 'wb') as handle:
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !")
+
+class Classifier(nn.Module):
+
+    def __init__(self, model):
+        super(Classifier, self).__init__()
+
+        self.model = model
+        self.dropout = self.model.dropout
+        self.classifier = self.model.classifier
+
+    def forward(self, pooled_output):
+        
+        pooled_output = self.dropout(pooled_output)
+        
+        logits = self.classifier(pooled_output)
+
+        return logits
+
+
+def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
+    
+    representations = {}
+    poolers = {}
+    counter = {}
+    sentence_representation_path = '../pickles/sentence_representations.pickle'
+
+    LAST_HIDDEN_STATE = -1 
+    CLS_TOKEN = 0
+
+    classifier = Classifier(model=model)
+    
+    dataloader_representation = DataLoader(experiment_set, 
+                                         batch_size = 64,
+                                         shuffle = False, 
+                                         num_workers=0)
+
+    # using experiment set to create dataloader
+    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader_representation, desc="retriving sentence representations")):
+
+        for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+
+            if do not in representations.keys():
+                representations[do] = []
+                poolers[do] = 0
+                counter[do] = 0
+
+            premise, hypo = sentences[do]
+
+            pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
+            
+            inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+            
+            inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+            counter[do] += inputs['input_ids'].shape[0]            
+
+
+            with torch.no_grad(): 
+
+                # Todo: generalize to distribution if the storage is enough
+                outputs = model(**inputs, output_hidden_states=True)
+
+
+                representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:]
+                
+                # (bz, seq_len, hidden_dim)
+                representations[do].extend(representation) 
+
+
+    print(f"Averaging sentence representations of CLS across each set")
+
+    # Forward sentence to get distribution
+    for do in ['High-overlap','Low-overlap']:
+
+        representations[do] = torch.stack(representations[do], dim=0)
+        average_representation = torch.mean(representations[do], dim=0 )
+        
+        out = classifier(average_representation)
+        cur_distribution = F.softmax(out, dim=-1)
+
+
+        print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+        print(f"entailment : {cur_distribution[label_maps['entailment']]}")
+        print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
+        print(f"neutral : {cur_distribution[label_maps['neutral']]}")
+
+    # with open(sentence_representation_path, 'wb') as handle:
+    #     pickle.dump(sent_representations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #     pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #     print(f"Done saving sentence representations")
+    
+
 
 
 def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE):
@@ -493,6 +604,12 @@ def main():
                         required=False,
                         help="get top distribution")
     
+    parser.add_argument("--embeddings",
+                        type=bool,
+                        default=False,
+                        required=False,
+                        help="get average embeddings")
+    
     
     
     args = parser.parse_args()
@@ -502,6 +619,7 @@ def main():
     is_analysis = args.analysis
     is_topk = args.top_k
     distribution = args.distribution
+    embeddings = args.embeddings
 
     DEBUG = True
     
@@ -583,7 +701,6 @@ def main():
             pairs[type] = np.array(pairs[type])[ids,:].tolist()
             combine_types.extend(pairs[type])
 
-
         # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
         nie_dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
         nie_loader = DataLoader(dataset, batch_size=32)
@@ -593,14 +710,10 @@ def main():
             pickle.dump(nie_dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Done saving NIE set  into pickle !")
     
-        
     if do: 
         mode = ["High-overlap"] 
     else:
         mode = ["Low-overlap"]
-
-    
-
 
     if is_analysis: 
         print(f"perform Causal Mediation analysis...")
@@ -614,11 +727,15 @@ def main():
                     tokenizer = tokenizer,
                     experiment_set = experiment_set,
                     label_maps = label_maps,
-                    DEVICE = DEVICE)
+                    DEVICE = DEVICE,
+                    DEBUG = True)
 
     if is_topk:
         print(f"perform ranking top neurons...")
         get_top_k(select_layer, treatments=mode)
+
+    if embeddings:
+        get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE)
     
     if distribution:
         
