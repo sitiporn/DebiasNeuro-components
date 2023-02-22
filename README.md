@@ -12,7 +12,7 @@
     - [x] get rid of samples are not belong to 3 classes
     - [x] compute average prob of every samples for golden answer of each samples
 
-- [ ] compute average embeddings of [CLS] of HOL and LOL set add feed to FFN to softmax to see distribution of each class
+- [x] compute average embeddings of [CLS] of HOL and LOL set add feed to FFN to softmax to see distribution of each class
 
 - [ ] changing y computation by consider non-entailment class to compute indirect effect
 
@@ -20,6 +20,13 @@
     - [ ] neuron intervention by replace set of of candidates from top K of each layer (hidden representation; output)
     - [ ] attention head interventions by changing attention weights of individual attention head; input
     - [ ] full layer of attention head; input; to the important of attention layers
+
+- [ ] for HOL and LOL set; each set divided into class level, compute average embedding from such level, to compute the distributions for each
+- [ ] intervention NIE set; for HOL and LOL set; each set divided into classes and compute NIE on such class
+- [ ] intervention NIE set; each sample in NIE set paired by  HOL(eg. 30 samples) and LOL(30 samples) set; to compute NIE  
+
+
+compute NIE by intervening NIE set pairing with HOL and LOL sets; 
 
 ## General Tackles
 1. modifying embedding space to do counterfactual inference
