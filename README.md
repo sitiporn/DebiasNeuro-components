@@ -25,9 +25,6 @@
 - [ ] intervention NIE set; for HOL and LOL set; each set divided into classes and compute NIE on such class
 - [ ] intervention NIE set; each sample in NIE set paired by  HOL(eg. 30 samples) and LOL(30 samples) set; to compute NIE  
 
-
-compute NIE by intervening NIE set pairing with HOL and LOL sets; 
-
 ## General Tackles
 1. modifying embedding space to do counterfactual inference
 2. modifying input and applying casual inference theory 
