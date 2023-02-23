@@ -406,11 +406,15 @@ class Classifier(nn.Module):
         super(Classifier, self).__init__()
 
         self.model = model
+        self.pooler = model.bert.pooler
         self.dropout = self.model.dropout
         self.classifier = self.model.classifier
 
-    def forward(self, pooled_output):
-        
+    def forward(self, last_hidden_state):
+
+
+        pooled_output = self.pooler(last_hidden_state)
+
         pooled_output = self.dropout(pooled_output)
         
         logits = self.classifier(pooled_output)
@@ -463,6 +467,8 @@ def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
                 
                 inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+
+                labels = [label_maps[label] for label in labels]
                 
                 inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
                 counter[do][type] += inputs['input_ids'].shape[0]            
@@ -472,8 +478,11 @@ def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
                     # Todo: generalize to distribution if the storage is enough
                     outputs = model(**inputs, output_hidden_states=True)
 
-                    representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:]
-                    
+                    # (bz, seq_len, hiden_dim)
+                    representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:].unsqueeze(dim=1)
+
+                    predictions = torch.argmax(F.softmax(classifier(representation), dim=-1), dim=-1)
+
                     # (bz, seq_len, hidden_dim)
                     representations[do][type].extend(representation) 
 
@@ -487,12 +496,17 @@ def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
         for type in ["contradiction","entailment","neutral"]:
 
             representations[do][type] = torch.stack(representations[do][type], dim=0)
-            average_representation = torch.mean(representations[do][type], dim=0 )
+            average_representation = torch.mean(representations[do][type], dim=0 ).unsqueeze(dim=0)
+
+            out = classifier(average_representation).squeeze(dim=0)
             
-            out = classifier(average_representation)
             cur_distribution = F.softmax(out, dim=-1)
 
-            print(f"{type} : {cur_distribution[label_maps[type]]}")
+            print(f">>>>>> {type} set")
+
+            print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
+            print(f"entailment : {cur_distribution[label_maps['entailment']]}")
+            print(f"neutral : {cur_distribution[label_maps['neutral']]}")
 
 
     # with open(sentence_representation_path, 'wb') as handle:
