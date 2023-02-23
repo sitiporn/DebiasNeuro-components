@@ -37,7 +37,7 @@ class ExperimentDataset(Dataset):
         self.intervention = {}
         pair_and_label = []
         
-        sets = {"High-overlap": {}, "Low-overlap": {} } 
+        self.sets = {"High-overlap": {}, "Low-overlap": {} } 
         nums = {"High-overlap": {}, "Low-overlap": {} }
         
         torch.manual_seed(42)
@@ -75,8 +75,8 @@ class ExperimentDataset(Dataset):
 
                 type_selector = self.df_exp_set[do].gold_label == type 
 
-                sets[do][type] = self.df_exp_set[do][type_selector].reset_index(drop=True)
-                nums[do][type] = sets[do][type].shape[0]
+                self.sets[do][type] = self.df_exp_set[do][type_selector].reset_index(drop=True)
+                nums[do][type] = self.sets[do][type].shape[0]
 
         # get minimum size of samples
         self.type_balance = min({min(d.values()) for d in nums.values()})
@@ -92,11 +92,11 @@ class ExperimentDataset(Dataset):
             for type in ["contradiction","entailment","neutral"]:
                 
                 # samples data
-                ids = list(torch.randint(0, sets[do][type].shape[0], size=(self.type_balance,)))
-                sets[do][type] = sets[do][type].loc[ids].reset_index(drop=True)
+                ids = list(torch.randint(0, self.sets[do][type].shape[0], size=(self.type_balance,)))
+                self.sets[do][type] = self.sets[do][type].loc[ids].reset_index(drop=True)
 
                 #combine type 
-                frames.append(sets[do][type])
+                frames.append(self.sets[do][type])
             
             self.balance_sets[do] =  pd.concat(frames).reset_index(drop=True)
 
@@ -429,60 +429,71 @@ def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
     CLS_TOKEN = 0
 
     classifier = Classifier(model=model)
+
+    for do in ['High-overlap','Low-overlap']:
+            
+        if do not in representations.keys():
+            representations[do] = {}
+            poolers[do] = {}
+            counter[do] = {}
     
-    dataloader_representation = DataLoader(experiment_set, 
-                                         batch_size = 64,
-                                         shuffle = False, 
-                                         num_workers=0)
-
-    # using experiment set to create dataloader
-    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader_representation, desc="retriving sentence representations")):
-
-        for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
-
-            if do not in representations.keys():
-                representations[do] = []
-                poolers[do] = 0
-                counter[do] = 0
-
-            premise, hypo = sentences[do]
-
-            pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
-            
-            inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-            
-            inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
-            counter[do] += inputs['input_ids'].shape[0]            
-
-
-            with torch.no_grad(): 
-
-                # Todo: generalize to distribution if the storage is enough
-                outputs = model(**inputs, output_hidden_states=True)
-
-
-                representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:]
+        for type in ["contradiction","entailment","neutral"]:
+        
+            if type not in representations[do].keys():
                 
-                # (bz, seq_len, hidden_dim)
-                representations[do].extend(representation) 
+                representations[do][type] = []
+                poolers[do][type] = 0
+                counter[do][type] = 0
+        
+            representation_loader = DataLoader(experiment_set.sets[do][type],
+                                                batch_size = 64,
+                                                shuffle = False, 
+                                                num_workers=0)
+            
+            samples = experiment_set.sets[do][type].pair_label.tolist()
+            
+            nie_dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(samples)]
+            
+            nie_loader = DataLoader(nie_dataset, batch_size=64)
 
+            for batch_idx, (sentences, labels) in enumerate(tqdm(nie_loader, desc=f"{do} : {type}")):
+
+                premise, hypo = sentences
+
+                pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
+                
+                inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                
+                inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+                counter[do][type] += inputs['input_ids'].shape[0]            
+
+                with torch.no_grad(): 
+
+                    # Todo: generalize to distribution if the storage is enough
+                    outputs = model(**inputs, output_hidden_states=True)
+
+                    representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:]
+                    
+                    # (bz, seq_len, hidden_dim)
+                    representations[do][type].extend(representation) 
 
     print(f"Averaging sentence representations of CLS across each set")
 
     # Forward sentence to get distribution
     for do in ['High-overlap','Low-overlap']:
-
-        representations[do] = torch.stack(representations[do], dim=0)
-        average_representation = torch.mean(representations[do], dim=0 )
         
-        out = classifier(average_representation)
-        cur_distribution = F.softmax(out, dim=-1)
-
-
         print(f"++++++++++++++++++  {do} ++++++++++++++++++")
-        print(f"entailment : {cur_distribution[label_maps['entailment']]}")
-        print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
-        print(f"neutral : {cur_distribution[label_maps['neutral']]}")
+        
+        for type in ["contradiction","entailment","neutral"]:
+
+            representations[do][type] = torch.stack(representations[do][type], dim=0)
+            average_representation = torch.mean(representations[do][type], dim=0 )
+            
+            out = classifier(average_representation)
+            cur_distribution = F.softmax(out, dim=-1)
+
+            print(f"{type} : {cur_distribution[label_maps[type]]}")
+
 
     # with open(sentence_representation_path, 'wb') as handle:
     #     pickle.dump(sent_representations, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -703,11 +714,11 @@ def main():
 
         # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
         nie_dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
-        nie_loader = DataLoader(dataset, batch_size=32)
+        nie_loader = DataLoader(nie_dataset, batch_size=32)
         
         with open(save_nie_set_path, 'wb') as handle:
             pickle.dump(nie_dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            pickle.dump(nie_dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Done saving NIE set  into pickle !")
     
     if do: 
