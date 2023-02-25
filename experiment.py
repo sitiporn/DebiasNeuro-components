@@ -400,6 +400,7 @@ def get_top_k(layers, treatments, top_k=5):
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !")
 
+
 class Classifier(nn.Module):
 
     def __init__(self, model):
@@ -412,14 +413,129 @@ class Classifier(nn.Module):
 
     def forward(self, last_hidden_state):
 
-
         pooled_output = self.pooler(last_hidden_state)
-
+        
         pooled_output = self.dropout(pooled_output)
         
         logits = self.classifier(pooled_output)
 
         return logits
+
+
+def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE):
+    
+    representations = {}
+    poolers = {}
+    counter = {}
+    
+    acc = {}
+    class_acc = {}
+    confident = {}
+    label_remaps = { 0 :'contradiction', 1 : 'entailment', 2 : 'neutral'}
+    
+    LAST_HIDDEN_STATE = -1 
+    CLS_TOKEN = 0
+
+    classifier = Classifier(model=model)
+        
+    representation_loader = DataLoader(experiment_set,
+                                        batch_size = 64,
+                                        shuffle = False, 
+                                        num_workers=0)
+        
+        
+    for batch_idx, (sentences, labels) in enumerate(tqdm(representation_loader, desc=f"representation_loader")):
+        
+        for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+            
+            
+            if do not in representations.keys():
+                
+                representations[do] = []
+                poolers[do] = 0
+                counter[do] = 0
+
+                label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
+                
+                acc[do] = []
+                class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
+                confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
+
+            
+            premise, hypo = sentences[do]
+
+            pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
+            
+            inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+            
+            inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
+
+            golden_answers = [label_maps[label] for label in labels[do]]
+            golden_answers = torch.tensor(golden_answers).to(DEVICE)
+                
+            counter[do] += inputs['input_ids'].shape[0]            
+                
+            with torch.no_grad(): 
+
+                # Todo: generalize to distribution if the storage is enough
+                outputs = model(**inputs, output_hidden_states=True)
+
+                # (bz, seq_len, hiden_dim)
+                representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:].unsqueeze(dim=1)
+
+                predictions = torch.argmax(F.softmax(classifier(representation), dim=-1), dim=-1)
+
+                # overall acc
+                acc[do].extend((predictions == golden_answers).tolist())
+
+                # by class
+                for idx, label in enumerate(golden_answers.tolist()):
+                    confident[do][label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
+                    class_acc[do][label_remaps[label]].extend([int(predictions[idx]) == label])
+
+                # (bz, seq_len, hidden_dim)
+                representations[do].extend(representation) 
+
+    print(f"==== Averaging representations across each set =====")
+            
+    # Forward sentence to get distribution
+    for do in ['High-overlap','Low-overlap']:
+        
+        print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+
+        representations[do] = torch.stack(representations[do], dim=0)
+        average_representation = torch.mean(representations[do], dim=0 ).unsqueeze(dim=0)
+
+        out = classifier(average_representation).squeeze(dim=0)
+        
+        cur_distribution = F.softmax(out, dim=-1)
+
+        print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
+        print(f"entailment : {cur_distribution[label_maps['entailment']]}")
+        print(f"neutral : {cur_distribution[label_maps['neutral']]}")
+
+        # print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
+        # print(f"entailment : {cur_distribution[label_maps['entailment']]}")
+        # print(f"neutral : {cur_distribution[label_maps['neutral']]}")
+
+    print(f"====================================================")
+
+    for do in ['High-overlap','Low-overlap']:
+        
+        print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+        print(f"Overall accuray : {sum(acc[do]) / len(acc[do])}")
+        print(f"entail acc: {sum(class_acc[do]['entailment']) / len(class_acc[do]['entailment'])} ")   
+        print(f"contradiction acc: {sum(class_acc[do]['contradiction']) / len(class_acc[do]['contradiction'])} ")
+        print(f"neutral acc: {sum(class_acc[do]['neutral']) / len(class_acc[do]['neutral'])} ")
+        print(f"******* expected distribution of golden answers ************")
+        
+        confident[do]['entailment'] = confident[do]['entailment'].squeeze(dim=0)
+        confident[do]['contradiction'] = confident[do]['contradiction'].squeeze(dim=0) 
+        confident[do]['neutral'] = confident[do]['neutral'].squeeze(dim=0)
+
+        print(f"entail confident: {confident[do]['entailment'][label_maps['entailment']] / len(class_acc[do]['entailment'])} ")   
+        print(f"contradiction confident: {confident[do]['contradiction'][label_maps['contradiction']] / len(class_acc[do]['contradiction'])} ")
+        print(f"neutral confident: {confident[do]['neutral'][label_maps['neutral']]   / len(class_acc[do]['neutral'])}") 
 
 
 def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
@@ -760,7 +876,9 @@ def main():
         get_top_k(select_layer, treatments=mode)
 
     if embeddings:
-        get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE)
+
+        compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE)
+        #get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE)
     
     if distribution:
         
