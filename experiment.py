@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask
+from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask, Classifier
 from utils import collect_output_components #, report_gpu
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
@@ -27,7 +27,7 @@ from nn_pruning.patch_coordinator import (
 
 
 class ExperimentDataset(Dataset):
-    def __init__(self, data_path, json_file, upper_bound, lower_bound, encode, num_samples, DEBUG=False) -> None: 
+    def __init__(self, data_path, json_file, upper_bound, lower_bound, encode, is_group_by_class, num_samples, DEBUG=False) -> None: 
         # combine these two set
         self.encode = encode
 
@@ -36,6 +36,7 @@ class ExperimentDataset(Dataset):
         self.labels = {}
         self.intervention = {}
         pair_and_label = []
+        self.is_group_by_class = is_group_by_class
         
         self.sets = {"High-overlap": {}, "Low-overlap": {} } 
         nums = {"High-overlap": {}, "Low-overlap": {} }
@@ -102,13 +103,32 @@ class ExperimentDataset(Dataset):
 
             assert self.balance_sets[do].shape[0] == (self.type_balance * 3)
 
-            self.premises[do] = list(self.balance_sets[do].sentence1)
-            self.hypothesises[do] = list(self.balance_sets[do].sentence2)
-            self.labels[do] = list(self.balance_sets[do].gold_label)
+            if self.is_group_by_class:
+                
+                self.premises[do] =  {}
+                self.hypothesises[do] =  {}
+                self.labels[do] = {}
+                self.intervention[do] = {}
+                
+                for type in ["contradiction","entailment","neutral"]:
 
-            self.intervention[do] = Intervention(encode = self.encode,
-                                    premises = self.premises[do],
-                                    hypothesises = self.hypothesises[do]
+                    self.premises[do][type]  = list(self.sets[do][type].sentence1)
+                    self.hypothesises[do][type]  = list(self.sets[do][type].sentence2)
+                    self.labels[do][type]  = list(self.sets[do][type].gold_label)
+                
+                    self.intervention[do][type] = Intervention(encode = self.encode,
+                                        premises = self.premises[do][type],
+                                        hypothesises = self.hypothesises[do][type]
+                                    )
+            else:
+
+                self.premises[do] = list(self.balance_sets[do].sentence1)
+                self.hypothesises[do] = list(self.balance_sets[do].sentence2)
+                self.labels[do] = list(self.balance_sets[do].gold_label)
+
+                self.intervention[do] = Intervention(encode = self.encode,
+                                        premises = self.premises[do],
+                                        hypothesises = self.hypothesises[do]
                                     )
 
     def get_high_shortcut(self):
@@ -123,17 +143,39 @@ class ExperimentDataset(Dataset):
     
     def __len__(self):
         # Todo: generalize label
-        return self.type_balance * len(set(self.labels['High-overlap']))
+
+        if self.is_group_by_class:
+
+            return self.type_balance
+
+        else:
+            return self.type_balance * len(set(self.labels['High-overlap']))
     
     def __getitem__(self, idx):
 
         pair_sentences = {}
         labels = {}
 
-        for do in ["High-overlap", "Low-overlap"]:
-            pair_sentences[do] = self.intervention[do].pair_sentences[idx]
-            labels[do] = self.labels[do][idx]
-            
+        print(f"current : {idx}")
+
+        if self.is_group_by_class:
+            for do in ["High-overlap", "Low-overlap"]:
+                
+                pair_sentences[do] = {}
+                labels[do] = {}
+
+                for type in ["contradiction","entailment","neutral"]:
+
+                    #breakpoint()
+                    
+                    pair_sentences[do][type] = self.intervention[do][type].pair_sentences[idx]
+                    labels[do][type] = self.labels[do][type][idx]
+
+        else:
+
+            for do in ["High-overlap", "Low-overlap"]:
+                pair_sentences[do] = self.intervention[do].pair_sentences[idx]
+                labels[do] = self.labels[do][idx]
         
         return pair_sentences , labels
 
@@ -250,7 +292,9 @@ def cma_analysis(save_representation_path, save_nie_set_path, model, layers, tre
     counter_predictions  = {} 
 
 
-    cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(save_representation_path, 
+
+    if used_avg_representation:
+        cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(save_representation_path, 
                                     layers, 
                                     heads) 
 
@@ -401,27 +445,6 @@ def get_top_k(layers, treatments, top_k=5):
                 print(f"Done saving top neurons into pickle !")
 
 
-class Classifier(nn.Module):
-
-    def __init__(self, model):
-        super(Classifier, self).__init__()
-
-        self.model = model
-        self.pooler = model.bert.pooler
-        self.dropout = self.model.dropout
-        self.classifier = self.model.classifier
-
-    def forward(self, last_hidden_state):
-
-        pooled_output = self.pooler(last_hidden_state)
-        
-        pooled_output = self.dropout(pooled_output)
-        
-        logits = self.classifier(pooled_output)
-
-        return logits
-
-
 def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE):
     
     representations = {}
@@ -461,9 +484,16 @@ def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE):
                 class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
                 confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
 
-            
-            premise, hypo = sentences[do]
 
+            if experiment_set.is_group_by_class:
+
+                for class_name in sentences[do].keys():
+            
+                    premise, hypo = sentences[do][class_name]
+            else:
+                    
+                premise, hypo = sentences[do][class_name]
+            
             pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
             
             inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
@@ -751,8 +781,6 @@ def main():
                         required=False,
                         help="get average embeddings")
     
-    
-    
     args = parser.parse_args()
 
     select_layer = [args.layer]
@@ -775,9 +803,8 @@ def main():
     num_samples = 3000
     
     # percent threshold of overlap score
-    upper_bound = 80
-    lower_bound = 20
-    
+    upper_bound = 95
+    lower_bound = 5
     
     label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
 
@@ -799,11 +826,12 @@ def main():
                              upper_bound = upper_bound,
                              lower_bound = lower_bound,
                              encode = tokenizer,
+                             is_group_by_class = True,
                              num_samples = num_samples
                             )
 
     dataloader = DataLoader(experiment_set, 
-                        batch_size = 64,
+                        batch_size = 32,
                         shuffle = False, 
                         num_workers=0)
 
@@ -879,10 +907,11 @@ def main():
 
         compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE)
         #get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE)
-    
+
     if distribution:
-        
         get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
+    
+
     
     # prunning(model = model,
     #          layers= [0, 1, 2, 3, 4])
