@@ -166,11 +166,8 @@ class ExperimentDataset(Dataset):
 
                 for type in ["contradiction","entailment","neutral"]:
 
-                    #breakpoint()
-                    
                     pair_sentences[do][type] = self.intervention[do][type].pair_sentences[idx]
                     labels[do][type] = self.labels[do][type][idx]
-
         else:
 
             for do in ["High-overlap", "Low-overlap"]:
@@ -444,20 +441,80 @@ def get_top_k(layers, treatments, top_k=5):
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !")
 
-
-def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE):
-    
-    representations = {}
-    poolers = {}
-    counter = {}
-    
-    acc = {}
-    class_acc = {}
-    confident = {}
-    label_remaps = { 0 :'contradiction', 1 : 'entailment', 2 : 'neutral'}
+def forward_pair_sentences(sentences, computing_embeddings, labels, do, model, DEVICE, class_name = None):
     
     LAST_HIDDEN_STATE = -1 
     CLS_TOKEN = 0
+
+    classifier = Classifier(model=model)
+
+    premise, hypo = sentences
+    
+    pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
+    
+    inputs = computing_embeddings.tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+    
+    inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
+
+
+    golden_answers = [computing_embeddings.label_maps[label] for label in labels]
+    golden_answers = torch.tensor(golden_answers).to(DEVICE)
+
+    if class_name is None: 
+        
+        computing_embeddings.counter[do] += inputs['input_ids'].shape[0]
+    else:
+        computing_embeddings.counter[do][class_name] += inputs['input_ids'].shape[0]            
+        
+    with torch.no_grad(): 
+
+        # Todo: generalize to distribution if the storage is enough
+        outputs = model(**inputs, output_hidden_states=True)
+
+        # (bz, seq_len, hiden_dim)
+        representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:].unsqueeze(dim=1)
+
+        predictions = torch.argmax(F.softmax(classifier(representation), dim=-1), dim=-1)
+
+        # overall acc
+        computing_embeddings.acc[do].extend((predictions == golden_answers).tolist())
+
+        # by class
+        for idx, label in enumerate(golden_answers.tolist()):
+            computing_embeddings.confident[do][computing_embeddings.label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
+            computing_embeddings.class_acc[do][computing_embeddings.label_remaps[label]].extend([int(predictions[idx]) == label])
+
+        # (bz, seq_len, hidden_dim)
+        if class_name is None:
+
+            computing_embeddings.representations[do].extend(representation) 
+        
+        else:
+        
+            computing_embeddings.representations[do][class_name].extend(representation) 
+
+
+class ComputingEmbeddings:
+    def __init__(self, label_maps, label_remaps, tokenizer) -> None:
+        
+        self.representations = {}
+        self.poolers = {}
+        self.counter = {}
+        
+        self.acc = {}
+        self.class_acc = {}
+        self.confident = {}
+
+        self.label_maps = label_maps
+        self.label_remaps = label_remaps
+        self.tokenizer = tokenizer
+
+def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class):
+    
+    label_remaps = { 0 :'contradiction', 1 : 'entailment', 2 : 'neutral'}
+
+    computing_embeddings = ComputingEmbeddings(label_maps, label_remaps, tokenizer=tokenizer)
+
 
     classifier = Classifier(model=model)
         
@@ -466,83 +523,76 @@ def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE):
                                         shuffle = False, 
                                         num_workers=0)
         
-        
     for batch_idx, (sentences, labels) in enumerate(tqdm(representation_loader, desc=f"representation_loader")):
         
         for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
             
-            
-            if do not in representations.keys():
-                
-                representations[do] = []
-                poolers[do] = 0
-                counter[do] = 0
+            if do not in computing_embeddings.representations.keys():
 
-                label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
+                if is_group_by_class:
+                    
+                    computing_embeddings.representations[do] = {}
+                    computing_embeddings.poolers[do] = {}
+                    computing_embeddings.counter[do] = {}
+                    
+                else:
                 
-                acc[do] = []
-                class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
-                confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
-
+                    computing_embeddings.representations[do] = []
+                    computing_embeddings.poolers[do] = 0
+                    computing_embeddings.counter[do] = 0
+                    
+                computing_embeddings.acc[do] = []
+                computing_embeddings.class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
+                computing_embeddings.confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
+                
 
             if experiment_set.is_group_by_class:
 
                 for class_name in sentences[do].keys():
-            
-                    premise, hypo = sentences[do][class_name]
+
+                    if class_name not in computing_embeddings.representations[do].keys():
+
+                        computing_embeddings.representations[do][class_name] = []
+                        computing_embeddings.poolers[do][class_name] = 0
+                        computing_embeddings.counter[do][class_name] = 0
+
+                    forward_pair_sentences(sentences[do][class_name],  computing_embeddings, labels[do][class_name], do, model, DEVICE, class_name)
             else:
                     
-                premise, hypo = sentences[do][class_name]
-            
-            pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
-            
-            inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-            
-            inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
-
-            golden_answers = [label_maps[label] for label in labels[do]]
-            golden_answers = torch.tensor(golden_answers).to(DEVICE)
-                
-            counter[do] += inputs['input_ids'].shape[0]            
-                
-            with torch.no_grad(): 
-
-                # Todo: generalize to distribution if the storage is enough
-                outputs = model(**inputs, output_hidden_states=True)
-
-                # (bz, seq_len, hiden_dim)
-                representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:].unsqueeze(dim=1)
-
-                predictions = torch.argmax(F.softmax(classifier(representation), dim=-1), dim=-1)
-
-                # overall acc
-                acc[do].extend((predictions == golden_answers).tolist())
-
-                # by class
-                for idx, label in enumerate(golden_answers.tolist()):
-                    confident[do][label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
-                    class_acc[do][label_remaps[label]].extend([int(predictions[idx]) == label])
-
-                # (bz, seq_len, hidden_dim)
-                representations[do].extend(representation) 
+                forward_pair_sentences(sentences[do], computing_embeddings, labels[do], do, model, DEVICE)
 
     print(f"==== Averaging representations across each set =====")
-            
-    # Forward sentence to get distribution
+    
+    # # Forward sentence to get distribution
     for do in ['High-overlap','Low-overlap']:
         
         print(f"++++++++++++++++++  {do} ++++++++++++++++++")
 
-        representations[do] = torch.stack(representations[do], dim=0)
-        average_representation = torch.mean(representations[do], dim=0 ).unsqueeze(dim=0)
+        if experiment_set.is_group_by_class:
+                
+            for class_name in ["contradiction", "entailment", "neutral"]:
+            
+                computing_embeddings.representations[do][class_name] = torch.stack(computing_embeddings.representations[do][class_name], dim=0)
+                average_representation = torch.mean(computing_embeddings.representations[do][class_name], dim=0 ).unsqueeze(dim=0)
 
-        out = classifier(average_representation).squeeze(dim=0)
-        
-        cur_distribution = F.softmax(out, dim=-1)
+                out = classifier(average_representation).squeeze(dim=0)
+                
+                cur_distribution = F.softmax(out, dim=-1)
 
-        print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
-        print(f"entailment : {cur_distribution[label_maps['entailment']]}")
-        print(f"neutral : {cur_distribution[label_maps['neutral']]}")
+                print(f"{class_name} set: {cur_distribution}")
+
+        else:
+
+            computing_embeddings.representations[do] = torch.stack(computing_embeddings.representations[do], dim=0)
+            average_representation = torch.mean(computing_embeddings.representations[do], dim=0 ).unsqueeze(dim=0)
+
+            out = classifier(average_representation).squeeze(dim=0)
+            
+            cur_distribution = F.softmax(out, dim=-1)
+
+            print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
+            print(f"entailment : {cur_distribution[label_maps['entailment']]}")
+            print(f"neutral : {cur_distribution[label_maps['neutral']]}")
 
         # print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
         # print(f"entailment : {cur_distribution[label_maps['entailment']]}")
@@ -551,21 +601,25 @@ def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE):
     print(f"====================================================")
 
     for do in ['High-overlap','Low-overlap']:
-        
-        print(f"++++++++++++++++++  {do} ++++++++++++++++++")
-        print(f"Overall accuray : {sum(acc[do]) / len(acc[do])}")
-        print(f"entail acc: {sum(class_acc[do]['entailment']) / len(class_acc[do]['entailment'])} ")   
-        print(f"contradiction acc: {sum(class_acc[do]['contradiction']) / len(class_acc[do]['contradiction'])} ")
-        print(f"neutral acc: {sum(class_acc[do]['neutral']) / len(class_acc[do]['neutral'])} ")
-        print(f"******* expected distribution of golden answers ************")
-        
-        confident[do]['entailment'] = confident[do]['entailment'].squeeze(dim=0)
-        confident[do]['contradiction'] = confident[do]['contradiction'].squeeze(dim=0) 
-        confident[do]['neutral'] = confident[do]['neutral'].squeeze(dim=0)
 
-        print(f"entail confident: {confident[do]['entailment'][label_maps['entailment']] / len(class_acc[do]['entailment'])} ")   
-        print(f"contradiction confident: {confident[do]['contradiction'][label_maps['contradiction']] / len(class_acc[do]['contradiction'])} ")
-        print(f"neutral confident: {confident[do]['neutral'][label_maps['neutral']]   / len(class_acc[do]['neutral'])}") 
+        if is_group_by_class:
+            pass
+
+        else:
+            print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+            print(f"Overall accuray : {sum(computing_embeddings.acc[do]) / len(computing_embeddings.acc[do])}")
+            print(f"entail acc: {sum(computing_embeddings.class_acc[do]['entailment']) / len(computing_embeddings.class_acc[do]['entailment'])} ")   
+            print(f"contradiction acc: {sum(computing_embeddings.class_acc[do]['contradiction']) / len(computing_embeddings.class_acc[do]['contradiction'])} ")
+            print(f"neutral acc: {sum(computing_embeddings.class_acc[do]['neutral']) / len(computing_embeddings.class_acc[do]['neutral'])} ")
+            print(f"******* expected distribution of golden answers ************")
+            
+            computing_embeddings.confident[do]['entailment'] = computing_embeddings.confident[do]['entailment'].squeeze(dim=0)
+            computing_embeddings.confident[do]['contradiction'] = computing_embeddings.confident[do]['contradiction'].squeeze(dim=0) 
+            computing_embeddings.confident[do]['neutral'] = computing_embeddings.confident[do]['neutral'].squeeze(dim=0)
+
+            print(f"entail confident: {computing_embeddings.confident[do]['entailment'][computing_embeddings.label_maps['entailment']] / len(computing_embeddings.class_acc[do]['entailment'])} ")   
+            print(f"contradiction confident: {computing_embeddings.confident[do]['contradiction'][computing_embeddings.label_maps['contradiction']] / len(computing_embeddings.class_acc[do]['contradiction'])} ")
+            print(f"neutral confident: {computing_embeddings.confident[do]['neutral'][computing_embeddings.label_maps['neutral']]   / len(computing_embeddings.class_acc[do]['neutral'])}") 
 
 
 def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
@@ -586,6 +640,9 @@ def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
             representations[do] = {}
             poolers[do] = {}
             counter[do] = {}
+
+
+
     
         for type in ["contradiction","entailment","neutral"]:
         
@@ -797,7 +854,9 @@ def main():
     
     save_representation_path = '../pickles/activated_components.pickle'
     save_nie_set_path = '../pickles/nie_samples.pickle'
+    
     collect_representation = True
+    is_group_by_class = False
     
     # used to compute nie scores
     num_samples = 3000
@@ -826,7 +885,7 @@ def main():
                              upper_bound = upper_bound,
                              lower_bound = lower_bound,
                              encode = tokenizer,
-                             is_group_by_class = True,
+                             is_group_by_class = is_group_by_class,
                              num_samples = num_samples
                             )
 
@@ -905,7 +964,7 @@ def main():
 
     if embeddings:
 
-        compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE)
+        compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class = is_group_by_class)
         #get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE)
 
     if distribution:
