@@ -528,7 +528,6 @@ def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, 
 
     computing_embeddings = ComputingEmbeddings(label_maps, label_remaps, tokenizer=tokenizer)
 
-
     classifier = Classifier(model=model)
         
     representation_loader = DataLoader(experiment_set,
@@ -593,8 +592,7 @@ def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, 
                 forward_pair_sentences(sentences[do], computing_embeddings, labels[do], do, model, DEVICE)
 
 
-    print(f"==== Averaging representations across each set =====")
-
+    print(f"==== Distributions of Averaging representations across each set =====")
     
     # # Forward sentence to get distribution
     for do in ['High-overlap','Low-overlap']:
@@ -612,7 +610,8 @@ def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, 
                 
                 cur_distribution = F.softmax(out, dim=-1)
 
-                print(f"{class_name} set: {cur_distribution[label_maps[class_name]]}")
+                # print(f"{class_name} set: {cur_distribution[label_maps[class_name]]}")
+                print(f"{class_name} set: {cur_distribution}")
 
         else:
 
@@ -631,7 +630,7 @@ def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, 
         # print(f"entailment : {cur_distribution[label_maps['entailment']]}")
         # print(f"neutral : {cur_distribution[label_maps['neutral']]}")
 
-    print(f"====================================================")
+    print(f"====  Expected distribution of each set =====")
 
     for do in ['High-overlap','Low-overlap']:
 
@@ -639,18 +638,9 @@ def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, 
                 
             #print(f"Overall accuray : {sum(computing_embeddings.acc[do]) / len(computing_embeddings.acc[do])}")
             print(f"++++++++++++++++++  {do} ++++++++++++++++++")
-                
-            print(f"******* expected distribution of golden answers ************")
             
             for class_name in ["contradiction", "entailment", "neutral"]:
-                
 
-                # print(f"entail acc: {sum(computing_embeddings.class_acc[do][class_name]) / len(computing_embeddings.class_acc[do][class_name]['entailment'])} ")   
-                # print(f"contradiction acc: {sum(computing_embeddings.class_acc[do][class_name] / len(computing_embeddings.class_acc[do][class_name]['contradiction'])} ")
-                # print(f"neutral acc: {sum(computing_embeddings.class_acc[do][class_name] / len(computing_embeddings.class_acc[do][class_name]['neutral'])} ")
-                
-
-                
                 computing_embeddings.confident[do][class_name] = computing_embeddings.confident[do][class_name].squeeze(dim=0)
 
                 print(f"{class_name} set ; confident: {computing_embeddings.confident[do][class_name] / computing_embeddings.counter[do][class_name]}")
@@ -662,6 +652,7 @@ def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, 
             print(f"entail acc: {sum(computing_embeddings.class_acc[do]['entailment']) / len(computing_embeddings.class_acc[do]['entailment'])} ")   
             print(f"contradiction acc: {sum(computing_embeddings.class_acc[do]['contradiction']) / len(computing_embeddings.class_acc[do]['contradiction'])} ")
             print(f"neutral acc: {sum(computing_embeddings.class_acc[do]['neutral']) / len(computing_embeddings.class_acc[do]['neutral'])} ")
+            
             print(f"******* expected distribution of golden answers ************")
             
             computing_embeddings.confident[do]['entailment'] = computing_embeddings.confident[do]['entailment'].squeeze(dim=0)
@@ -671,6 +662,7 @@ def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, 
             print(f"entail confident: {computing_embeddings.confident[do]['entailment'][computing_embeddings.label_maps['entailment']] / len(computing_embeddings.class_acc[do]['entailment'])} ")   
             print(f"contradiction confident: {computing_embeddings.confident[do]['contradiction'][computing_embeddings.label_maps['contradiction']] / len(computing_embeddings.class_acc[do]['contradiction'])} ")
             print(f"neutral confident: {computing_embeddings.confident[do]['neutral'][computing_embeddings.label_maps['neutral']]   / len(computing_embeddings.class_acc[do]['neutral'])}") 
+
     
 def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
     
@@ -690,9 +682,6 @@ def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
             representations[do] = {}
             poolers[do] = {}
             counter[do] = {}
-
-
-
     
         for type in ["contradiction","entailment","neutral"]:
         
@@ -1013,7 +1002,7 @@ def main():
     if embeddings:
 
         compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class = is_group_by_class)
-        #get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE)
+        # get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE)
 
     if distribution:
         get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
