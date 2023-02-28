@@ -207,7 +207,7 @@ def group_by_treatment(thresholds, overlap_score, gold_label):
     else:
         return "exclude"
 
-def get_activation(layer, do, activation):
+def get_activation(layer, do, activation, is_averaged_embeddings):
 
   # the hook signature
   def hook(model, input, output):
@@ -215,17 +215,28 @@ def get_activation(layer, do, activation):
     # print(f"layer : {layer}, do : {do}, {output.shape} ")
     
     if layer not in activation[do].keys():
-        
-        activation[do][layer] = 0
+
+        if is_averaged_embeddings:
+            
+            activation[do][layer] = 0
+
+        else:
+            activation[do][layer] = []
 
     # grab representation of [CLS] then sum up
-    activation[do][layer] += torch.sum(output.detach()[:,0,:], dim=0)
+
+    if is_averaged_embeddings:
+
+        activation[do][layer] += torch.sum(output.detach()[:,0,:], dim=0)
+
+    else:
+        activation[do][layer].extend(output.detach()[:,0,:])
   
   return hook
 
 def collect_output_components(model, experiment_set, dataloader, tokenizer, DEVICE, layers, heads):
 
-    """get average hidden representation all neurons"""
+    """get hidden representation all neurons"""
    
     hooks =  {"High-overlap" : None, "Low-overlap": None}
 
@@ -314,14 +325,14 @@ def collect_output_components(model, experiment_set, dataloader, tokenizer, DEVI
 
                 # register forward hooks on all layers
                 for layer in layers:
-
-                    q[layer] = q_layer(layer).register_forward_hook(get_activation(layer, do, q_activation))
-                    k[layer] = k_layer(layer).register_forward_hook(get_activation(layer, do, k_activation))
-                    v[layer] = v_layer(layer).register_forward_hook(get_activation(layer, do, v_activation))
                     
-                    ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation))
-                    intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation))
-                    out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation))
+                    q[layer] = q_layer(layer).register_forward_hook(get_activation(layer, do, q_activation, is_averaged_embeddings = False))
+                    k[layer] = k_layer(layer).register_forward_hook(get_activation(layer, do, k_activation, is_averaged_embeddings = False))
+                    v[layer] = v_layer(layer).register_forward_hook(get_activation(layer, do, v_activation, is_averaged_embeddings = False))
+                    
+                    ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation, is_averaged_embeddings = False))
+                    intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation, is_averaged_embeddings = False))
+                    out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation, is_averaged_embeddings = False))
 
                 # get activatation
                 outputs = model(**inputs)
@@ -397,4 +408,24 @@ def test_mask(neuron_candidates =[]):
     
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
+
+class Classifier(nn.Module):
+
+    def __init__(self, model):
+        super(Classifier, self).__init__()
+
+        self.model = model
+        self.pooler = model.bert.pooler
+        self.dropout = self.model.dropout
+        self.classifier = self.model.classifier
+
+    def forward(self, last_hidden_state):
+
+        pooled_output = self.pooler(last_hidden_state)
+        
+        pooled_output = self.dropout(pooled_output)
+        
+        logits = self.classifier(pooled_output)
+
+        return logits
 
