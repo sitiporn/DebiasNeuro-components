@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask, Classifier
+from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
 from utils import collect_output_components #, report_gpu
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
@@ -205,52 +205,6 @@ def prunning(model, layers):
             # model.bert.encoder.layer[layer].intermediate.dense = Wl_I(layer) *  Ml_I 
             # model.bert.encoder.layer[layer].output.dense = Wl_O(layer) *  Ml_O 
 
-def get_average_activations(path, layers, heads):
-
-    # load all output components 
-    with open(path, 'rb') as handle:
-        
-        # get [CLS] activation 
-        q_cls = pickle.load(handle)
-        k_cls = pickle.load(handle)
-        v_cls = pickle.load(handle)
-        ao_cls = pickle.load(handle)
-        intermediate_cls = pickle.load(handle)
-        out_cls = pickle.load(handle)
-        
-        attention_data = pickle.load(handle)
-        counter = pickle.load(handle)
-
-    # get average of [CLS] activations
-    q_cls_avg = {}
-    k_cls_avg = {}
-    v_cls_avg = {}
-    ao_cls_avg = {}
-    intermediate_cls_avg = {}
-    out_cls_avg = {}
-    
-    for do in ["High-overlap", "Low-overlap"]:
-
-        q_cls_avg[do] = {}
-        k_cls_avg[do] = {}
-        v_cls_avg[do] = {}
-        ao_cls_avg[do] = {}
-        intermediate_cls_avg[do] = {}
-        out_cls_avg[do] = {}
-         
-         # concate all batches
-        for layer in layers:
-
-            # compute average over samples
-            q_cls_avg[do][layer] = q_cls[do][layer] / counter
-            k_cls_avg[do][layer] = k_cls[do][layer] / counter
-            v_cls_avg[do][layer] = v_cls[do][layer] / counter
-
-            ao_cls_avg[do][layer] = ao_cls[do][layer] / counter
-            intermediate_cls_avg[do][layer] = intermediate_cls[do][layer] / counter
-            out_cls_avg[do][layer] = out_cls[do][layer] / counter
-
-    return q_cls_avg, k_cls_avg, v_cls_avg, ao_cls_avg, intermediate_cls_avg,  out_cls_avg
 
 def neuron_intervention(neuron_ids, 
                        DEVICE,
@@ -277,9 +231,9 @@ def neuron_intervention(neuron_ids,
 
     return intervention_hook
 
-def cma_analysis(save_representation_path, save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, DEVICE, DEBUG=False):
-
-    cls_averages = {}
+def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, is_averaged_embeddings , DEVICE, DEBUG=False):
+                
+    cls = {}
     NIE = {}
     mediators = {}
     counter = 0
@@ -288,13 +242,10 @@ def cma_analysis(save_representation_path, save_nie_set_path, model, layers, tre
     counter_predictions  = {} 
 
 
-
-    if used_avg_representation:
-        cls_averages["Q"], cls_averages["K"], cls_averages["V"], cls_averages["AO"], cls_averages["I"], cls_averages["O"] = get_average_activations(save_representation_path, 
-                                    layers, 
-                                    heads) 
-
+    cls["Q"], cls["K"], cls["V"], cls["AO"], cls["I"], cls["O"] = get_hidden_representations(counterfactual_paths, layers, heads, is_averaged_embeddings)
     
+    breakpoint()
+
     with open(save_nie_set_path, 'rb') as handle:
         
         dataset = pickle.load(handle)
@@ -844,6 +795,7 @@ def main():
                         default=-1,
                         required=False,
                         help="layers to intervene")
+
     
     parser.add_argument("--treatment",
                         type=bool,
@@ -861,7 +813,7 @@ def main():
                         type=bool,
                         default=False,
                         required=False,
-                       help="get top K analysis")
+                        help="get top K analysis")
     
     parser.add_argument("--distribution",
                         type=bool,
@@ -888,12 +840,24 @@ def main():
     
     valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     json_file = 'multinli_1.0_dev_matched.jsonl'
+    counterfactual_representation_paths = []
+    is_counterfactual_exist = []
     
-    save_representation_path = '../pickles/activated_components.pickle'
+    for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
+
+        cur_path = f'../pickles/{component}_counterfactual_representation.pickle'
+    
+        counterfactual_representation_paths.append(cur_path)
+        is_counterfactual_exist.append(os.path.isfile(cur_path))
+
+
     save_nie_set_path = '../pickles/nie_samples.pickle'
     
     collect_representation = True
     is_group_by_class = True
+
+    # for HOL and LOL set
+    is_averaged_embeddings = False #True
     
     # used to compute nie scores
     num_samples = 3000
@@ -932,22 +896,27 @@ def main():
                         num_workers=0)
 
      
-    if not os.path.isfile(save_representation_path):
+    if sum(is_counterfactual_exist) != len(["Q","K","V","AO","I","O"]):
     
         # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
         collect_output_components(model = model,
+                                counterfactual_paths = counterfactual_representation_paths,
                                 experiment_set = experiment_set,
                                 dataloader = dataloader,
                                 tokenizer = tokenizer,
                                 DEVICE = DEVICE,
                                 layers = layers,
-                                heads = heads)
-        
-        print(f"done with saving representation into {save_representation_path}")
-    
+                                heads = heads,
+                                is_averaged_embeddings = is_averaged_embeddings
+                                )
+        #print(f"done with saving representation into {save_representation_path}")
     else:
-        print(f"HOL and LOL representation in {save_representation_path}")
-    
+
+        print(f"HOL and LOL representation in the following paths ")
+
+        for cur_path in counterfactual_representation_paths:
+            print(f" : {cur_path}")
+
 
     if not os.path.isfile(save_nie_set_path):
 
@@ -981,9 +950,10 @@ def main():
         mode = ["Low-overlap"]
 
     if is_analysis: 
+        
         print(f"perform Causal Mediation analysis...")
         
-        cma_analysis(save_representation_path = save_representation_path,
+        cma_analysis(counterfactual_paths = counterfactual_representation_paths,
                     save_nie_set_path = save_nie_set_path,
                     model = model,
                     layers = select_layer,
@@ -992,10 +962,13 @@ def main():
                     tokenizer = tokenizer,
                     experiment_set = experiment_set,
                     label_maps = label_maps,
+                    is_averaged_embeddings = is_averaged_embeddings,
                     DEVICE = DEVICE,
                     DEBUG = True)
 
+    
     if is_topk:
+        
         print(f"perform ranking top neurons...")
         get_top_k(select_layer, treatments=mode)
 
@@ -1005,9 +978,8 @@ def main():
         # get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE)
 
     if distribution:
+        
         get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
-    
-
     
     # prunning(model = model,
     #          layers= [0, 1, 2, 3, 4])
