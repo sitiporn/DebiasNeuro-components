@@ -207,7 +207,7 @@ def group_by_treatment(thresholds, overlap_score, gold_label):
     else:
         return "exclude"
 
-def get_activation(layer, do, activation, is_averaged_embeddings, class_name = None):
+def get_activation(layer, do, component, activation, is_averaged_embeddings, class_name = None):
 
   # the hook signature
   def hook(model, input, output):
@@ -216,72 +216,54 @@ def get_activation(layer, do, activation, is_averaged_embeddings, class_name = N
 
     if class_name is None:
     
-        if layer not in activation[do].keys():
+        if layer not in activation[component][do].keys():
 
             if is_averaged_embeddings:
                 
-                activation[do][layer] = 0
+                activation[component][do][layer] = 0
 
             else:
-                activation[do][layer] = []
+                activation[component][do][layer] = []
 
         # grab representation of [CLS] then sum up
 
         if is_averaged_embeddings:
 
-            activation[do][layer] += torch.sum(output.detach()[:,0,:], dim=0)
+            activation[component][do][layer] += torch.sum(output.detach()[:,0,:], dim=0)
 
         else:
             
-            activation[do][layer].extend(output.detach()[:,0,:])
+            activation[component][do][layer].extend(output.detach()[:,0,:])
     else:
 
-        if layer not in activation[do][class_name].keys():
+        if layer not in activation[component][do][class_name].keys():
 
             if is_averaged_embeddings:
                 
-                activation[do][class_name][layer] = 0
+                activation[component][do][class_name][layer] = 0
 
             else:
-                activation[do][class_name][layer] = []
+                activation[component][do][class_name][layer] = []
 
         # grab representation of [CLS] then sum up
 
         if is_averaged_embeddings:
 
-            activation[do][class_name][layer] += torch.sum(output.detach()[:,0,:], dim=0)
+            activation[component][do][class_name][layer] += torch.sum(output.detach()[:,0,:], dim=0)
 
         else:
-            activation[do][class_name][layer].extend(output.detach()[:,0,:])
+            activation[component][do][class_name][layer].extend(output.detach()[:,0,:])
   
   return hook
 
-def collect_output_components(model, experiment_set, dataloader, tokenizer, DEVICE, layers, heads, is_averaged_embeddings):
+def collect_output_components(model, counterfactual_paths, experiment_set, dataloader, tokenizer, DEVICE, layers, heads, is_averaged_embeddings):
     
     """ get hidden representation all neurons """
    
-    hooks =  {"High-overlap" : None, "Low-overlap": None}
-
-    # linear layer
-    q_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.query
-    k_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.key
-    v_layer = lambda layer : model.bert.encoder.layer[layer].attention.self.value
-    
-    self_output = lambda layer : model.bert.encoder.layer[layer].attention.output
-    intermediate_layer = lambda layer : model.bert.encoder.layer[layer].intermediate
-    output_layer = lambda layer : model.bert.encoder.layer[layer].output
-
-    # output of value vector multiply with weighted scored
-    # self_attention = lambda layer : model.bert.encoder.layer[layer].attention.self
+    layer_modules = {}
 
     # using for register
-    q = {}
-    k = {}
-    v = {}
-   
-    ao = {}
-    intermediate = {}
-    out = {} 
+    registers = {}
 
     #dicts to store the activations
     q_activation = {}
@@ -292,56 +274,64 @@ def collect_output_components(model, experiment_set, dataloader, tokenizer, DEVI
     intermediate_activation = {}
     out_activation = {} 
 
+    hidden_representations = {}
+
     
     attention_data = {}        
 
     # dict to store  probabilities
     distributions = {}
-
+    
     counter = 0
 
     batch_idx = 0
+    
+    hooks =  {"High-overlap" : None, "Low-overlap": None}
+
+    # linear layer
+    layer_modules["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
+    layer_modules["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
+    layer_modules["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
+    
+    layer_modules["AO"] = lambda layer : model.bert.encoder.layer[layer].attention.output
+    layer_modules["I"] = lambda layer : model.bert.encoder.layer[layer].intermediate
+    layer_modules["O"] = lambda layer : model.bert.encoder.layer[layer].output
+
+    for component in (["Q","K","V","AO","I","O"]):
+        
+        hidden_representations[component] = {}
 
     for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"Intervene_set_loader")):
         
         for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
 
-        # if batch_idx == 2:
-        #     print(f"stop batching at index : {batch_idx}")
-        #     break
+            if do not in hidden_representations["Q"].keys():
 
-        # counter += len(pair_sentences['High-overlap'][0])
-        
-        # print(f"current : {counter}")
+                for component in (["Q","K","V","AO","I","O"]):
 
-            if do not in ao_activation.keys():
-                
-                q_activation[do] = {}
-                k_activation[do] = {}
-                v_activation[do] = {}
-                
-                ao_activation[do] = {}
-                intermediate_activation[do] = {}
-                out_activation[do] = {} 
+                    hidden_representations[component][do] = {}
                 
                 distributions[do] = {} 
-                
-            
+
             if experiment_set.is_group_by_class:
 
                 for class_name in sentences[do].keys():
 
-                    if class_name not in q_activation[do].keys():
-                
-                            q_activation[do][class_name] = {}
-                            k_activation[do][class_name] = {}
-                            v_activation[do][class_name] = {}
-                            
-                            ao_activation[do][class_name] = {}
-                            intermediate_activation[do][class_name] = {}
-                            out_activation[do][class_name] = {} 
-                            
-                            distributions[do][class_name] = {} 
+                    for component in (["Q","K","V","AO","I","O"]):
+
+                    
+                        if class_name not in hidden_representations[component][do].keys():
+
+                                hidden_representations[component][do][class_name] = {}
+
+                                # distributions[do][class_name] = {} 
+
+                        registers[component] = {}
+                    
+                        # register forward hooks on all layers
+                        for layer in layers:
+
+                            registers[component][layer] = layer_modules[component](layer).register_forward_hook(get_activation(layer, do, component, hidden_representations, is_averaged_embeddings, class_name=class_name))                        
                     
                     premise, hypo = sentences[do][class_name]
     
@@ -350,59 +340,47 @@ def collect_output_components(model, experiment_set, dataloader, tokenizer, DEVI
                     inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
     
                     inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
-                    
-                    # register forward hooks on all layers
-                    for layer in layers:
-                        
-                        q[layer] = q_layer(layer).register_forward_hook(get_activation(layer, do, q_activation, is_averaged_embeddings, class_name=class_name))
-                        k[layer] = k_layer(layer).register_forward_hook(get_activation(layer, do, k_activation, is_averaged_embeddings, class_name=class_name))
-                        v[layer] = v_layer(layer).register_forward_hook(get_activation(layer, do, v_activation, is_averaged_embeddings, class_name=class_name))
-                        
-                        ao[layer] = self_output(layer).register_forward_hook(get_activation(layer, do, ao_activation, is_averaged_embeddings, class_name=class_name))
-                        intermediate[layer] = intermediate_layer(layer).register_forward_hook(get_activation(layer, do, intermediate_activation, is_averaged_embeddings, class_name=class_name))
-                        out[layer] = output_layer(layer).register_forward_hook(get_activation(layer, do, out_activation, is_averaged_embeddings, class_name=class_name))
 
+                    # registers
                     with torch.no_grad():    
 
                         # get activatation
                         outputs = model(**inputs)
-                        # outputs = model(**inputs[do])
 
                     del outputs
                     
                     #report_gpu()
     
-                # detach the hooks
+                    # detach the hooks
                     for layer in layers:
-                        
-                        q[layer].remove()
-                        k[layer].remove()
-                        v[layer].remove()
-                        
-                        ao[layer].remove()
-                        intermediate[layer].remove()
-                        out[layer].remove()
+
+                        for component in ["Q","K","V","AO","I","O"]:
+
+                            registers[component][layer].remove()
                 
+                    
                     inputs = {k: v.to('cpu') for k,v in inputs.items()} 
                 
         
         batch_idx += 1
 
-    with open('../pickles/activated_components.pickle', 'wb') as handle:
+    for cur_path, component in zip(counterfactual_paths, ["Q","K","V","AO","I","O"]):
 
-        pickle.dump(q_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(k_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(v_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(ao_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(intermediate_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(out_activation, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
+        with open(cur_path, 'wb') as handle: 
+            
+            # hidden_representations[component][do][class_name][layer][sample_idx]
+            pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"saving to {cur_path} done ! ")
+
+
+
+    with open('../pickles/utilizer_components.pickle', 'wb') as handle: 
         pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(experiment_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        print(f"save activate components done ! ")
+        print(f"save utilizer components done ! ")
 
 def test_mask(neuron_candidates =[]):
 
@@ -438,6 +416,43 @@ def test_mask(neuron_candidates =[]):
     
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
+
+def get_hidden_representations(counterfactual_paths, layers, heads, is_averaged_embeddings):
+ 
+    if is_averaged_embeddings:
+
+        # get average of [CLS] activations
+        counterfactual_representations = {}
+        avg_counterfactual_representations = {}
+        
+        for cur_path, component in zip(counterfactual_paths, ["Q","K","V","AO","I","O"]):
+
+            avg_counterfactual_representations[component] = {}
+
+            # load all output components 
+            with open(cur_path, 'rb') as handle:
+                
+                # get [CLS] activation 
+                counterfactual_representations[component] = pickle.load(handle)
+                # attention_data = pickle.load(handle)
+                # counter = pickle.load(handle)
+        
+            for do in ["High-overlap", "Low-overlap"]:
+
+                
+                # concate all batches
+                for layer in layers:
+
+                    # compute average over samples
+                    avg_counterfactual_representations[component][do][layer] = counterfactual_representations[component][do][layer] / counter
+
+        return  avg_counterfactual_representations
+
+    else:
+        
+        return None
+        
+        #q_cls_representations , k_cls_representations , v_cls_representations , ao_cls_representations, intermediate_cls_representations ,  out_cls_representations
 
 class Classifier(nn.Module):
 
