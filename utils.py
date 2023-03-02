@@ -424,7 +424,7 @@ def test_mask(neuron_candidates =[]):
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
 
-def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings):
+def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings, one_component = None):
         
     paths = { k : v for k, v in zip(["Q","K","V","AO","I","O"], counterfactual_paths)}
     
@@ -470,17 +470,12 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
 
                                 avg_counterfactual_representations[component][do][class_name] = {}
                             
-                            breakpoint()
                             
                             avg_counterfactual_representations[component][do][class_name][layer] = counterfactual_representations[component][do][class_name][layer] / counter[do][class_name]
 
                     else:
-                        #  [component][do][class_name][layer][sample_idx]
-
-                        pass
-                    
-                    breakpoint()
-
+                            avg_counterfactual_representations[component][do][layer] = counterfactual_representations[component][do][layer] / counter[do]
+                                
 
         return  avg_counterfactual_representations
 
@@ -495,7 +490,20 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
                 
         #         # get [CLS] activation 
         #         counterfactual_representations[component] = pickle.load(handle)
+
+        #  [component][do][class_name][layer][sample_idx]
+        """
+        # Todo: get each component 
+        if one_component not None:
+            cur_path = paths[one_component]
+
+            # load all output components 
+            with open(cur_path, 'rb') as handle:
+                
+
+                counterfactual_representations[component] = pickle.load(handle)
         
+        """
         return None
         
         #q_cls_representations , k_cls_representations , v_cls_representations , ao_cls_representations, intermediate_cls_representations ,  out_cls_representations
