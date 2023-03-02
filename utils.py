@@ -282,7 +282,7 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
     # dict to store  probabilities
     distributions = {}
     
-    counter = 0
+    counter = {}
 
     batch_idx = 0
     
@@ -304,6 +304,7 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
     for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"Intervene_set_loader")):
         
         for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+            
 
             if do not in hidden_representations["Q"].keys():
 
@@ -312,10 +313,16 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
                     hidden_representations[component][do] = {}
                 
                 distributions[do] = {} 
+                counter[do] = {}
 
             if experiment_set.is_group_by_class:
 
                 for class_name in sentences[do].keys():
+                    
+
+                    if class_name not in counter[do].keys():
+                                
+                        counter[do][class_name] = 0 
 
                     for component in (["Q","K","V","AO","I","O"]):
 
@@ -338,9 +345,10 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
                     pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
     
                     inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-    
-                    inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
 
+                    inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
+                    counter[do][class_name] += inputs['input_ids'].shape[0]
+                    
                     # registers
                     with torch.no_grad():    
 
@@ -360,7 +368,6 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
                 
                     
                     inputs = {k: v.to('cpu') for k,v in inputs.items()} 
-                
         
         batch_idx += 1
 
@@ -372,15 +379,15 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
             pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving to {cur_path} done ! ")
 
-
-
     with open('../pickles/utilizer_components.pickle', 'wb') as handle: 
+        
         pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(experiment_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        print(f"save utilizer components done ! ")
+        print(f"save utilizer to ../pickles/utilizer_components.pickle  ! ")
+    
 
 def test_mask(neuron_candidates =[]):
 
@@ -417,15 +424,25 @@ def test_mask(neuron_candidates =[]):
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
 
-def get_hidden_representations(counterfactual_paths, layers, heads, is_averaged_embeddings):
- 
+def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings):
+        
+    paths = { k : v for k, v in zip(["Q","K","V","AO","I","O"], counterfactual_paths)}
+    
+    with open('../pickles/utilizer_components.pickle', 'rb') as handle: 
+        attention_data = pickle.load(handle)
+        counter = pickle.load(handle)
+        # experiment_set = pickle.load(handle)
+        # dataloader, handle = pickle.load(handle)
+
+    #breakpoint()
+
     if is_averaged_embeddings:
 
         # get average of [CLS] activations
         counterfactual_representations = {}
         avg_counterfactual_representations = {}
-        
-        for cur_path, component in zip(counterfactual_paths, ["Q","K","V","AO","I","O"]):
+
+        for component, cur_path in paths.items():
 
             avg_counterfactual_representations[component] = {}
 
@@ -436,19 +453,48 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_averaged_
                 counterfactual_representations[component] = pickle.load(handle)
                 # attention_data = pickle.load(handle)
                 # counter = pickle.load(handle)
-        
+            
             for do in ["High-overlap", "Low-overlap"]:
-
+            
+                avg_counterfactual_representations[component][do] = {}
                 
                 # concate all batches
                 for layer in layers:
 
                     # compute average over samples
-                    avg_counterfactual_representations[component][do][layer] = counterfactual_representations[component][do][layer] / counter
+                    if is_group_by_class:
+                    
+                        for class_name in counterfactual_representations[component][do].keys():
+
+                            if class_name not in avg_counterfactual_representations[component][do].keys():
+
+                                avg_counterfactual_representations[component][do][class_name] = {}
+                            
+                            breakpoint()
+                            
+                            avg_counterfactual_representations[component][do][class_name][layer] = counterfactual_representations[component][do][class_name][layer] / counter[do][class_name]
+
+                    else:
+                        #  [component][do][class_name][layer][sample_idx]
+
+                        pass
+                    
+                    breakpoint()
+
 
         return  avg_counterfactual_representations
 
     else:
+        
+        # for cur_path, component in zip(counterfactual_paths, ["Q","K","V","AO","I","O"]):
+
+        #     avg_counterfactual_representations[component] = {}
+
+        #     # load all output components 
+        #     with open(cur_path, 'rb') as handle:
+                
+        #         # get [CLS] activation 
+        #         counterfactual_representations[component] = pickle.load(handle)
         
         return None
         
@@ -460,6 +506,7 @@ class Classifier(nn.Module):
         super(Classifier, self).__init__()
 
         self.model = model
+
         self.pooler = model.bert.pooler
         self.dropout = self.model.dropout
         self.classifier = self.model.classifier
