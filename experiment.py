@@ -231,36 +231,8 @@ def neuron_intervention(neuron_ids,
 
     return intervention_hook
 
-def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, is_averaged_embeddings , DEVICE, DEBUG=False):
-                
-    cls = {}
-    NIE = {}
-    mediators = {}
-    counter = 0
-    dataset = None
-    dataloader = None
-    counter_predictions  = {} 
+def intervention(dataloader, components, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE):
 
-
-    cls["Q"], cls["K"], cls["V"], cls["AO"], cls["I"], cls["O"] = get_hidden_representations(counterfactual_paths, layers, heads, is_averaged_embeddings)
-    
-    breakpoint()
-
-    with open(save_nie_set_path, 'rb') as handle:
-        
-        dataset = pickle.load(handle)
-        dataloader = pickle.load(handle)
-        
-        print(f"loading nie sets from pickle {save_nie_set_path} !")
-
-    
-    # mediator used to intervene
-    mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
-    mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
-    mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
-    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
-    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
-    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
 
     for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc="DataLoader")):
 
@@ -276,6 +248,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
         inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
 
         with torch.no_grad(): 
+            
             # Todo: generalize to distribution if the storage is enough
             probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
 
@@ -285,6 +258,16 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
         
         # To store all positions
         probs['intervene'] = {}
+        
+        # Todo:
+        # 1. checking that averaging representations (one instance) or many instances
+        # 2.1 by class
+        #    - cls[component][do][class_name][layer][sample_idx].shape[0]; set of counterfactual
+        #    - cls[component][do][class_name][layer].shape[0]; averaging of counterfactual
+        # 2.2  
+        #    - cls[component][do][layer][sample_idx].shape[0] ; set of counterfactual
+        #    - cls[component][do][layer].shape[0] ; averaging of counterfactual
+        """
 
         # run one full neuron intervention experiment
         for do in treatments: # ['do-treatment','no-treatment']
@@ -295,7 +278,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
             
             probs['intervene'][do] = {}
 
-            for component in ["Q","K","V","AO","I","O"]: 
+            for component in components: 
                 if  component not in NIE[do].keys():
                     NIE[do][component] = {}
                     counter_predictions[do][component]  = {} 
@@ -307,20 +290,24 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
                 # probs['intervene'][do][layer] = {}
                  
                 # neuron_ids = [*range(0, ao_cls_avg[do][layer].shape[0], 1)]
-                for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
+                # len(cls[component][do]['contradiction'][layer])
+                for component in tqdm(components, desc="Components"): 
 
                     if  layer not in NIE[do][component].keys(): 
+
                         NIE[do][component][layer] = {}
                         counter_predictions[do][component][layer]  = {} 
-                
-                    for neuron_id in range(cls_averages[component][do][layer].shape[0]):
+
+                    breakpoint()
+                    # cls[component][do]['contradiction'][layer][sample_idx]
+                    for neuron_id in range(cls[component][do][layer].shape[0]):
 
                         # NIE[do][layer][neuron_id] = {}
                         
                         # select layer to register and input which neurons to intervene
                         hooks = [] 
 
-                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = cls_averages[component][do][layer])))
+                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = cls[component][do][layer])))
                         
                         with torch.no_grad(): 
                             # probs['intervene'][layer][neuron_id] 
@@ -329,12 +316,10 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
                             entail_probs = intervene_probs[:, label_maps["entailment"]]
                             
                             # get prediction 
-                            """
-                            if DEBUG:
-                                predictions = torch.argmax(intervene_probs, dim=-1)
-                                if neuron_id not in counter_predictions[do][component][layer].keys():
-                                    counter_predictions[do][component][layer][neuron_id].extend(predictions.tolist())
-                            """  
+                            #if DEBUG:
+                            #    predictions = torch.argmax(intervene_probs, dim=-1)
+                            #    if neuron_id not in counter_predictions[do][component][layer].keys():
+                            #        counter_predictions[do][component][layer][neuron_id].extend(predictions.tolist())
                                 #counter_predictions[do][label_remaps[int(prediction)]] += 1
                         # report_gpu()
                         
@@ -350,12 +335,61 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
                         for hook in hooks: hook.remove() 
                         
                         # print(f"batch{batch_idx}, layer : {layer}, {component}, Z :{neuron_id}")
+    """
+
+def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, is_averaged_embeddings , is_group_by_class,DEVICE, DEBUG=False):
+                
+    cls = {}
+    NIE = {}
+    mediators = {}
+    counter = None
+    dataset = None
+    dataloader = None
+    counter_predictions  = {} 
     
-    with open(f'../pickles/NIE_{treatments[0]}_{layers[0]}.pickle', 'wb') as handle:
-        pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(counter_predictions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(save_nie_set_path, 'rb') as handle:
+        
+        dataset = pickle.load(handle)
+        dataloader = pickle.load(handle)
+        
+        print(f"loading nie sets from pickle {save_nie_set_path} !")        
+    
+    # mediator used to intervene
+    mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
+    mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
+    mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
+    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
+    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
+    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
+
+
+    if is_averaged_embeddings: 
+        
+        counterfactual_components = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings)
+
+        cls["Q"], cls["K"], cls["V"], cls["AO"], cls["I"], cls["O"] = counterfactual_components
+        
+        components = ["Q","K","V","AO","I","O"]
+        
+        intervention(dataloader, components, mediators, cls, NIE, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
+        
+    else:
+        
+        counter = 0
+
+        for component in ["Q","K","V","AO","I","O"]: 
+            
+            counterfactual_components = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings, component)
+
+            intervention(dataloader, [component], mediators[component], counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
+
+            breakpoint()
+        
+    # with open(f'../pickles/NIE_{treatments[0]}_{layers[0]}.pickle', 'wb') as handle:
+    #     pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #     pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #     pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #     pickle.dump(counter_predictions, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def get_top_k(layers, treatments, top_k=5):
         
@@ -963,10 +997,10 @@ def main():
                     experiment_set = experiment_set,
                     label_maps = label_maps,
                     is_averaged_embeddings = is_averaged_embeddings,
+                    is_group_by_class = is_group_by_class,
                     DEVICE = DEVICE,
                     DEBUG = True)
 
-    
     if is_topk:
         
         print(f"perform ranking top neurons...")
