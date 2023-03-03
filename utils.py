@@ -305,7 +305,6 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
         
         for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
             
-
             if do not in hidden_representations["Q"].keys():
 
                 for component in (["Q","K","V","AO","I","O"]):
@@ -313,13 +312,13 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
                     hidden_representations[component][do] = {}
                 
                 distributions[do] = {} 
-                counter[do] = {}
+                counter[do] = {} if experiment_set.is_group_by_class else 0
 
             if experiment_set.is_group_by_class:
 
                 for class_name in sentences[do].keys():
-                    
 
+                    # register all modules
                     if class_name not in counter[do].keys():
                                 
                         counter[do][class_name] = 0 
@@ -335,11 +334,12 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
 
                         registers[component] = {}
                     
-                        # register forward hooks on all layers
                         for layer in layers:
 
                             registers[component][layer] = layer_modules[component](layer).register_forward_hook(get_activation(layer, do, component, hidden_representations, is_averaged_embeddings, class_name=class_name))                        
                     
+                    
+                    # forward to collect counterfactual representations
                     premise, hypo = sentences[do][class_name]
     
                     pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
@@ -347,27 +347,50 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
                     inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
 
                     inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
+
                     counter[do][class_name] += inputs['input_ids'].shape[0]
-                    
-                    # registers
+            
                     with torch.no_grad():    
 
-                        # get activatation
                         outputs = model(**inputs)
-
-                    del outputs
                     
-                    #report_gpu()
-    
-                    # detach the hooks
+            else:
+                 
+                # register all modules
+                for component in (["Q","K","V","AO","I","O"]):
+                        
+                    registers[component] = {}
+                    
                     for layer in layers:
 
-                        for component in ["Q","K","V","AO","I","O"]:
-
-                            registers[component][layer].remove()
-                
+                        registers[component][layer] = layer_modules[component](layer).register_forward_hook(get_activation(layer, do, component, hidden_representations, is_averaged_embeddings))                        
                     
-                    inputs = {k: v.to('cpu') for k,v in inputs.items()} 
+                # forward to collect counterfactual representations
+                premise, hypo = sentences[do]
+
+                pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
+
+                inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+
+                inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
+
+                counter[do] += inputs['input_ids'].shape[0]
+        
+                with torch.no_grad():    
+
+                    outputs = model(**inputs)
+
+            del outputs
+            
+            # detach the hooks
+            for layer in layers:
+
+                for component in ["Q","K","V","AO","I","O"]:
+
+                    registers[component][layer].remove()
+        
+            
+            inputs = {k: v.to('cpu') for k,v in inputs.items()} 
         
         batch_idx += 1
 
@@ -434,7 +457,6 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
         # experiment_set = pickle.load(handle)
         # dataloader, handle = pickle.load(handle)
 
-    #breakpoint()
 
     if is_averaged_embeddings:
 
@@ -470,7 +492,6 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
 
                                 avg_counterfactual_representations[component][do][class_name] = {}
                             
-                            
                             avg_counterfactual_representations[component][do][class_name][layer] = counterfactual_representations[component][do][class_name][layer] / counter[do][class_name]
 
                     else:
@@ -480,6 +501,8 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
         return  avg_counterfactual_representations
 
     else:
+        
+        counterfactual_representations = {}
         
         # for cur_path, component in zip(counterfactual_paths, ["Q","K","V","AO","I","O"]):
 
@@ -492,19 +515,17 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
         #         counterfactual_representations[component] = pickle.load(handle)
 
         #  [component][do][class_name][layer][sample_idx]
-        """
         # Todo: get each component 
-        if one_component not None:
+        if one_component is not None:
+            
             cur_path = paths[one_component]
 
             # load all output components 
             with open(cur_path, 'rb') as handle:
                 
-
-                counterfactual_representations[component] = pickle.load(handle)
+                counterfactual_representations[one_component] = pickle.load(handle)
         
-        """
-        return None
+        return counterfactual_representations
         
         #q_cls_representations , k_cls_representations , v_cls_representations , ao_cls_representations, intermediate_cls_representations ,  out_cls_representations
 
