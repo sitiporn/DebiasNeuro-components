@@ -17,6 +17,7 @@ import sys
 import operator
 import torch.nn.functional as F
 import numpy as np
+import pprint
 from nn_pruning.patch_coordinator import (
     SparseTrainingArguments,
     ModelPatchingCoordinator,
@@ -871,15 +872,25 @@ def main():
     embeddings = args.embeddings
 
     DEBUG = True
+    collect_representation = True
+    is_group_by_class = False #True
+
+    # for HOL and LOL set
+    is_averaged_embeddings = True
     
-    valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
-    json_file = 'multinli_1.0_dev_matched.jsonl'
     counterfactual_representation_paths = []
     is_counterfactual_exist = []
     
+    
     for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
 
-        cur_path = f'../pickles/{component}_counterfactual_representation.pickle'
+        if is_averaged_embeddings:
+        
+            cur_path = f'../pickles/avg_{component}_counterfactual_representation.pickle'
+        
+        else:
+
+            cur_path = f'../pickles/{component}_counterfactual_representation.pickle'
     
         counterfactual_representation_paths.append(cur_path)
         is_counterfactual_exist.append(os.path.isfile(cur_path))
@@ -887,11 +898,9 @@ def main():
 
     save_nie_set_path = '../pickles/nie_samples.pickle'
     
-    collect_representation = True
-    is_group_by_class = True
-
-    # for HOL and LOL set
-    is_averaged_embeddings = False #True
+    valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
+    json_file = 'multinli_1.0_dev_matched.jsonl'
+    
     
     # used to compute nie scores
     num_samples = 3000
@@ -913,6 +922,22 @@ def main():
     heads =  [*range(0, 12, 1)]
     
     torch.manual_seed(42)
+    
+    print(f"=========== Counterfactual representations =========") 
+    
+    print(f"is_group_by_class : {is_group_by_class}")
+    print(f"is_averaged_embeddings : {is_averaged_embeddings}")
+    print(f"+percent threshold of overlap score")
+    print(f"upper_bound : {upper_bound}")
+    print(f"lower_bound : {lower_bound}")
+    print(f"+All path")
+    
+    my_printer = pprint.PrettyPrinter(depth=1)
+    my_printer.pprint(counterfactual_representation_paths)
+    
+    print(f"samples used to compute nie scores : {num_samples}") 
+    
+    breakpoint()
     
     # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(valid_path,
@@ -950,7 +975,6 @@ def main():
 
         for cur_path in counterfactual_representation_paths:
             print(f" : {cur_path}")
-
 
     if not os.path.isfile(save_nie_set_path):
 
