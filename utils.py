@@ -263,7 +263,7 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
     layer_modules = {}
 
     # using for register
-    registers = {}
+    registers = None
 
     #dicts to store the activations
     q_activation = {}
@@ -305,7 +305,7 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
         
         for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
             
-            if do not in hidden_representations.keys():
+            if do not in hidden_representations[component].keys():
 
                 for component in (["Q","K","V","AO","I","O"]):
 
@@ -318,13 +318,14 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
 
                 for class_name in sentences[do].keys():
 
+                    registers = {}
+
                     # register all modules
                     if class_name not in counter[do].keys():
                                 
                         counter[do][class_name] = 0 
 
                     for component in (["Q","K","V","AO","I","O"]):
-
                     
                         if class_name not in hidden_representations[component][do].keys():
 
@@ -336,8 +337,19 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
                     
                         for layer in layers:
 
+                            if layer not in hidden_representations[component][do][class_name].keys():
+                                
+                                hidden_representations[component][do][class_name][layer] = []
+                            
+                            """
+                            why contradiction activate every three time 
+
+                            may be because of I forget to remove register respect to first calss 
+                            
+                            """
                             registers[component][layer] = layer_modules[component](layer).register_forward_hook(get_activation(layer, do, component, hidden_representations, is_averaged_embeddings, class_name=class_name))                        
-                    
+
+                            #hidden_representations[component][do][class_name][layer].extend([1])
                     
                     # forward to collect counterfactual representations
                     premise, hypo = sentences[do][class_name]
@@ -353,7 +365,14 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
                     with torch.no_grad():    
 
                         outputs = model(**inputs)
-                    
+
+                    # detach the hooks
+                    for layer in layers:
+
+                        for component in ["Q","K","V","AO","I","O"]:
+
+                            registers[component][layer].remove()
+            
             else:
                  
                 # register all modules
@@ -382,25 +401,19 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
 
             del outputs
             
-            # detach the hooks
-            for layer in layers:
-
-                for component in ["Q","K","V","AO","I","O"]:
-
-                    registers[component][layer].remove()
         
             
             inputs = {k: v.to('cpu') for k,v in inputs.items()} 
         
         batch_idx += 1
+    
 
     for cur_path, component in zip(counterfactual_paths, ["Q","K","V","AO","I","O"]):
 
-        if component not in ["AO","I","O"]:
-            continue
-
-        breakpoint()
-
+        # if component not in ["AO","I","O"]:
+        #     continue
+        #breakpoint()
+        
         with open(cur_path, 'wb') as handle: 
             
             # hidden_representations[component][do][class_name][layer][sample_idx]
