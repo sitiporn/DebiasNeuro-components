@@ -305,7 +305,7 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
         
         for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
             
-            if do not in hidden_representations["Q"].keys():
+            if do not in hidden_representations.keys():
 
                 for component in (["Q","K","V","AO","I","O"]):
 
@@ -396,11 +396,17 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
 
     for cur_path, component in zip(counterfactual_paths, ["Q","K","V","AO","I","O"]):
 
+        if component not in ["AO","I","O"]:
+            continue
+
+        breakpoint()
+
         with open(cur_path, 'wb') as handle: 
             
             # hidden_representations[component][do][class_name][layer][sample_idx]
             pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving to {cur_path} done ! ")
+            del hidden_representations[component]
 
     with open('../pickles/utilizer_components.pickle', 'wb') as handle: 
         
@@ -456,7 +462,6 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
         counter = pickle.load(handle)
         # experiment_set = pickle.load(handle)
         # dataloader, handle = pickle.load(handle)
-
 
     if is_averaged_embeddings:
 
