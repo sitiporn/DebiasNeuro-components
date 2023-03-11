@@ -232,133 +232,129 @@ def neuron_intervention(neuron_ids,
 
     return intervention_hook
 
-def intervention(dataloader, components, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE):
+# ************  intervention  *******************
 
+# Todo:
+# 1. checking that averaging representations (one instance) or many instances
+# 2.1 by class
+#    - cls[component][do][class_name][layer][sample_idx].shape[0]; set of counterfactual
+#    - cls[component][do][class_name][layer].shape[0]; averaging of counterfactual
+# 2.2  
+#    - cls[component][do][layer][sample_idx].shape[0] ; set of counterfactual
+#    - cls[component][do][layer].shape[0] ; averaging of counterfactual
+# """
 
-    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc="DataLoader")):
+# get group by class sets and comput NIE score 
+# by paring eahc NIE sample with HOL and LOL sets
+# scores : NIE[do][class_name][layer][sample_idx]
 
-        premise, hypo = sentences
+# 
+# get_nie_score(nie_sets[class_name][sample_idx], counterfactual_representations[component][treatment][class_name][layer][counterfactual_idx])
+def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE):
 
-        pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
-
-        # distributions = {}
-        probs = {}
-        
-        inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-        
-        inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
-
-        with torch.no_grad(): 
+    # Todo: change  dataloader to w/o group by class
+    for class_name in dataloader.keys():
             
-            # Todo: generalize to distribution if the storage is enough
-            probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
+        
+        for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader[class_name], desc="DataLoader")):
 
-        counter += probs['null'].shape[0] 
-        
-        # report_gpu()
-        
-        # To store all positions
-        probs['intervene'] = {}
 
-        
-        # Todo:
-        # 1. checking that averaging representations (one instance) or many instances
-        # 2.1 by class
-        #    - cls[component][do][class_name][layer][sample_idx].shape[0]; set of counterfactual
-        #    - cls[component][do][class_name][layer].shape[0]; averaging of counterfactual
-        # 2.2  
-        #    - cls[component][do][layer][sample_idx].shape[0] ; set of counterfactual
-        #    - cls[component][do][layer].shape[0] ; averaging of counterfactual
-       # """
-        
-        # get group by class sets and comput NIE score 
-        # by paring eahc NIE sample with HOL and LOL sets
-        # scores : NIE[do][class_name][layer][sample_idx]
-        
-        # 
-        # get_nie_score(nie_sets[class_name][sample_idx], counterfactual_representations[component][treatment][class_name][layer][counterfactual_idx])
+            premise, hypo = sentences
 
-        # run one full neuron intervention experiment
-        for do in treatments: # ['do-treatment','no-treatment']
-            # Todo : add qeury, key and value 
+            pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
 
-            NIE[do] = {}
-            counter_predictions[do]  = {} 
-            probs['intervene'][do] = {}
+            # distributions 
+            probs = {}
             
+            inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+            
+            inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
 
-            for component in components: 
-                if  component not in NIE[do].keys():
-                    NIE[do][component] = {}
-                    counter_predictions[do][component]  = {} 
-
+            with torch.no_grad(): 
                 
-            # get each prediction for each single nueron intervention
-            for layer in tqdm(layers, desc="layers"):
+                # Todo: generalize to distribution if the storage is enough
+                probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
+
+            counter += probs['null'].shape[0] 
+            
+            # To store all positions
+            probs['intervene'] = {}
+            
+            breakpoint()
+
+            # run one full neuron intervention experiment
+            for do in treatments: 
                 
-                # probs['intervene'][do][layer] = {}
-                 
-                # neuron_ids = [*range(0, ao_cls_avg[do][layer].shape[0], 1)]
-                # len(cls[component][do]['contradiction'][layer])
-                for component in tqdm(components, desc="Components"): 
+                if do not in NIE.keys():
+                    NIE[do] = {}
+                    counter_predictions[do]  = {} 
+                    probs['intervene'][do] = {}
 
-                    if  layer not in NIE[do][component].keys(): 
+                for component in components: 
 
-                        NIE[do][component][layer] = {}
-                        counter_predictions[do][component][layer]  = {} 
-
-                    # value = cls['Q']['High-overlap']['contradiction'][11][34].shape
+                    if  component not in NIE[do].keys():
+                        NIE[do][component] = {}
+                        counter_predictions[do][component]  = {} 
                     
-                      
-                    # cls[component][do][layer].shape[0]
-                    for class_name in cls[component][do].keys():
+                    # get each prediction for each single nueron intervention
+                    for layer in tqdm(layers, desc="layers"):
                         
-                    
-                        for counterfactual_idx in range(len(cls[component][do][class_name][layer])):
-                        
-                            Z = cls[component][do][class_name][layer][counterfactual_idx]
-                        
-                            for neuron_id in range(Z.shape[0]):
-                                
-                                # NIE[do][layer][neuron_id] = {}
-                                if class_name not in NIE[do][component][layer].keys():
-                                    NIE[do][component][layer][neuron_id] = 0
-                                
-                                # select layer to register and input which neurons to intervene
-                                hooks = [] 
-                                
-                                breakpoint()
-                                hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = Z)))
-                                
-                                with torch.no_grad(): 
-                                    # probs['intervene'][layer][neuron_id] 
-                                    intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
+                        # len(cls[component][do]['contradiction'][layer])
+                        for component in tqdm(components, desc="Components"): 
 
-                                    entail_probs = intervene_probs[:, label_maps["entailment"]]
+                            if  layer not in NIE[do][component].keys(): 
+
+                                NIE[do][component][layer] = {}
+                                counter_predictions[do][component][layer]  = {} 
+
+                            # value = cls['Q']['High-overlap']['contradiction'][11][34].shape
+                            
+                            # cls[component][do][layer].shape[0]
+                            for class_name in tqdm(cls[component][do].keys() , desc="classes"): 
+                                
+                                for counterfactual_idx in range(len(cls[component][do][class_name][layer])):
+                                
+                                    Z = cls[component][do][class_name][layer][counterfactual_idx]
+                                
+                                    for neuron_id in tqdm(range(Z.shape[0]), desc="Neurons"):
+                                        
+                                        # NIE[do][layer][neuron_id] = {}
+                                        if class_name not in NIE[do][component][layer].keys():
+                                            NIE[do][component][layer][neuron_id] = 0
+                                        
+                                        # select layer to register and input which neurons to intervene
+                                        hooks = [] 
+                                        
+                                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = Z)))
+                                        
+                                        with torch.no_grad(): 
+
+                                            # probs['intervene'][layer][neuron_id] 
+                                            intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
+
+                                            entail_probs = intervene_probs[:, label_maps["entailment"]]
+                                            
+                                            # get prediction 
+                                            #if DEBUG:
+                                            #    predictions = torch.argmax(intervene_probs, dim=-1)
+                                            #    if neuron_id not in counter_predictions[do][component][layer].keys():
+                                            #        counter_predictions[do][component][layer][neuron_id].extend(predictions.tolist())
+                                                #counter_predictions[do][label_remaps[int(prediction)]] += 1
+                                        # report_gpu()
+                                        # compute NIE
+                                        # Eu [ynull,zset-gender (u) (u)/ynull (u) − 1].
+                                        # Todo: changing NIE computation by considering both entailment and non-entailment
+                                        
+                                        if neuron_id not in NIE[do][component][layer].keys():
+                                            NIE[do][component][layer][neuron_id] = 0
+
+                                        
+                                        NIE[do][component][layer][neuron_id] += torch.sum( (entail_probs / probs['null'])-1, dim=0)
+                                        
+                                        for hook in hooks: hook.remove() 
                                     
-                                    # get prediction 
-                                    #if DEBUG:
-                                    #    predictions = torch.argmax(intervene_probs, dim=-1)
-                                    #    if neuron_id not in counter_predictions[do][component][layer].keys():
-                                    #        counter_predictions[do][component][layer][neuron_id].extend(predictions.tolist())
-                                        #counter_predictions[do][label_remaps[int(prediction)]] += 1
-                                # report_gpu()
-                                
-                                # compute NIE
-                                # Eu [ynull,zset-gender (u) (u)/ynull (u) − 1].
-                                # Todo: changing NIE computation by considering both entailment and non-entailment
-                                
-                                if neuron_id not in NIE[do][component][layer].keys():
-                                    NIE[do][component][layer][neuron_id] = 0
-
-                                
-                                NIE[do][component][layer][neuron_id] += torch.sum( (entail_probs / probs['null'])-1, dim=0)
-                                
-                                for hook in hooks: hook.remove() 
-        break
-                                
-                                # print(f"batch{batch_idx}, layer : {layer}, {component}, Z :{neuron_id}")
-    #"""
+                                    # print(f"batch{batch_idx}, layer : {layer}, {component}, Z :{neuron_id}")
+        #"""
 
 def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, is_averaged_embeddings , is_group_by_class,DEVICE, DEBUG=False):
                 
@@ -366,16 +362,16 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
     NIE = {}
     mediators = {}
     counter = None
-    dataset = None
-    dataloader = None
+    nie_dataset = None
+    nie_dataloader = None
     counter_predictions  = {} 
     
     with open(save_nie_set_path, 'rb') as handle:
         
-        dataset = pickle.load(handle)
-        dataloader = pickle.load(handle)
+         nie_dataset = pickle.load(handle)
+         nie_dataloader = pickle.load(handle)
         
-        print(f"loading nie sets from pickle {save_nie_set_path} !")        
+         print(f"loading nie sets from pickle {save_nie_set_path} !")        
     
     # mediator used to intervene
     mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
@@ -384,7 +380,6 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
     mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
     mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
     mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
-
 
     if is_averaged_embeddings: 
         
@@ -398,7 +393,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
         
         # Todo: Debug cls in intervention 
         
-        intervention(dataloader, components, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
+        intervene(nie_dataloader, components, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
         
     else:
         
@@ -408,9 +403,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
             
             counterfactual_components = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings, component)
 
-            intervention(dataloader, [component], mediators, counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
-        
-        breakpoint()
+            intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
 
     # with open(f'../pickles/NIE_{treatments[0]}_{layers[0]}.pickle', 'wb') as handle:
     #     pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -420,7 +413,6 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
 
 def get_top_k(layers, treatments, top_k=5):
         
- 
     # compute average NIE
     for do in treatments:
         
@@ -466,7 +458,6 @@ def forward_pair_sentences(sentences, computing_embeddings, labels, do, model, D
     inputs = computing_embeddings.tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
     
     inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
-
 
     golden_answers = [computing_embeddings.label_maps[label] for label in labels]
     golden_answers = torch.tensor(golden_answers).to(DEVICE)
@@ -516,8 +507,6 @@ def forward_pair_sentences(sentences, computing_embeddings, labels, do, model, D
                 
                 computing_embeddings.confident[do][computing_embeddings.label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
                 computing_embeddings.class_acc[do][computing_embeddings.label_remaps[label]].extend([int(predictions[idx]) == label])
-                
-            
 
 class ComputingEmbeddings:
     def __init__(self, label_maps, label_remaps, tokenizer) -> None:
@@ -899,7 +888,7 @@ def main():
 
     DEBUG = True
     collect_representation = True
-    is_group_by_class = False #True
+    is_group_by_class = True
 
     # for HOL and LOL set
     is_averaged_embeddings = False
@@ -907,33 +896,34 @@ def main():
     counterfactual_representation_paths = []
     is_counterfactual_exist = []
     
-    
     for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
 
         if is_averaged_embeddings:
                 
             if is_group_by_class:
+
                 cur_path = f'../pickles/avg_class_level_{component}_counterfactual_representation.pickle'
+
             else:
                 cur_path = f'../pickles/avg_{component}_counterfactual_representation.pickle'
         else:
 
             if is_group_by_class:
 
-                cur_path = f'../pickles/class_level_{component}_counterfactual_representation.pickle'
+                cur_path = f'../pickles/individual_class_level_{component}_counterfactual_representation.pickle'
+            
             else:
 
-                cur_path = f'../pickles/{component}_counterfactual_representation.pickle'
+                cur_path = f'../pickles/individual_{component}_counterfactual_representation.pickle'
     
         counterfactual_representation_paths.append(cur_path)
         is_counterfactual_exist.append(os.path.isfile(cur_path))
 
 
-    save_nie_set_path = '../pickles/nie_samples.pickle'
+    save_nie_set_path = '../pickles/class_level_nie_samples.pickle' if is_group_by_class else '../pickles/nie_samples.pickle'
     
     valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     json_file = 'multinli_1.0_dev_matched.jsonl'
-    
     
     # used to compute nie scores
     num_samples = 3000
@@ -1009,26 +999,45 @@ def main():
         combine_types = []
         pairs = {}
 
-        # balacing nie set across classes
-        for type in ["contradiction","entailment","neutral"]:
-        
-            # get the whole set of validation 
-            pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
+        if is_group_by_class:
             
-            # samples data
-            ids = list(torch.randint(0, len(pairs[type]), size=(num_samples //3,)))
-            
-            pairs[type] = np.array(pairs[type])[ids,:].tolist()
-            combine_types.extend(pairs[type])
+            nie_dataset = {}
+            nie_loader = {}
 
-        # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
-        nie_dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
-        nie_loader = DataLoader(nie_dataset, batch_size=32)
+            for type in ["contradiction","entailment","neutral"]:
+            
+                # get the whole set of validation 
+                pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
+                
+                # samples data
+                ids = list(torch.randint(0, len(pairs[type]), size=(num_samples //3,)))
+                pairs[type] = np.array(pairs[type])[ids,:].tolist()
+                
+                nie_dataset[type] = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs[type])]
+                nie_loader[type] = DataLoader(nie_dataset[type], batch_size=32)
+
+        else:
+
+            # balacing nie set across classes
+            for type in ["contradiction","entailment","neutral"]:
+            
+                # get the whole set of validation 
+                pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
+                
+                # samples data
+                ids = list(torch.randint(0, len(pairs[type]), size=(num_samples //3,)))
+                
+                pairs[type] = np.array(pairs[type])[ids,:].tolist()
+                combine_types.extend(pairs[type])
+
+            # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
+            nie_dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
+            nie_loader = DataLoader(nie_dataset, batch_size=32)
         
         with open(save_nie_set_path, 'wb') as handle:
             pickle.dump(nie_dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f"Done saving NIE set  into pickle !")
+            print(f"Done saving NIE set  into {save_nie_set_path} !")
     
     if do: 
         mode = ["High-overlap"] 
