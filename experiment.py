@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
-from utils import collect_output_components #, report_gpu
+from utils import collect_output_components , report_gpu
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -249,7 +249,6 @@ def neuron_intervention(neuron_ids,
 # scores : NIE[do][class_name][layer][sample_idx]
 
 # 
-# get_nie_score(nie_sets[class_name][sample_idx], counterfactual_representations[component][treatment][class_name][layer][counterfactual_idx])
 def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE):
     
 
@@ -261,7 +260,10 @@ def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_pred
         
         for batch_idx, (sentences, labels) in (d := tqdm(enumerate(dataloader[nie_class_name]))):
 
-            d.set_description(f"dataloader, batch_idx : {batch_idx}")
+            d.set_description(f"NIE_dataloader, batch_idx : {batch_idx}")
+
+            # if batch_idx == 2: 
+            #     break
 
             premise, hypo = sentences
 
@@ -373,27 +375,24 @@ def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_pred
                                         
                                         for hook in hooks: hook.remove() 
 
-        #                                 break
-        #                             break
-        #                         break
+                                        break
+                                    break
+                                break
                             
-        #                     break
-        #                 break
+                            break
+                        break
                     
-        #             break
-        #     break
+                    break
+            break
 
-        # break
-
-    
+        break
                                         
                                     # print(f"batch{batch_idx}, layer : {layer}, {component}, Z :{neuron_id}")
         #"""
 
 def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, is_averaged_embeddings , is_group_by_class,DEVICE, DEBUG=False):
-    
-    cls = None
-    NIE = None
+
+
     mediators = {}
     counter = None
     nie_dataset = None
@@ -415,12 +414,15 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
     mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
     mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
 
+    
     if is_averaged_embeddings: 
         
         cls = {}
         NIE = {}
         
+        
         counterfactual_components = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings)
+        #breakpoint()
 
         cls["Q"], cls["K"], cls["V"], cls["AO"], cls["I"], cls["O"] = counterfactual_components
         
@@ -429,25 +431,43 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
         counter = 0
         
         # Todo: Debug cls in intervention 
+
         
         intervene(nie_dataloader, components, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
         
     else:
         
+        # counterfactual_components = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings, component)
+        
         for component in ["Q","K","V","AO","I","O"]: 
         
             counter = {}
             NIE = {}
-            
+
+            print(f"============== start component :{component} : ===============")
+            report_gpu()
+
             counterfactual_components = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings, component)
-
+            
             intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
+            
+            del counterfactual_components
+            
+            print(f"+++ After deleted variable ")
+            report_gpu()
+   
+            print(f"============== End component :{component} : ===============")
 
-            with open(f'../pickles/NIE_{component}.pickle', 'wb') as handle: 
+            cur_path = f'../pickles/NIE_{layers}_{component}.pickle'
+
+            # breakpoint()
+
+            # # why dump into cuda run of memory
+            # with open(cur_path, 'wb') as handle: 
                 
-                pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f'saving into ../pickles/NIE_{component}.pickle')
+            #     pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            #     pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            # print(f'current path : {cur_path}')
 
 
     # with open(f'../pickles/NIE_{treatments[0]}_{layers[0]}.pickle', 'wb') as handle:
@@ -933,10 +953,9 @@ def main():
 
     DEBUG = True
     collect_representation = True
-    is_group_by_class = True
-
-    # for HOL and LOL set
-    is_averaged_embeddings = False
+    # for collecting counterfactual representations
+    is_group_by_class =   True
+    is_averaged_embeddings =  False #False
     
     counterfactual_representation_paths = []
     is_counterfactual_exist = []
@@ -951,6 +970,7 @@ def main():
 
             else:
                 cur_path = f'../pickles/avg_{component}_counterfactual_representation.pickle'
+
         else:
 
             if is_group_by_class:
@@ -964,14 +984,13 @@ def main():
         counterfactual_representation_paths.append(cur_path)
         is_counterfactual_exist.append(os.path.isfile(cur_path))
 
-
-    save_nie_set_path = '../pickles/class_level_nie_samples.pickle' if is_group_by_class else '../pickles/nie_samples.pickle'
-    
     valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     json_file = 'multinli_1.0_dev_matched.jsonl'
     
     # used to compute nie scores
-    num_samples = 3000
+    num_samples = 300 #3000
+
+    save_nie_set_path = f'../pickles/class_level_nie_{num_samples}_samples.pickle' if is_group_by_class else f'../pickles/nie_{num_samples}_samples.pickle'
     
     # percent threshold of overlap score
     upper_bound = 95
@@ -1015,20 +1034,20 @@ def main():
                         shuffle = False, 
                         num_workers=0)
 
-     
-    if sum(is_counterfactual_exist) != len(["Q","K","V","AO","I","O"]):
+    #if sum(is_counterfactual_exist) != len(["Q","K","V","AO","I","O"]):
+    if embeddings:
     
         # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
-        collect_output_components(model = model,
-                                counterfactual_paths = counterfactual_representation_paths,
-                                experiment_set = experiment_set,
-                                dataloader = dataloader,
-                                tokenizer = tokenizer,
-                                DEVICE = DEVICE,
-                                layers = layers,
-                                heads = heads,
-                                is_averaged_embeddings = is_averaged_embeddings
-                                )
+        counterfactual_representation_paths = collect_output_components(model = model,
+                                                counterfactual_paths = counterfactual_representation_paths,
+                                                experiment_set = experiment_set,
+                                                dataloader = dataloader,
+                                                tokenizer = tokenizer,
+                                                DEVICE = DEVICE,
+                                                layers = layers,
+                                                heads = heads,
+                                                is_averaged_embeddings = is_averaged_embeddings
+                                                )
         #print(f"done with saving representation into {save_representation_path}")
     else:
 
