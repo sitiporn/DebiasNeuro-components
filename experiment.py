@@ -10,6 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
 from utils import collect_output_components , report_gpu
+from utils import geting_counterfactual_paths
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -447,7 +448,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
             print(f"============== start component :{component} : ===============")
             report_gpu()
 
-            counterfactual_components = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings, component)
+            # counterfactual_components = get_single_representation(one_component, do = None, class_name = None):
             
             intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
             
@@ -949,7 +950,7 @@ def main():
     is_analysis = args.analysis
     is_topk = args.top_k
     distribution = args.distribution
-    embeddings = args.embeddings
+    getting_counterfactual = args.embeddings
 
     DEBUG = True
     collect_representation = True
@@ -957,33 +958,15 @@ def main():
     is_group_by_class =   True
     is_averaged_embeddings =  False #False
     
-    counterfactual_representation_paths = []
+    counterfactual_paths = []
     is_counterfactual_exist = []
+
+    geting_counterfactual_paths(counterfactual_paths,
+                                is_counterfactual_exist,
+                                is_averaged_embeddings,
+                                is_group_by_class)
+
     
-    for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
-
-        if is_averaged_embeddings:
-                
-            if is_group_by_class:
-
-                cur_path = f'../pickles/avg_class_level_{component}_counterfactual_representation.pickle'
-
-            else:
-                cur_path = f'../pickles/avg_{component}_counterfactual_representation.pickle'
-
-        else:
-
-            if is_group_by_class:
-
-                cur_path = f'../pickles/individual_class_level_{component}_counterfactual_representation.pickle'
-            
-            else:
-
-                cur_path = f'../pickles/individual_{component}_counterfactual_representation.pickle'
-    
-        counterfactual_representation_paths.append(cur_path)
-        is_counterfactual_exist.append(os.path.isfile(cur_path))
-
     valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     json_file = 'multinli_1.0_dev_matched.jsonl'
     
@@ -1034,28 +1017,24 @@ def main():
                         shuffle = False, 
                         num_workers=0)
 
-    #if sum(is_counterfactual_exist) != len(["Q","K","V","AO","I","O"]):
-    if embeddings:
+    if getting_counterfactual:
     
-        # Todo:  fixing hardcode of vocab.bpe and encoder.json for roberta fairseq
-        counterfactual_representation_paths = collect_output_components(model = model,
-                                                counterfactual_paths = counterfactual_representation_paths,
-                                                experiment_set = experiment_set,
-                                                dataloader = dataloader,
-                                                tokenizer = tokenizer,
-                                                DEVICE = DEVICE,
-                                                layers = layers,
-                                                heads = heads,
-                                                is_averaged_embeddings = is_averaged_embeddings
-                                                )
-        #print(f"done with saving representation into {save_representation_path}")
+        collect_output_components(model = model,
+                                 counterfactual_paths = counterfactual_paths,
+                                 experiment_set = experiment_set,
+                                 dataloader = dataloader,
+                                 tokenizer = tokenizer,
+                                 DEVICE = DEVICE,
+                                 layers = layers,
+                                 heads = heads,
+                                 is_averaged_embeddings = is_averaged_embeddings)
     else:
 
         print(f"HOL and LOL representation in the following paths ")
 
-        for cur_path in counterfactual_representation_paths:
-            print(f" : {cur_path}")
-
+        for idx, path in enumerate(counterfactual_paths):
+            print(f"current: {path} ")
+        
     print(f"=========== End configs  =========") 
     
     if not os.path.isfile(save_nie_set_path):
@@ -1112,7 +1091,7 @@ def main():
         
         print(f"perform Causal Mediation analysis...")
         
-        cma_analysis(counterfactual_paths = counterfactual_representation_paths,
+        cma_analysis(counterfactual_paths = counterfactual_paths,
                     save_nie_set_path = save_nie_set_path,
                     model = model,
                     layers = select_layer,
@@ -1131,9 +1110,9 @@ def main():
         print(f"perform ranking top neurons...")
         get_top_k(select_layer, treatments=mode)
 
-    if embeddings:
+    # if embeddings:
 
-        compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class = is_group_by_class)
+    #     compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class = is_group_by_class)
         # get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE)
 
     if distribution:

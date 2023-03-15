@@ -6,13 +6,59 @@ import torch.nn.functional as F
 import math
 import numpy as np
 import gc
-#from fairseq.data.data_utils import collate_tokens
+import os
+import os.path
 
-#def report_gpu():
-#   print(torch.cuda.list_gpu_processes())
-#    gc.collect()
-#    torch.cuda.empty_cache()
+def report_gpu():
+  print(f"before deleting : {torch.cuda.list_gpu_processes()}")
+  gc.collect()
+  torch.cuda.empty_cache()
+  print(f"after emptying cache : {torch.cuda.list_gpu_processes()}")
 
+def geting_counterfactual_paths(counterfactual_paths, is_counterfactual_exist, is_averaged_embeddings, is_group_by_class):
+
+
+    for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
+
+        if is_averaged_embeddings:
+                
+            if is_group_by_class:
+
+                cur_path = f'../pickles/avg_class_level_{component}_counterfactual_representation.pickle'
+
+            else:
+                cur_path = f'../pickles/avg_{component}_counterfactual_representation.pickle'
+
+        else:
+
+            if is_group_by_class:
+            
+                    if component == "I":
+                        
+                        for  do in ['High-overlap','Low-overlap']:
+                            
+                            for class_name in ["contradiction","entailment","neutral"]:
+                            
+                                cur_path = f'../pickles/individual_class_level_{component}_{do}_{class_name}_counterfactual_representation.pickle'
+                                
+                                counterfactual_paths.append(cur_path)
+                                is_counterfactual_exist.append(os.path.isfile(cur_path))
+                                
+                    else: 
+
+                        cur_path = f'../pickles/individual_class_level_{component}_counterfactual_representation.pickle'
+
+                        counterfactual_paths.append(cur_path)
+                        is_counterfactual_exist.append(os.path.isfile(cur_path))
+
+                    continue
+
+            else:
+
+                cur_path = f'../pickles/individual_{component}_counterfactual_representation.pickle'
+
+        counterfactual_paths.append(cur_path)
+        is_counterfactual_exist.append(os.path.isfile(cur_path))
 
 class BertAttentionOverride(nn.Module):
     """A copy of `modeling_bert.BertSelfAttention` class, but with overridden attention values"""
@@ -258,7 +304,7 @@ def get_activation(layer, do, component, activation, is_averaged_embeddings, cla
 
 def collect_output_components(model, counterfactual_paths, experiment_set, dataloader, tokenizer, DEVICE, layers, heads, is_averaged_embeddings):
     
-    """ get hidden representation all neurons """
+    """ getting all neurons used as mediators(Z) later """
    
     layer_modules = {}
 
@@ -292,7 +338,6 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
     layer_modules["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
     layer_modules["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
     layer_modules["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
-    
     layer_modules["AO"] = lambda layer : model.bert.encoder.layer[layer].attention.output
     layer_modules["I"] = lambda layer : model.bert.encoder.layer[layer].intermediate
     layer_modules["O"] = lambda layer : model.bert.encoder.layer[layer].output
@@ -300,7 +345,8 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
     for component in (["Q","K","V","AO","I","O"]):
         
         hidden_representations[component] = {}
-
+    
+    # **** collecting all counterfactual representations ****    
     for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"Intervene_set_loader")):
         
         for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
@@ -341,17 +387,8 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
                                 
                                 hidden_representations[component][do][class_name][layer] = []
                             
-                            """
-                            why contradiction activate every three time 
-
-                            may be because of I forget to remove register respect to first calss 
-                            
-                            """
                             registers[component][layer] = layer_modules[component](layer).register_forward_hook(get_activation(layer, do, component, hidden_representations, is_averaged_embeddings, class_name=class_name))                        
 
-                            #hidden_representations[component][do][class_name][layer].extend([1])
-                    
-                    # forward to collect counterfactual representations
                     premise, hypo = sentences[do][class_name]
     
                     pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
@@ -401,26 +438,34 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
 
             del outputs
             
-        
-            
             inputs = {k: v.to('cpu') for k,v in inputs.items()} 
         
         batch_idx += 1
-    
+   
 
-    for cur_path, component in zip(counterfactual_paths, ["Q","K","V","AO","I","O"]):
+    # **** Writing the all counterfactual representations into pickles ****
+    for cur_path in counterfactual_paths:
 
-        # if component not in ["AO","I","O"]:
-        #     continue
-        #breakpoint()
+        component = sorted(cur_path.split("_"), key=len)[0]  
         
-        with open(cur_path, 'wb') as handle: 
-            
-            # hidden_representations[component][do][class_name][layer][sample_idx]
-            pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f"saving to {cur_path} done ! ")
-            del hidden_representations[component]
+        if component == "I" and not is_averaged_embeddings:
 
+            do = cur_path.split("_")[4]
+            class_name = cur_path.split("_")[5]
+
+            # hidden_representations[component][do][class_name][layer][sample_idx]
+            with open(cur_path,'wb') as handle: 
+                pickle.dump(hidden_representations[component][do][class_name], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f"saving to {cur_path} done ! ")
+        else:
+
+            with open(cur_path, 'wb') as handle: 
+                
+                # nested dict : [component][do][class_name][layer][sample_idx]
+                pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f"saving to {cur_path} done ! ")
+                
+            
     with open('../pickles/utilizer_components.pickle', 'wb') as handle: 
         
         pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -430,7 +475,6 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
 
         print(f"save utilizer to ../pickles/utilizer_components.pickle  ! ")
     
-
 def test_mask(neuron_candidates =[]):
 
     x  = torch.tensor([[ [1,2,3], 
@@ -466,7 +510,7 @@ def test_mask(neuron_candidates =[]):
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
 
-def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings, one_component = None):
+def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings):
         
     paths = { k : v for k, v in zip(["Q","K","V","AO","I","O"], counterfactual_paths)}
     
@@ -518,34 +562,12 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
 
         return  avg_counterfactual_representations
 
-    else:
-        
-        counterfactual_representations = {}
-        
-        # for cur_path, component in zip(counterfactual_paths, ["Q","K","V","AO","I","O"]):
+def get_single_representation(one_component, do = None, class_name = None):
+    
+    counterfactual_representations = {}
 
-        #     avg_counterfactual_representations[component] = {}
-
-        #     # load all output components 
-        #     with open(cur_path, 'rb') as handle:
-                
-        #         # get [CLS] activation 
-        #         counterfactual_representations[component] = pickle.load(handle)
-
-        #  [component][do][class_name][layer][sample_idx]
-        # Todo: get each component 
-        if one_component is not None:
-            
-            cur_path = paths[one_component]
-
-            # load all output components 
-            with open(cur_path, 'rb') as handle:
-                
-                counterfactual_representations[one_component] = pickle.load(handle)
+    return counterfactual_representations
         
-        return counterfactual_representations
-        
-        #q_cls_representations , k_cls_representations , v_cls_representations , ao_cls_representations, intermediate_cls_representations ,  out_cls_representations
 
 class Classifier(nn.Module):
 
