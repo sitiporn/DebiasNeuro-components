@@ -10,7 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
 from utils import collect_output_components , report_gpu
-from utils import geting_counterfactual_paths
+from utils import geting_counterfactual_paths, get_single_representation
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -316,9 +316,12 @@ def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_pred
                                 counter_predictions[do][component][layer]  = {} 
 
                             # value = cls['Q']['High-overlap']['contradiction'][11][34].shape
-                            
+
+                            breakpoint()
+
                             # cls[component][do][layer].shape[0]
-                            for counterfactual_class_name in (t_counterfactual_class := tqdm(cls[component][do].keys() )): 
+                            # because current do 
+                            for counterfactual_class_name in (t_counterfactual_class := tqdm(cls[component][do].keys())): 
                                 
                                 t_counterfactual_class.set_description(f"NIE class: {counterfactual_class_name}")
 
@@ -440,42 +443,45 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
         
         # counterfactual_components = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings, component)
         
-        for component in ["Q","K","V","AO","I","O"]: 
+        for cur_path in counterfactual_paths:
         
             counter = {}
             NIE = {}
 
-            print(f"============== start component :{component} : ===============")
-            report_gpu()
+            component = sorted(cur_path.split("_"), key=len)[0]  
+            do = cur_path.split("_")[4]
+            class_name = cur_path.split("_")[5]
+            counterfactual_components = None
 
-            # counterfactual_components = get_single_representation(one_component, do = None, class_name = None):
+            print(f"current component : {component}")
+             
+            if component == "I":
+
+                counterfactual_components = get_single_representation(cur_path, do = do, class_name = class_name)
+
+                NIE_path = f'../pickles/NIE_individual_class_level_{layers}_{component}_{do}_{class_name}.pickle'
             
-            intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
+            else:
+
+                counterfactual_components = get_single_representation(cur_path = cur_path)
+                
+                NIE_path = f'../pickles/NIE_individual_class_level_{layers}_{component}.pickle'
+
+            if cur_path == '../pickles/individual_class_level_I_Low-overlap_contradiction_counterfactual_representation.pickle':
+                
+                # counterfactual_components[component][do][class_name][11][34]
+                intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
             
-            del counterfactual_components
-            
-            print(f"+++ After deleted variable ")
-            report_gpu()
-   
-            print(f"============== End component :{component} : ===============")
-
-            cur_path = f'../pickles/NIE_{layers}_{component}.pickle'
-
-            # breakpoint()
-
-            # # why dump into cuda run of memory
-            # with open(cur_path, 'wb') as handle: 
+            # with open(NIE_path, 'wb') as handle: 
                 
             #     pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
             #     pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            # print(f'current path : {cur_path}')
-
-
-    # with open(f'../pickles/NIE_{treatments[0]}_{layers[0]}.pickle', 'wb') as handle:
-    #     pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    #     pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    #     pickle.dump(cls_averages, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    #     pickle.dump(counter_predictions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            #     print(f'saving NIE scores into : {NIE_path}')
+            
+            del counterfactual_components
+            report_gpu()
+     
+    print(f"Done saving all NIE computations")
 
 def get_top_k(layers, treatments, top_k=5):
         
@@ -1033,7 +1039,7 @@ def main():
         print(f"HOL and LOL representation in the following paths ")
 
         for idx, path in enumerate(counterfactual_paths):
-            print(f"current: {path} ")
+            print(f"current: {path} ,  : {is_counterfactual_exist[idx]} ")
         
     print(f"=========== End configs  =========") 
     

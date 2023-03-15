@@ -9,11 +9,13 @@ import gc
 import os
 import os.path
 
-def report_gpu():
+def report_gpu(): 
+  print(f"++++++++++++++++++++++++++++++")
   print(f"before deleting : {torch.cuda.list_gpu_processes()}")
   gc.collect()
   torch.cuda.empty_cache()
   print(f"after emptying cache : {torch.cuda.list_gpu_processes()}")
+  print(f"++++++++++++++++++++++++++++++")
 
 def geting_counterfactual_paths(counterfactual_paths, is_counterfactual_exist, is_averaged_embeddings, is_group_by_class):
 
@@ -474,6 +476,7 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
         pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         print(f"save utilizer to ../pickles/utilizer_components.pickle  ! ")
+
     
 def test_mask(neuron_candidates =[]):
 
@@ -562,12 +565,49 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
 
         return  avg_counterfactual_representations
 
-def get_single_representation(one_component, do = None, class_name = None):
+def get_single_representation(cur_path, do = None, class_name = None):
     
-    counterfactual_representations = {}
+    component = sorted(cur_path.split("_"), key=len)[0]  
+    
+    hidden_representations = {}
+    
+    # if do == 'Low-overlap' and class_name == 'neutral':
+    #     breakpoint()
 
-    return counterfactual_representations
+    if component == "I":
+
+        hidden_representations[component] = {}
+        hidden_representations[component][do] = {}
         
+        """
+        saving to ../pickles/individual_class_level_Q_counterfactual_representation.pickle done ! 
+        saving to ../pickles/individual_class_level_K_counterfactual_representation.pickle done ! 
+        saving to ../pickles/individual_class_level_V_counterfactual_representation.pickle done ! 
+        saving to ../pickles/individual_class_level_AO_counterfactual_representation.pickle done ! 
+        saving to ../pickles/individual_class_level_I_High-overlap_contradiction_counterfactual_representation.pickle done ! 
+        saving to ../pickles/individual_class_level_I_High-overlap_entailment_counterfactual_representation.pickle done ! 
+        saving to ../pickles/individual_class_level_I_High-overlap_neutral_counterfactual_representation.pickle done ! 
+        saving to ../pickles/individual_class_level_I_Low-overlap_contradiction_counterfactual_representation.pickle done ! 
+        saving to ../pickles/individual_class_level_I_Low-overlap_entailment_counterfactual_representation.pickle done ! 
+        saving to ../pickles/individual_class_level_I_Low-overlap_neutral_counterfactual_representation.pickle done ! 
+        saving to ../pickles/individual_class_level_O_counterfactual_representation.pickle done ! 
+        """
+        
+        cur_path = f'../pickles/individual_class_level_{component}_{do}_{class_name}_counterfactual_representation.pickle'
+        
+        # nested dict : [component][do][class_name][layer][sample_idx]
+        with open(cur_path, 'rb') as handle:
+            hidden_representations[component][do][class_name] = pickle.load(handle)
+            print(f"loading from pickle {cur_path} !")        
+    
+    else:
+
+        with open(cur_path, 'rb') as handle:
+            hidden_representations[component] = pickle.load(handle)
+            print(f"loading from pickle {cur_path} !")        
+
+    return hidden_representations
+
 
 class Classifier(nn.Module):
 
