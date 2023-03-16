@@ -316,9 +316,6 @@ def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_pred
                                 counter_predictions[do][component][layer]  = {} 
 
                             # value = cls['Q']['High-overlap']['contradiction'][11][34].shape
-
-                            breakpoint()
-
                             # cls[component][do][layer].shape[0]
                             # because current do 
                             for counterfactual_class_name in (t_counterfactual_class := tqdm(cls[component][do].keys())): 
@@ -448,12 +445,19 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
             counter = {}
             NIE = {}
 
+            # extract infor from current path 
             component = sorted(cur_path.split("_"), key=len)[0]  
             do = cur_path.split("_")[4]
             class_name = cur_path.split("_")[5]
             counterfactual_components = None
 
             print(f"current component : {component}")
+
+            if do not in treatments and  component == "I":
+                
+                print(f"Ignoring : {cur_path}")
+                
+                continue
              
             if component == "I":
 
@@ -467,16 +471,19 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
                 
                 NIE_path = f'../pickles/NIE_individual_class_level_{layers}_{component}.pickle'
 
-            if cur_path == '../pickles/individual_class_level_I_Low-overlap_contradiction_counterfactual_representation.pickle':
+            # if cur_path == '../pickles/individual_class_level_I_Low-overlap_contradiction_counterfactual_representation.pickle':
                 
-                # counterfactual_components[component][do][class_name][11][34]
-                intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
+            # counterfactual_components[component][do][class_name][11][34]
+            intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
             
-            # with open(NIE_path, 'wb') as handle: 
+            with open(NIE_path, 'wb') as handle: 
                 
-            #     pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            #     pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            #     print(f'saving NIE scores into : {NIE_path}')
+                pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving NIE scores into : {NIE_path}')
+
+            breakpoint()
+
             
             del counterfactual_components
             report_gpu()
@@ -1087,7 +1094,8 @@ def main():
             pickle.dump(nie_dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Done saving NIE set  into {save_nie_set_path} !")
-    
+
+    # to use as counterfactual !! 
     if do: 
         mode = ["High-overlap"] 
     else:
