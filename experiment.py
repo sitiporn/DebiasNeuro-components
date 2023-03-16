@@ -286,7 +286,6 @@ def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_pred
             
             # To store all positions
             probs['intervene'] = {}
-            
 
             # run one full neuron intervention experiment
             for do in treatments: 
@@ -302,94 +301,72 @@ def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_pred
                         NIE[do][component] = {}
                         counter_predictions[do][component]  = {} 
                     
-                    # get each prediction for each single nueron intervention
                     for layer in layers:
                         
-                        # len(cls[component][do]['contradiction'][layer])
-                        for component in (t_component := tqdm(components)): 
+                        if  layer not in NIE[do][component].keys(): 
 
-                            t_component.set_description(f"Component : {component}")
+                            NIE[do][component][layer] = {}
+                            counter_predictions[do][component][layer]  = {} 
 
-                            if  layer not in NIE[do][component].keys(): 
-
-                                NIE[do][component][layer] = {}
-                                counter_predictions[do][component][layer]  = {} 
-
-                            # value = cls['Q']['High-overlap']['contradiction'][11][34].shape
-                            # cls[component][do][layer].shape[0]
-                            # because current do 
-                            for counterfactual_class_name in (t_counterfactual_class := tqdm(cls[component][do].keys())): 
-                                
-                                t_counterfactual_class.set_description(f"NIE class: {counterfactual_class_name}")
-
-                                if counterfactual_class_name != nie_class_name:
-                                    
-                                    continue
-                                
-                                for counterfactual_idx in (t_counterfactual_samples := tqdm(range(len(cls[component][do][counterfactual_class_name][layer])))):
-
-                                    t_counterfactual_samples.set_description(f"Counterfactual_samples : {counterfactual_idx} ")
-                                        
-                                    # counter pairs (nie, counterfactual) in the same class
-                                    if nie_class_name not in counter.keys():
-                                        counter[nie_class_name] = 0
-
-                                    counter[nie_class_name] += 1
-                                
-                                    Z = cls[component][do][counterfactual_class_name][layer][counterfactual_idx]
-                                
-                                    for neuron_id in range(Z.shape[0]):
-                                          
-                                        # NIE[do][layer][neuron_id] = {}
-                                        if counterfactual_class_name not in NIE[do][component][layer].keys():
-                                            NIE[do][component][layer][neuron_id] = 0
-                                        
-                                        # select layer to register and input which neurons to intervene
-                                        hooks = [] 
-                                        
-                                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = Z)))
-                                        
-                                        with torch.no_grad(): 
-
-                                            # probs['intervene'][layer][neuron_id] 
-                                            intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
-
-                                            entail_probs = intervene_probs[:, label_maps["entailment"]]
-                                            
-                                            # get prediction 
-                                            #if DEBUG:
-                                            #    predictions = torch.argmax(intervene_probs, dim=-1)
-                                            #    if neuron_id not in counter_predictions[do][component][layer].keys():
-                                            #        counter_predictions[do][component][layer][neuron_id].extend(predictions.tolist())
-                                                #counter_predictions[do][label_remaps[int(prediction)]] += 1
-                                        # report_gpu()
-                                        # compute NIE
-                                        # Eu [ynull,zset-gender (u) (u)/ynull (u) − 1].
-                                        # Todo: changing NIE computation by considering both entailment and non-entailment
-                                        
-                                        
-                                        if neuron_id not in NIE[do][component][layer].keys():
-                                            NIE[do][component][layer][neuron_id] = 0
-
-                                        
-                                        NIE[do][component][layer][neuron_id] += torch.sum( (entail_probs / probs['null'])-1, dim=0)
-                                        
-                                        for hook in hooks: hook.remove() 
-
-                                        break
-                                    break
-                                break
+                        for counterfactual_class_name in (t_counterfactual_class := tqdm(cls[component][do].keys())): 
                             
-                            break
-                        break
-                    
-                    break
-            break
+                            t_counterfactual_class.set_description(f"NIE class: {counterfactual_class_name}")
 
-        break
+                            if counterfactual_class_name != nie_class_name: continue
+                            
+                            for counterfactual_idx in (t_counterfactual_samples := tqdm(range(len(cls[component][do][counterfactual_class_name][layer])))):
+
+                                t_counterfactual_samples.set_description(f"Counterfactual_samples : {counterfactual_idx} ")
+                                    
+                                # counter pairs (nie, counterfactual) in the same class
+                                if nie_class_name not in counter.keys():
+                                    counter[nie_class_name] = 0
+
+                                assert len(layers) == 1, "Causing counter error"
+                                assert len(components) == 1, "Causing  counter error"
+                                
+                                counter[nie_class_name] += (1 * inputs['input_ids'].shape[0])
+
+                                Z = cls[component][do][counterfactual_class_name][layer][counterfactual_idx]
+                            
+                                for neuron_id in range(Z.shape[0]):
                                         
-                                    # print(f"batch{batch_idx}, layer : {layer}, {component}, Z :{neuron_id}")
-        #"""
+                                    # NIE[do][layer][neuron_id] = {}
+                                    if counterfactual_class_name not in NIE[do][component][layer].keys():
+                                        NIE[do][component][layer][neuron_id] = 0
+                                    
+                                    # select layer to register and input which neurons to intervene
+                                    hooks = [] 
+                                    
+                                    hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = Z)))
+                                    
+                                    with torch.no_grad(): 
+
+                                        # probs['intervene'][layer][neuron_id] 
+                                        intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
+
+                                        entail_probs = intervene_probs[:, label_maps["entailment"]]
+                                        
+                                        # get prediction 
+                                        #if DEBUG:
+                                        #    predictions = torch.argmax(intervene_probs, dim=-1)
+                                        #    if neuron_id not in counter_predictions[do][component][layer].keys():
+                                        #        counter_predictions[do][component][layer][neuron_id].extend(predictions.tolist())
+                                            #counter_predictions[do][label_remaps[int(prediction)]] += 1
+                                    # report_gpu()
+                                    # compute NIE
+                                    # Eu [ynull,zset-gender (u) (u)/ynull (u) − 1].
+                                    # Todo: changing NIE computation by considering both entailment and non-entailment
+                                    
+                                    
+                                    if neuron_id not in NIE[do][component][layer].keys():
+                                        NIE[do][component][layer][neuron_id] = 0
+
+                                    
+                                    NIE[do][component][layer][neuron_id] += torch.sum( (entail_probs / probs['null'])-1, dim=0)
+                                    
+                                    for hook in hooks: hook.remove() 
+
 
 def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, is_averaged_embeddings , is_group_by_class,DEVICE, DEBUG=False):
 
@@ -421,9 +398,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
         cls = {}
         NIE = {}
         
-        
         counterfactual_components = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings)
-        #breakpoint()
 
         cls["Q"], cls["K"], cls["V"], cls["AO"], cls["I"], cls["O"] = counterfactual_components
         
@@ -432,13 +407,9 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
         counter = 0
         
         # Todo: Debug cls in intervention 
-
-        
         intervene(nie_dataloader, components, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
         
     else:
-        
-        # counterfactual_components = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings, component)
         
         for cur_path in counterfactual_paths:
         
@@ -471,9 +442,6 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
                 
                 NIE_path = f'../pickles/NIE_individual_class_level_{layers}_{component}_{treatments[0]}.pickle'
 
-            # if cur_path == '../pickles/individual_class_level_I_Low-overlap_contradiction_counterfactual_representation.pickle':
-                
-            # counterfactual_components[component][do][class_name][11][34]
             intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
             
             with open(NIE_path, 'wb') as handle: 
@@ -1131,19 +1099,17 @@ def main():
         
         get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     
-    # prunning(model = model,
-    #          layers= [0, 1, 2, 3, 4])
-    
-    # Todo: collect output of every compontent in model 
-    # 1. do-treatment : high overlap scores
-    # 2. no-treament : low overlap scores
+    """
+    prunning(model = model,
+             layers= [0, 1, 2, 3, 4])
 
     
-    # neuron_intervention(model = model,
-    #                     tokenizer = tokenizer,
-    #                     layers = [0, 1, 2, 3, 4],
-    #                     neurons = [1,2,3],
-    #                     dataloader = dataloader) 
+    neuron_intervention(model = model,
+                        tokenizer = tokenizer,
+                        layers = [0, 1, 2, 3, 4],
+                        neurons = [1,2,3],
+                        dataloader = dataloader) 
+    """
                     
     
 
