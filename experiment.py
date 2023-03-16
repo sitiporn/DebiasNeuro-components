@@ -469,7 +469,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
 
                 counterfactual_components = get_single_representation(cur_path = cur_path)
                 
-                NIE_path = f'../pickles/NIE_individual_class_level_{layers}_{component}.pickle'
+                NIE_path = f'../pickles/NIE_individual_class_level_{layers}_{component}_{treatments[0]}.pickle'
 
             # if cur_path == '../pickles/individual_class_level_I_Low-overlap_contradiction_counterfactual_representation.pickle':
                 
@@ -481,8 +481,6 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
                 pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving NIE scores into : {NIE_path}')
-
-            breakpoint()
 
             
             del counterfactual_components
