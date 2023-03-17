@@ -571,9 +571,6 @@ def get_single_representation(cur_path, do = None, class_name = None):
     
     hidden_representations = {}
     
-    # if do == 'Low-overlap' and class_name == 'neutral':
-    #     breakpoint()
-
     if component == "I":
 
         hidden_representations[component] = {}
