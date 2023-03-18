@@ -411,8 +411,10 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
                         for component in ["Q","K","V","AO","I","O"]:
 
                             registers[component][layer].remove()
-            
+
             else:
+                
+                registers = {}
                  
                 # register all modules
                 for component in (["Q","K","V","AO","I","O"]):
@@ -441,10 +443,10 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
             del outputs
             
             inputs = {k: v.to('cpu') for k,v in inputs.items()} 
+
         
         batch_idx += 1
    
-
     # **** Writing the all counterfactual representations into pickles ****
     for cur_path in counterfactual_paths:
 
