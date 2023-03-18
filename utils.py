@@ -467,7 +467,7 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
                 pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving to {cur_path} done ! ")
                 
-            
+
     with open('../pickles/utilizer_components.pickle', 'wb') as handle: 
         
         pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -477,6 +477,8 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
 
         print(f"save utilizer to ../pickles/utilizer_components.pickle  ! ")
 
+def new_features(v):
+    return v
     
 def test_mask(neuron_candidates =[]):
 
