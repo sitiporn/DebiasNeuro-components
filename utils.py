@@ -478,6 +478,7 @@ def collect_output_components(model, counterfactual_paths, experiment_set, datal
         print(f"save utilizer to ../pickles/utilizer_components.pickle  ! ")
 
 def new_features(v):
+    print(v)
     return v
     
 def test_mask(neuron_candidates =[]):
