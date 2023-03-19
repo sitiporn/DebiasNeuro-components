@@ -10,7 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
 from utils import collect_output_components , report_gpu
-from utils import geting_counterfactual_paths, get_single_representation
+from utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -489,7 +489,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
             del counterfactual_components
             report_gpu()
      
-def get_top_k(layers, treatments, top_k=5):
+def get_top_k(NIE_paths, layers, treatments, top_k=5):
         
     # compute average NIE
     for do in treatments:
@@ -498,29 +498,37 @@ def get_top_k(layers, treatments, top_k=5):
             
             ranking_nie = {}
         
-            read_path = f'../pickles/NIE_{do}_{layer}.pickle'
+            for cur_path in NIE_paths:
             
-            with open(read_path, 'rb') as handle:
-                NIE = pickle.load(handle)
-                counter = pickle.load(handle)
-                cls_averages = pickle.load(handle)
-                print(f"current : {read_path}")
-            
-            for component in ["Q","K","V","AO","I","O"]: 
-            
-                for neuron_id in range(cls_averages[component][do][layer].shape[0]):
-            
-                    NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter
+                with open(cur_path, 'rb') as handle:
+                    
+                    NIE = pickle.load(handle)
+                    counter = pickle.load(handle)
+                    
+                    print(f"current : {cur_path}")
 
-                    ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+                for component in NIE[do].keys():
+                
+                    for neuron_id in NIE[do][component][layer].keys():
+                        
+                        NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter[do][component][layer][neuron_id]
+
+                        ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
             
                     # Todo: get component and neuron_id and value 
             
             top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
-            
-            with open(f'../pickles/top_neuron_{do}_{layer}.pickle', 'wb') as handle:
+
+            with open(f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle', 'wb') as handle:
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !")
+
+            """
+            --layer 5 --treatment True
+            {'O-381': tensor(4.3630), 'AO-381': tensor(1.8403), 'AO-308': tensor(1.0662), 'O-308': tensor(1.0362), 'I-2478': tensor(0.2469)}
+            {'AO-308': tensor(0.6541), 'O-308': tensor(0.6391), 'O-381': tensor(0.3282), 'I-2478': tensor(0.1128), 'AO-381': tensor(0.0798)}
+            
+            """
 
 def forward_pair_sentences(sentences, computing_embeddings, labels, do, model, DEVICE, class_name = None):
     
@@ -974,31 +982,47 @@ def main():
     DEBUG = True
     collect_representation = True
     # for collecting counterfactual representations
-    is_group_by_class =   False #True
+    is_group_by_class =   False
     is_averaged_embeddings =   True
     
     counterfactual_paths = []
+    NIE_paths = []
+    is_NIE_exist = []
     is_counterfactual_exist = []
+
+    # to use as counterfactual !! 
+    if do: 
+        mode = ["High-overlap"] 
+    else:
+        mode = ["Low-overlap"]
 
     geting_counterfactual_paths(counterfactual_paths,
                                 is_counterfactual_exist,
                                 is_averaged_embeddings,
                                 is_group_by_class)
 
+    geting_NIE_paths(NIE_paths,
+                    select_layer,
+                    mode,
+                    counterfactual_paths,
+                    is_NIE_exist,
+                    is_averaged_embeddings,
+                    is_group_by_class)
+  
     
     valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     json_file = 'multinli_1.0_dev_matched.jsonl'
     
     # used to compute nie scores
     num_samples = 300 #3000
+    label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
 
     save_nie_set_path = f'../pickles/class_level_nie_{num_samples}_samples.pickle' if is_group_by_class else f'../pickles/nie_{num_samples}_samples.pickle'
-    
+         
     # percent threshold of overlap score
     upper_bound = 95
     lower_bound = 5
     
-    label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -1101,11 +1125,6 @@ def main():
             pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Done saving NIE set  into {save_nie_set_path} !")
 
-    # to use as counterfactual !! 
-    if do: 
-        mode = ["High-overlap"] 
-    else:
-        mode = ["Low-overlap"]
 
     if is_analysis: 
         
@@ -1126,9 +1145,14 @@ def main():
                     DEBUG = True)
 
     if is_topk:
-        
+
         print(f"perform ranking top neurons...")
-        get_top_k(select_layer, treatments=mode)
+        
+        if sum(is_NIE_exist) == len(is_NIE_exist):
+            get_top_k(NIE_paths, select_layer, treatments=mode)
+        else:
+            print("NIE is not enought to get top k")
+            return
 
     if embedding_summary:
 

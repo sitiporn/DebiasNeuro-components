@@ -16,6 +16,29 @@ def report_gpu():
   torch.cuda.empty_cache()
   print(f"after emptying cache : {torch.cuda.list_gpu_processes()}")
   print(f"++++++++++++++++++++++++++++++")
+  
+def geting_NIE_paths(NIE_paths, layer, do, counterfactual_paths, is_NIE_exist, is_averaged_embeddings, is_group_by_class):
+
+    if is_averaged_embeddings:
+
+        NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layer}_{do[0]}.pickle'
+        NIE_paths.append(NIE_path)
+        is_NIE_exist.append(os.path.isfile(NIE_path))
+
+    else:
+    
+        for cur_path in counterfactual_paths:
+            
+            # extract infor from current path 
+            component = sorted(cur_path.split("_"), key=len)[0]  
+            class_name = None
+            
+            NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layer}_{do[0]}.pickle'
+            
+            print(f"current path: {NIE_path} , is_exist : {os.path.isfile(cur_path)}")
+
+            NIE_paths.append(NIE_path)
+            is_NIE_exist.append(os.path.isfile(cur_path))
 
 def geting_counterfactual_paths(counterfactual_paths, is_counterfactual_exist, is_averaged_embeddings, is_group_by_class):
 
