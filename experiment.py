@@ -333,7 +333,7 @@ def intervene(dataloader, components, mediators, cls, NIE, counter, probs, count
             with torch.no_grad(): 
                 
                 # Todo: generalize to distribution if the storage is enough
-                probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
+                null_probs = F.softmax(model(**inputs).logits , dim=-1)
 
             # To store all positions
             probs['intervene'] = {}
@@ -385,8 +385,10 @@ def intervene(dataloader, components, mediators, cls, NIE, counter, probs, count
                                         NIE[do][component][layer][neuron_id] = 0
                                         counter[do][component][layer]  = 0 
                                         probs['intervene'][do][component][layer]  = []
+
+                                    ret = (intervene_probs[:, label_maps["entailment"]] / null_probs[:, label_maps["entailment"]]) 
                                     
-                                    NIE[do][component][layer][neuron_id] += torch.sum( (intervene_probs[:, label_maps["entailment"]] / probs['null'])-1, dim=0)
+                                    NIE[do][component][layer][neuron_id] += torch.sum(ret - 1, dim=0)
                                     counter[do][component][layer][neuron_id] += intervene_probs.shape[0]
                                     probs['intervene'][do][component][layer].append(intervene_probs)
                                     
@@ -455,13 +457,13 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
 
                 counterfactual_components = get_single_representation(cur_path, do = do, class_name = class_name)
 
-                NIE_path = f'../pickles/NIE_individual_class_level_{layers}_{component}_{do}_{class_name}.pickle'
+                NIE_path = f'../pickles/individual_class_level/{layers}_{component}_{do}_{class_name}.pickle'
             
             else:
 
                 counterfactual_components = get_single_representation(cur_path = cur_path)
                 
-                NIE_path = f'../pickles/NIE_individual_class_level_{layers}_{component}_{treatments[0]}.pickle'
+                NIE_path = f'../pickles/individual_class_level/{layers}_{component}_{treatments[0]}.pickle'
 
             intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, probs,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
             
@@ -969,8 +971,8 @@ def main():
     DEBUG = True
     collect_representation = True
     # for collecting counterfactual representations
-    is_group_by_class =   False
-    is_averaged_embeddings =   True
+    is_group_by_class =   True #False
+    is_averaged_embeddings =   False#True
     
     counterfactual_paths = []
     NIE_paths = []
