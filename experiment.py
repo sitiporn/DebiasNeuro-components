@@ -383,17 +383,17 @@ def intervene(dataloader, components, mediators, cls, NIE, counter, probs, count
 
                                     if neuron_id not in NIE[do][component][layer].keys():
                                         NIE[do][component][layer][neuron_id] = 0
-                                        counter[do][component][layer]  = 0 
-                                        probs['intervene'][do][component][layer]  = []
+                                        counter[do][component][layer][neuron_id]  = 0 
+                                        probs['intervene'][do][component][layer][neuron_id]  = []
 
                                     ret = (intervene_probs[:, label_maps["entailment"]] / null_probs[:, label_maps["entailment"]]) 
                                     
                                     NIE[do][component][layer][neuron_id] += torch.sum(ret - 1, dim=0)
                                     counter[do][component][layer][neuron_id] += intervene_probs.shape[0]
-                                    probs['intervene'][do][component][layer].append(intervene_probs)
+                                    probs['intervene'][do][component][layer][neuron_id].append(intervene_probs)
                                     
                                     for hook in hooks: hook.remove() 
-
+                                    
 
 def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, is_averaged_embeddings , is_group_by_class,DEVICE, DEBUG=False):
 
