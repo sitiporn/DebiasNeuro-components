@@ -307,7 +307,7 @@ def high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counte
 
                         for hook in hooks: hook.remove() 
 
-def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE):
+def intervene(dataloader, components, mediators, cls, NIE, counter, probs, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE):
     
     # Todo: change  dataloader to w/o group by class
     for nie_class_name in dataloader.keys():
@@ -318,15 +318,13 @@ def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_pred
 
             d.set_description(f"NIE_dataloader, batch_idx : {batch_idx}")
 
-            # if batch_idx == 2: 
-            #     break
+            if batch_idx == 2:
+                break
 
             premise, hypo = sentences
 
             pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
 
-            # distributions 
-            probs = {}
             
             inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
             
@@ -337,8 +335,6 @@ def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_pred
                 # Todo: generalize to distribution if the storage is enough
                 probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
 
-            #counter += probs['null'].shape[0] 
-            
             # To store all positions
             probs['intervene'] = {}
 
@@ -347,21 +343,23 @@ def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_pred
                 
                 if do not in NIE.keys():
                     NIE[do] = {}
-                    counter_predictions[do]  = {} 
+                    counter[do]  = {} 
                     probs['intervene'][do] = {}
 
                 for component in components: 
 
                     if  component not in NIE[do].keys():
                         NIE[do][component] = {}
-                        counter_predictions[do][component]  = {} 
+                        counter[do][component]  = {} 
+                        probs['intervene'][do][component] = {}
                     
                     for layer in layers:
                         
                         if  layer not in NIE[do][component].keys(): 
 
                             NIE[do][component][layer] = {}
-                            counter_predictions[do][component][layer]  = {} 
+                            counter[do][component][layer]  = {} 
+                            probs['intervene'][do][component][layer]  = {} 
 
                         for counterfactual_class_name in cls[component][do].keys(): 
                             
@@ -371,39 +369,26 @@ def intervene(dataloader, components, mediators, cls, NIE, counter ,counter_pred
                             
                             for counterfactual_idx in range(len(cls[component][do][counterfactual_class_name][layer])):
 
-                                # t_counterfactual_samples.set_description(f"Counterfactual_samples : {counterfactual_idx} ")
-                                    
-                                # counter pairs (nie, counterfactual) in the same class
-                                if nie_class_name not in counter.keys():
-                                    counter[nie_class_name] = 0
-
-                                counter[nie_class_name] += (1 * inputs['input_ids'].shape[0])
-
                                 Z = cls[component][do][counterfactual_class_name][layer][counterfactual_idx]
                             
                                 for neuron_id in range(Z.shape[0]):
                                         
-                                    # NIE[do][layer][neuron_id] = {}
-                                    if counterfactual_class_name not in NIE[do][component][layer].keys():
-                                        NIE[do][component][layer][neuron_id] = 0
-                                    
-                                    # select layer to register and input which neurons to intervene
                                     hooks = [] 
                                     
                                     hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = Z)))
                                     
                                     with torch.no_grad(): 
 
-                                        # probs['intervene'][layer][neuron_id] 
                                         intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
 
-                                        entail_probs = intervene_probs[:, label_maps["entailment"]]
-                                        
                                     if neuron_id not in NIE[do][component][layer].keys():
                                         NIE[do][component][layer][neuron_id] = 0
-
+                                        counter[do][component][layer]  = 0 
+                                        probs['intervene'][do][component][layer]  = []
                                     
-                                    NIE[do][component][layer][neuron_id] += torch.sum( (entail_probs / probs['null'])-1, dim=0)
+                                    NIE[do][component][layer][neuron_id] += torch.sum( (intervene_probs[:, label_maps["entailment"]] / probs['null'])-1, dim=0)
+                                    counter[do][component][layer][neuron_id] += intervene_probs.shape[0]
+                                    probs['intervene'][do][component][layer].append(intervene_probs)
                                     
                                     for hook in hooks: hook.remove() 
 
@@ -454,6 +439,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
          
             counter = {}
             NIE = {}
+            probs = {}
 
             # extract infor from current path 
             component = sorted(cur_path.split("_"), key=len)[0]  
@@ -477,12 +463,13 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
                 
                 NIE_path = f'../pickles/NIE_individual_class_level_{layers}_{component}_{treatments[0]}.pickle'
 
-            intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
+            intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, probs,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
             
             with open(NIE_path, 'wb') as handle: 
                 
                 pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(probs, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving NIE scores into : {NIE_path}')
 
             
