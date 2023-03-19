@@ -545,7 +545,6 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
                 counterfactual_representations[component] = pickle.load(handle)
                 # attention_data = pickle.load(handle)
                 # counter = pickle.load(handle)
-            
             for do in ["High-overlap", "Low-overlap"]:
             
                 avg_counterfactual_representations[component][do] = {}
@@ -566,7 +565,6 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
 
                     else:
                             avg_counterfactual_representations[component][do][layer] = counterfactual_representations[component][do][layer] / counter[do]
-                                
 
         return  avg_counterfactual_representations
 
