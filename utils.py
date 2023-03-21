@@ -8,6 +8,8 @@ import numpy as np
 import gc
 import os
 import os.path
+from intervention import neuron_intervention
+from tabulate import tabulate
 
 def report_gpu(): 
   print(f"++++++++++++++++++++++++++++++")
@@ -17,29 +19,6 @@ def report_gpu():
   print(f"after emptying cache : {torch.cuda.list_gpu_processes()}")
   print(f"++++++++++++++++++++++++++++++")
   
-def geting_NIE_paths(NIE_paths, layer, do, counterfactual_paths, is_NIE_exist, is_averaged_embeddings, is_group_by_class):
-
-    if is_averaged_embeddings:
-
-        NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layer}_{do[0]}.pickle'
-        NIE_paths.append(NIE_path)
-        is_NIE_exist.append(os.path.isfile(NIE_path))
-
-    else:
-    
-        for cur_path in counterfactual_paths:
-            
-            # extract infor from current path 
-            component = sorted(cur_path.split("_"), key=len)[0]  
-            class_name = None
-            
-            NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layer}_{do[0]}.pickle'
-            
-            print(f"current path: {NIE_path} , is_exist : {os.path.isfile(cur_path)}")
-
-            NIE_paths.append(NIE_path)
-            is_NIE_exist.append(os.path.isfile(cur_path))
-
 def geting_counterfactual_paths(counterfactual_paths, is_counterfactual_exist, is_averaged_embeddings, is_group_by_class):
 
 
@@ -219,41 +198,128 @@ def get_overlap_score(pair_label):
 
     return overlap_score
 
-class Intervention():
-    """Wrapper all possible interventions """
-    def __init__(self, 
-                encode, 
-                premises: list, 
-                hypothesises: list, 
-                device = 'cpu') -> None:
+def trace_counterfactual(do, 
+                        layer, 
+                        model, 
+                        save_nie_set_path, 
+                        tokenizer,
+                        DEVICE, 
+                        layers, 
+                        heads,
+                        counterfactual_paths,
+                        label_maps,
+                        is_group_by_class, 
+                        is_averaged_embeddings, 
+                        debug = False):
 
-        super()
+    path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
+
+    nie_dataloader = None
+    hooks = None
+    
+    interventions = ["Null", "Intervene"]
+    distributions = {} 
+    mediators = {}
+
+    with open(save_nie_set_path, 'rb') as handle:
         
-        self.encode = encode
-        self.premises = premises
-        self.hypothesises = hypothesises
+         nie_dataset = pickle.load(handle)
+         nie_dataloader = pickle.load(handle)
         
-        self.pair_sentences = []
+         print(f"loading nie sets from pickle {save_nie_set_path} !")  
+  
+    with open(path, 'rb') as handle:
+        # get [CLS] activation 
+        top_neuron = pickle.load(handle)
+    
+    
+    component = list(top_neuron.keys())[0].split('-')[0]
+    neuron_id  = int(list(top_neuron.keys())[0].split('-')[1])
+    
+    print(f"component : {component}")
+    print(f"neuron_id : {neuron_id}")
+
+    for mode in interventions: distributions[mode] = []
+    
+     # mediator used to intervene
+    mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
+    mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
+    mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
+    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
+    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
+    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
+
+    cls = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings)
+    
+    Z = cls[component][do][layer]
+
+    for batch_idx, (sentences, labels) in enumerate(nie_dataloader):
         
-        for premise, hypothesis in zip(self.premises, self.hypothesises):
+        premise, hypo = sentences
 
-            # Encode a pair of sentences and make a prediction
-            self.pair_sentences.append([premise, hypothesis])
-
-        # Todo : sort text before encode to reduce  matrix size of each batch
-        # self.batch_tok = collate_tokens([self.encode(pair[0], pair[1]) for pair in self.batch_of_pairs], pad_idx=1)
-        # self.batch_tok = self.encode(self.premises, self.hypothesises,truncation=True, padding="max_length")
-
-        """
-        # All the initial strings
-        # First item should be neutral, others tainted ? 
+        pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
         
-        self.base_strings = [base_string.format(s) for s in substitutes]
+        inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+        
+        inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+            
+        cur_dist = {}
 
-        # Where to intervene
-        # Text position ?
-        self.position = base_string.split().index('{}')
-        """
+        print(f"batch_idx : {batch_idx}")
+
+        for mode in interventions:
+
+
+            if mode == "Intervene": 
+                hooks = []
+                hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = Z)))
+
+            with torch.no_grad(): 
+                
+                # Todo: generalize to distribution if the storage is enough
+                cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
+                distributions[mode].append(cur_dist[mode])
+            
+            # if debug: print(f"+++++++++++++ batch_idx: {batch_idx}, mode {mode} ++++++++")
+            # if debug: print(cur_dist)
+            
+            if mode == "Intervene": 
+                for hook in hooks: hook.remove() 
+
+        ret = torch.sum(cur_dist["Intervene"][:,label_maps["entailment"]] / cur_dist["Null"][:,label_maps["entailment"]],dim=0)
+        ret = ret / inputs['input_ids'].shape[0]
+
+        # if debug: print(f'batch_idx : {batch_idx}, ratio : {ret - 1}') 
+
+        if debug: 
+
+            for sample_idx in range(cur_dist["Intervene"].shape[0]):
+                print(f"sample_idx : {sample_idx}, {labels[sample_idx]} sample")
+                print(f'+------------------++----------------++--------------+')
+                print(f'>>  contradiction    ||    entailment  ||     neutral  |')
+                for mode in interventions:
+                    print(f'{mode}   {cur_dist[mode][sample_idx,:]}')
+                print(f'+------------------++----------------++--------------+')
+
+ 
+def print_distributions(cur_dist, label_maps, interventions, sample_idx):
+
+
+    #results = [['Method', 'MNLI-dev-mm','MNLI-HANS','QQP-dev','QQP-PAWS']]
+    headers = ['Mode']
+    headers.extend(list(label_maps.keys()))
+    table = []
+
+    for mode in interventions:
+
+            entry = [mode]
+            
+            for label in headers[1:]:
+
+                entry.append(float(cur_dist[mode][sample_idx,label_maps[label]].cpu()))
+            
+            table.append(entry)
+    print(tabulate(table[1:], headers, tablefmt="grid"))   
 
 def get_overlap_thresholds(df, upper_bound, lower_bound):
     
@@ -653,3 +719,27 @@ class Classifier(nn.Module):
 
         return logits
 
+
+
+def geting_NIE_paths(NIE_paths, layer, do, counterfactual_paths, is_NIE_exist, is_averaged_embeddings, is_group_by_class):
+
+    if is_averaged_embeddings:
+
+        NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layer}_{do[0]}.pickle'
+        NIE_paths.append(NIE_path)
+        is_NIE_exist.append(os.path.isfile(NIE_path))
+
+    else:
+    
+        for cur_path in counterfactual_paths:
+            
+            # extract infor from current path 
+            component = sorted(cur_path.split("_"), key=len)[0]  
+            class_name = None
+            
+            NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layer}_{do[0]}.pickle'
+            
+            print(f"current path: {NIE_path} , is_exist : {os.path.isfile(cur_path)}")
+
+            NIE_paths.append(NIE_path)
+            is_NIE_exist.append(os.path.isfile(cur_path))
