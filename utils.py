@@ -10,6 +10,8 @@ import os
 import os.path
 from intervention import neuron_intervention
 from tabulate import tabulate
+import statistics 
+
 
 def report_gpu(): 
   print(f"++++++++++++++++++++++++++++++")
@@ -253,6 +255,12 @@ def trace_counterfactual(do,
     
     Z = cls[component][do][layer]
 
+    ret = 0
+    counter = 0
+    ratio = 0
+    class_counters = {}
+    class_ratios = {}
+
     for batch_idx, (sentences, labels) in enumerate(nie_dataloader):
         
         premise, hypo = sentences
@@ -286,10 +294,26 @@ def trace_counterfactual(do,
             if mode == "Intervene": 
                 for hook in hooks: hook.remove() 
 
-        ret = torch.sum(cur_dist["Intervene"][:,label_maps["entailment"]] / cur_dist["Null"][:,label_maps["entailment"]],dim=0)
-        ret = ret / inputs['input_ids'].shape[0]
+        cur_ret = cur_dist["Intervene"][:,label_maps["entailment"]] / cur_dist["Null"][:,label_maps["entailment"]] 
+        cur_ratio = cur_dist["Intervene"] / cur_dist["Null"]
+        ratio += torch.sum(cur_ratio, dim=0)
+        
+        ret += torch.sum(cur_ret - 1, dim=0)
+        counter += inputs['input_ids'].shape[0]
+        #ret = ret / inputs['input_ids'].shape[0]
 
         # if debug: print(f'batch_idx : {batch_idx}, ratio : {ret - 1}') 
+
+        for sample_idx in range(cur_ratio.shape[0]):
+            
+            if labels[sample_idx] not in class_counters.keys(): 
+
+                class_counters[labels[sample_idx]] = 0
+                class_ratios[labels[sample_idx]] = []
+
+            class_counters[labels[sample_idx]] += 1 
+            # class_ratios[labels[sample_idx]] +=  cur_ratio[sample_idx,:]
+            class_ratios[labels[sample_idx]].append(cur_ratio[sample_idx,:])  
 
         if debug: 
 
@@ -300,6 +324,22 @@ def trace_counterfactual(do,
                 for mode in interventions:
                     print(f'{mode}   {cur_dist[mode][sample_idx,:]}')
                 print(f'+------------------++----------------++--------------+')
+
+
+    print(f"label_maps : {label_maps}") 
+    print(f'NIE average : {ret/counter}')
+    print(f"Average ratio for whole sets : {(ratio/counter).cpu().tolist()}")
+    # print(f"aveaging ratio contradiction set: {(class_ratios['contradiction'] / class_counters['contradiction']).cpu().tolist()}")
+    # print(f"averaging ratio entailment set: {(class_ratios['entailment']/ class_counters['entailment']).cpu().tolist()}")
+    # print(f"averaging ratio neutral set: {(class_ratios['neutral'] / class_counters['neutral']).cpu().tolist()}")
+
+    # every sets dont follow normal distribution 
+    class_ratios['contradiction'] = torch.stack(class_ratios['contradiction'],dim=0).cpu()
+    class_ratios['entailment'] = torch.stack(class_ratios['entailment'],dim=0).cpu()
+    class_ratios['neutral'] = torch.stack(class_ratios['neutral'],dim=0).cpu()
+    print(f"Median ratio contradiction set: {torch.median(class_ratios['contradiction'] ,dim=0)[0]}")
+    print(f"Median ratio entailment set: {torch.median(class_ratios['entailment'], dim=0)[0]}")
+    print(f"Median ratio neutral set: {torch.median(class_ratios['neutral'] ,dim=0)[0]}")
 
  
 def print_distributions(cur_dist, label_maps, interventions, sample_idx):
@@ -319,6 +359,7 @@ def print_distributions(cur_dist, label_maps, interventions, sample_idx):
                 entry.append(float(cur_dist[mode][sample_idx,label_maps[label]].cpu()))
             
             table.append(entry)
+    
     print(tabulate(table[1:], headers, tablefmt="grid"))   
 
 def get_overlap_thresholds(df, upper_bound, lower_bound):
