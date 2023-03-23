@@ -238,6 +238,8 @@ def trace_counterfactual(do,
     component = list(top_neuron.keys())[0].split('-')[0]
     neuron_id  = int(list(top_neuron.keys())[0].split('-')[1])
     
+    dist_path = f'../pickles/distributions/L{layer}_{do}_{component}_{neuron_id}.pickle'
+    
     print(f"component : {component}")
     print(f"neuron_id : {neuron_id}")
 
@@ -334,12 +336,21 @@ def trace_counterfactual(do,
     # print(f"averaging ratio neutral set: {(class_ratios['neutral'] / class_counters['neutral']).cpu().tolist()}")
 
     # every sets dont follow normal distribution 
-    class_ratios['contradiction'] = torch.stack(class_ratios['contradiction'],dim=0).cpu()
-    class_ratios['entailment'] = torch.stack(class_ratios['entailment'],dim=0).cpu()
-    class_ratios['neutral'] = torch.stack(class_ratios['neutral'],dim=0).cpu()
-    print(f"Median ratio contradiction set: {torch.median(class_ratios['contradiction'] ,dim=0)[0]}")
-    print(f"Median ratio entailment set: {torch.median(class_ratios['entailment'], dim=0)[0]}")
-    print(f"Median ratio neutral set: {torch.median(class_ratios['neutral'] ,dim=0)[0]}")
+
+    mean = {}
+
+    for type in ['contradiction','entailment','neutral']:
+        
+        class_ratios[type] = torch.stack(class_ratios[type],dim=0).cpu()
+        mean[type] = torch.median(class_ratios[type], dim=0)[0]
+        print(f"Median ratio {type} set: {mean[type]}")
+
+    breakpoint()
+    # with open(NIE_path, 'wb') as handle: 
+    #     pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #     pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #     print(f'saving NIE scores into : {NIE_path}')
+
 
  
 def print_distributions(cur_dist, label_maps, interventions, sample_idx):
