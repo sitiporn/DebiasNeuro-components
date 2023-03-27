@@ -243,7 +243,7 @@ def trace_counterfactual(do,
     print(f"component : {component}")
     print(f"neuron_id : {neuron_id}")
 
-    for mode in interventions: distributions[mode] = []
+    for mode in interventions: distributions[mode] = {}
     
      # mediator used to intervene
     mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
@@ -288,7 +288,7 @@ def trace_counterfactual(do,
                 
                 # Todo: generalize to distribution if the storage is enough
                 cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
-                distributions[mode].append(cur_dist[mode])
+                
             
             # if debug: print(f"+++++++++++++ batch_idx: {batch_idx}, mode {mode} ++++++++")
             # if debug: print(cur_dist)
@@ -317,6 +317,14 @@ def trace_counterfactual(do,
             # class_ratios[labels[sample_idx]] +=  cur_ratio[sample_idx,:]
             class_ratios[labels[sample_idx]].append(cur_ratio[sample_idx,:])  
 
+            for mode in interventions:
+
+                if labels[sample_idx] not in distributions[mode].keys(): 
+
+                    distributions[mode][labels[sample_idx]] = []
+
+                distributions[mode][labels[sample_idx]].append(cur_dist[mode][sample_idx,:])
+
         if debug: 
 
             for sample_idx in range(cur_dist["Intervene"].shape[0]):
@@ -331,28 +339,85 @@ def trace_counterfactual(do,
     print(f"label_maps : {label_maps}") 
     print(f'NIE average : {ret/counter}')
     print(f"Average ratio for whole sets : {(ratio/counter).cpu().tolist()}")
-    # print(f"aveaging ratio contradiction set: {(class_ratios['contradiction'] / class_counters['contradiction']).cpu().tolist()}")
-    # print(f"averaging ratio entailment set: {(class_ratios['entailment']/ class_counters['entailment']).cpu().tolist()}")
-    # print(f"averaging ratio neutral set: {(class_ratios['neutral'] / class_counters['neutral']).cpu().tolist()}")
-
+    
     # every sets dont follow normal distribution 
 
     mean = {}
+    median = {}
+    outliers = {}
 
-    for type in ['contradiction','entailment','neutral']:
+
+    # set group by golden 
+    for golden in ['contradiction','entailment','neutral']:
         
-        class_ratios[type] = torch.stack(class_ratios[type],dim=0).cpu()
-        mean[type] = torch.median(class_ratios[type], dim=0)[0]
-        print(f"Median ratio {type} set: {mean[type]}")
+        class_ratios[golden] = torch.stack(class_ratios[golden],dim=0).cpu()
+        median[golden] = torch.median(class_ratios[golden], dim=0)[0]
+        mean[golden] = torch.mean(class_ratios[golden], dim=0)
+
+        print(f"++++++++++++++++  current {golden}   set +++++++++++++++++++++") 
+        print(f"Median ratio {type} set: {median[golden]}")
+        print(f"Mean ratio {type} set: {mean[golden]}")
+        print(f"---------------------------------------------")
+
+        outliers[golden] = []
+
+        for type_output in ['contradiction','entailment','neutral']:
+
+            if golden == type_output: continue
+
+            print(f">>> current output prob:") 
+            get_outliers(type_output, outliers[golden], label_maps, class_ratios[golden])
+        
+        for mode in interventions: 
+            
+            distributions[mode][golden] = torch.stack(distributions[mode][golden],dim=0)
 
     breakpoint()
-    # with open(NIE_path, 'wb') as handle: 
-    #     pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    #     pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    #     print(f'saving NIE scores into : {NIE_path}')
+
+    if not os.path.exists(dist_path):
+        
+        with open(dist_path, 'wb') as handle: 
+            pickle.dump(class_ratios, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(mean, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(median, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f'saving NIE scores into : {dist_path}')
+
+    
+        
+
+def get_outliers(class_name, outliers,label_maps, data):
+    # Todo: get outliers
+    # Contradiction set; entailment > 100, neutral > 100 
+    # entailment set; contradiction > 80, neutral > 100 
+    # 
+    data = data[:,label_maps[class_name]]
+
+    Q1 = np.percentile(data, 25, interpolation = 'midpoint') 
+    Q2 = np.percentile(data, 50, interpolation = 'midpoint') 
+    Q3 = np.percentile(data, 75, interpolation = 'midpoint') 
+
+    IQR = Q3 - Q1 
+
+    low_lim = Q1 - 1.5 * IQR
+    up_lim = Q3 + 1.5 * IQR
+
+    print('Interquartile range is', IQR)
+    print('Upper is', up_lim)
+    print('Lower is', low_lim)
+    
+    # outlier =[]
+    # outlier_idxes = []
+
+    data = data.tolist()
+    
+    for idx, x in enumerate(data):
+        
+        if ((x> up_lim) or (x<low_lim)):
+            # outlier.append(x)
+            outliers.append(idx)
 
 
- 
+    
 def print_distributions(cur_dist, label_maps, interventions, sample_idx):
 
 
