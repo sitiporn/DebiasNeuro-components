@@ -94,7 +94,7 @@ def main():
     is_traced = args.trace
 
     DEBUG = True
-    debug = True # for tracing top counterfactual 
+    debug = False # for tracing top counterfactual 
     collect_representation = True
     # for collecting counterfactual representations
     is_group_by_class =   False
