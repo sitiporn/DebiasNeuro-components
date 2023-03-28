@@ -137,7 +137,7 @@ def main():
     # percent threshold of overlap score
     upper_bound = 95
     lower_bound = 5
-    
+    intervention_type = "remove"
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -159,6 +159,7 @@ def main():
     print(f"upper_bound : {upper_bound}")
     print(f"lower_bound : {lower_bound}")
     print(f"samples used to compute nie scores : {num_samples}") 
+    print(f"Intervention type : {intervention_type}")
     
     # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(valid_path,
@@ -291,6 +292,7 @@ def main():
                             label_maps,
                             is_group_by_class, 
                             is_averaged_embeddings, 
+                            intervention_type, 
                             debug)
 
 if __name__ == "__main__":

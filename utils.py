@@ -213,6 +213,7 @@ def trace_counterfactual(do,
                         label_maps,
                         is_group_by_class, 
                         is_averaged_embeddings, 
+                        intervention_type, 
                         debug = False):
 
     path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
@@ -278,7 +279,6 @@ def trace_counterfactual(do,
     
     Z = cls[component][do][layer]
 
-
     for batch_idx, (sentences, labels) in enumerate(nie_dataloader):
         
         premise, hypo = sentences
@@ -295,10 +295,12 @@ def trace_counterfactual(do,
 
         for mode in interventions:
 
-
             if mode == "Intervene": 
                 hooks = []
-                hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = Z)))
+                hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], 
+                                                                                                  DEVICE = DEVICE ,
+                                                                                                  value = Z, 
+                                                                                                  intervention_type=intervention_type)))
 
             with torch.no_grad(): 
                 
@@ -349,7 +351,7 @@ def trace_counterfactual(do,
     print(f'NIE average : {ret/counter}')
     print(f"Average ratio for whole sets : {(ratio/counter).cpu().tolist()}")
 
-    
+     
     # every sets dont follow normal distribution 
 
     mean = {}
@@ -365,18 +367,18 @@ def trace_counterfactual(do,
         median[golden] = torch.median(class_ratios[golden], dim=0)[0]
         mean[golden] = torch.mean(class_ratios[golden], dim=0)
 
+        if debug:
 
-        print(f"++++++++++++++++  current {golden}  set +++++++++++++++++++++") 
-        
-        print(f">>>>>>>>>>>>> Y_intervene / Y_Null ratios <<<<<<<<<<<<<")
-        print(f"Median {golden} set: {median[golden]}")
-        print(f"Mean {golden} set: {mean[golden]}")
+            print(f"++++++++++++++++  current {golden}  set +++++++++++++++++++++") 
+            
+            print(f">>>>>>>>>>>>> Y_intervene / Y_Null ratios <<<<<<<<<<<<<")
+            print(f"Median {golden} set: {median[golden]}")
+            print(f"Mean {golden} set: {mean[golden]}")
 
-        print(f">>>>>>>>>>>> Y_intervene - Y_Null <<<<<<<<<<<<<<<<<<<< ")
-        print(f"Median  {golden} set: {torch.median(delta_y[golden], dim=0)[0]}")
-        print(f"Mean  {golden} set: {torch.mean(delta_y[golden], dim=0) }")
+            print(f">>>>>>>>>>>> Y_intervene - Y_Null <<<<<<<<<<<<<<<<<<<< ")
+            print(f"Median  {golden} set: {torch.median(delta_y[golden], dim=0)[0]}")
+            print(f"Mean  {golden} set: {torch.mean(delta_y[golden], dim=0) }")
         # print(f"---------------------------------------------")
-
 
         outliers[golden] = []
 
@@ -384,13 +386,13 @@ def trace_counterfactual(do,
 
             if golden == type_output: continue
 
-            print(f">>> current output prob:") 
+            if debug: print(f">>> current output prob:") 
             get_outliers(type_output, outliers[golden], label_maps, class_ratios[golden])
         
         for mode in interventions: 
             
             distributions[mode][golden] = torch.stack(distributions[mode][golden],dim=0)
-    
+
     if not os.path.exists(dist_path):
         
         with open(dist_path, 'wb') as handle: 
