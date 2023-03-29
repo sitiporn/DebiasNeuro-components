@@ -1,7 +1,8 @@
 # Debias Neuro-components leveraging Causal mediation analysis
 
-## Todo
-    - [ ] intervention exist bias neurons by replace hidden representation of [CLS] with zero
+### Todo
+-  [x] intervention exist bias neurons by replace hidden representation of [CLS] with zero
+-  [ ] remove [CLS] representations of candidates neurons on the High-overlap score set 
 
 ## Result
 
