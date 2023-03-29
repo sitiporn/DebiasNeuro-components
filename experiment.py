@@ -26,6 +26,7 @@ from nn_pruning.patch_coordinator import (
 from data import ExperimentDataset
 from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
+from utils import debias_test
 
 def main():
     
@@ -99,6 +100,7 @@ def main():
     # for collecting counterfactual representations
     is_group_by_class =   False
     is_averaged_embeddings =   True
+    debias = True
     
     counterfactual_paths = []
     NIE_paths = []
@@ -276,6 +278,22 @@ def main():
     if distribution:
         
         get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
+
+    if debias:
+
+        debias_test(mode[0], 
+                    select_layer[0], 
+                    model, 
+                    experiment_set, 
+                    tokenizer,
+                    DEVICE, 
+                    layers, 
+                    heads,
+                    counterfactual_paths,
+                    label_maps,
+                    is_group_by_class, 
+                    is_averaged_embeddings, 
+                    intervention_type = "remove")
 
     if is_traced:
         

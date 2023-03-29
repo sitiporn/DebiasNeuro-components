@@ -10,6 +10,8 @@ import os
 import os.path
 from intervention import neuron_intervention
 from tabulate import tabulate
+from torch.utils.data import Dataset, DataLoader
+from collections import Counter
 
 def report_gpu(): 
   print(f"++++++++++++++++++++++++++++++")
@@ -198,6 +200,146 @@ def get_overlap_score(pair_label):
 
     return overlap_score
 
+def debias_test(do, 
+                layer, 
+                model, 
+                experiment_set, 
+                tokenizer,
+                DEVICE, 
+                layers, 
+                heads,
+                counterfactual_paths,
+                label_maps,
+                is_group_by_class, 
+                is_averaged_embeddings, 
+                intervention_type,
+                debug = False):
+
+    path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
+
+    nie_dataloader = None
+    hooks = None
+    
+    interventions = ["Null", "Intervene"]
+    distributions = {} 
+    NIE = {}
+    mediators = {}
+    counters = {}
+
+    for do in ['High-overlap','Low-overlap']: 
+
+        distributions[do] = {}
+        NIE[do] = {}
+        counters[do] = 0
+        
+        for mode in interventions: 
+
+            distributions[do][mode] = {}
+            NIE[do][mode] = {}
+
+            for golden in ['contradiction','entailment','neutral']:
+
+                distributions[do][mode][golden] = []
+                NIE[do][mode][golden] = []
+
+    counterfactual_loader = DataLoader(experiment_set, 
+                                       batch_size = 32,
+                                       shuffle = False, 
+                                       num_workers=0)
+  
+    with open(path, 'rb') as handle:
+        # get [CLS] activation 
+        top_neuron = pickle.load(handle)
+    
+    component = list(top_neuron.keys())[0].split('-')[0]
+    neuron_id  = int(list(top_neuron.keys())[0].split('-')[1])
+    
+    print(f"component : {component}")
+    print(f"neuron_id : {neuron_id}")
+
+    # mediator used to intervene
+    mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
+    mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
+    mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
+    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
+    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
+    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
+
+    cls = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings)
+    
+    Z = cls[component][do][layer]
+
+    for batch_idx, (sentences, labels) in enumerate(tqdm(counterfactual_loader, desc="Counterfactual_loader")):
+            
+        cur_dist = {}
+
+        # for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+        for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+
+            premise, hypo = sentences[do]
+
+            pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
+            
+            inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+
+            inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+
+            cur_dist[do] = {}
+
+            print(f"batch_idx : {batch_idx}")
+
+            for mode in interventions:
+
+                if mode == "Intervene": 
+
+                    hooks = []
+                    
+                    hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(
+                                                                                    neuron_ids = [neuron_id], 
+                                                                                    DEVICE = DEVICE ,
+                                                                                    value = Z,
+                                                                                    intervention_type=intervention_type)))
+
+                with torch.no_grad(): 
+                    
+                    # Todo: generalize to distribution if the storage is enough
+                    cur_dist[do][mode] = F.softmax(model(**inputs).logits , dim=-1)
+                
+                
+                if mode == "Intervene": 
+                    for hook in hooks: hook.remove() 
+
+                for sample_idx in range(cur_dist[do][mode].shape[0]):
+
+                    distributions[do][mode][labels[do][sample_idx]].append(cur_dist[do][mode][sample_idx,:])
+
+            
+            
+            ret = torch.sum(cur_dist[do]["Intervene"][:,label_maps["entailment"]] / cur_dist[do]["Null"][:,label_maps["entailment"]],dim=0)
+            ret = ret / inputs['input_ids'].shape[0]
+            
+            counters[do] += inputs['input_ids'].shape[0]
+
+    for do in ['High-overlap','Low-overlap']:
+
+
+        print(f"===================  {do}  ======================")
+            
+        for golden in ['contradiction','entailment','neutral']:
+
+            print(f"++++++++++++++++  {golden}  ++++++++++++++++++++")
+        
+            for mode in interventions:
+
+                distributions[do][mode][golden] = torch.stack(distributions[do][mode][golden], dim=0)
+
+                predictions = torch.argmax(distributions[do][mode][golden],dim=1).tolist()
+
+                print(f"{mode} : {Counter(predictions)}")
+
+    breakpoint()
+
+
 def trace_counterfactual(do, 
                         layer, 
                         model, 
@@ -231,7 +373,6 @@ def trace_counterfactual(do,
     with open(path, 'rb') as handle:
         # get [CLS] activation 
         top_neuron = pickle.load(handle)
-    
     
     component = list(top_neuron.keys())[0].split('-')[0]
     neuron_id  = int(list(top_neuron.keys())[0].split('-')[1])
@@ -290,16 +431,6 @@ def trace_counterfactual(do,
         ret = ret / inputs['input_ids'].shape[0]
 
         # if debug: print(f'batch_idx : {batch_idx}, ratio : {ret - 1}') 
-
-        if debug: 
-
-            for sample_idx in range(cur_dist["Intervene"].shape[0]):
-                print(f"sample_idx : {sample_idx}, {labels[sample_idx]} sample")
-                print(f'+------------------++----------------++--------------+')
-                print(f'>>  contradiction    ||    entailment  ||     neutral  |')
-                for mode in interventions:
-                    print(f'{mode}   {cur_dist[mode][sample_idx,:]}')
-                print(f'+------------------++----------------++--------------+')
 
  
 def print_distributions(cur_dist, label_maps, interventions, sample_idx):
