@@ -10,14 +10,10 @@ import os
 import os.path
 from intervention import neuron_intervention
 from tabulate import tabulate
-<<<<<<< HEAD
 import statistics 
 from collections import Counter
-
-=======
 from torch.utils.data import Dataset, DataLoader
 from collections import Counter
->>>>>>> trace_counterfactual
 
 def report_gpu(): 
   print(f"++++++++++++++++++++++++++++++")
@@ -275,12 +271,12 @@ def debias_test(do,
     
     Z = cls[component][do][layer]
 
-    for batch_idx, (sentences, labels) in enumerate(tqdm(counterfactual_loader, desc="Counterfactual_loader")):
+    for batch_idx, (sentences, labels) in enumerate(counterfactual_loader):
             
         cur_dist = {}
 
         # for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
-        for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+        for idx, do in enumerate(['High-overlap','Low-overlap']):
 
             premise, hypo = sentences[do]
 
@@ -291,8 +287,6 @@ def debias_test(do,
             inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
 
             cur_dist[do] = {}
-
-            print(f"batch_idx : {batch_idx}")
 
             for mode in interventions:
 
@@ -342,8 +336,6 @@ def debias_test(do,
                 predictions = torch.argmax(distributions[do][mode][golden],dim=1).tolist()
 
                 print(f"{mode} : {Counter(predictions)}")
-
-    breakpoint()
 
 
 def trace_counterfactual(do, 
@@ -421,6 +413,7 @@ def trace_counterfactual(do,
 
     cls = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings)
     
+    # why Z value is not the same as trace counterfactual ?
     Z = cls[component][do][layer]
 
     for batch_idx, (sentences, labels) in enumerate(nie_dataloader):
@@ -472,7 +465,6 @@ def trace_counterfactual(do,
 
         # if debug: print(f'batch_idx : {batch_idx}, ratio : {ret - 1}') 
 
-<<<<<<< HEAD
         for sample_idx in range(cur_ratio.shape[0]):
             
             class_counters[labels[sample_idx]] += 1 
@@ -578,11 +570,6 @@ def get_outliers(class_name, outliers,label_maps, data):
             # outlier.append(x)
             outliers.append(idx)
 
-
-    
-=======
- 
->>>>>>> trace_counterfactual
 def print_distributions(cur_dist, label_maps, interventions, sample_idx):
 
 

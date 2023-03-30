@@ -37,14 +37,14 @@ def neuron_intervention(neuron_ids,
         # where to intervene
         # bz, seq_len, hidden_dim
         scatter_mask[:,0, neuron_ids] = 1
+
+        if intervention_type == "remove": value[neuron_ids] = 0
         
         neuron_values = value[neuron_ids]
-
+        
         neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1).to(DEVICE)
         
         output.masked_scatter_(scatter_mask, neuron_values)
-
-        breakpoint()
 
     return intervention_hook
 
@@ -105,7 +105,9 @@ def high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counte
                     
                         hooks = [] 
                         
-                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], DEVICE = DEVICE ,value = Z)))
+                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], 
+                                                                                                            DEVICE = DEVICE ,
+                                                                                                            value = Z)))
                         
                         with torch.no_grad(): 
 

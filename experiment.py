@@ -294,7 +294,7 @@ def main():
                     label_maps,
                     is_group_by_class, 
                     is_averaged_embeddings, 
-                    intervention_type = "remove")
+                    intervention_type = intervention_type)
 
     if is_traced:
         
