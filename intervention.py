@@ -44,6 +44,8 @@ def neuron_intervention(neuron_ids,
         
         output.masked_scatter_(scatter_mask, neuron_values)
 
+        breakpoint()
+
     return intervention_hook
 
 
