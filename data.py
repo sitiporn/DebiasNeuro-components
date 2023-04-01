@@ -173,3 +173,29 @@ class ExperimentDataset(Dataset):
         
         return pair_sentences , labels
 
+
+class Hans(Dataset):
+    def __init__(self, 
+                data_path, 
+                json_file, 
+                num_samples, 
+                DEBUG=False) -> None: 
+
+        data_path = os.path.join(data_path, json_file)
+
+        self.df = pd.read_json(data_path, lines=True)
+
+        self.premises = self.df.premise.tolist()
+        self.hypos = self.df.hypothesis.tolist()
+        self.labels = self.df.gold_label.tolist()
+
+    def __len__(self):
+
+        return self.df.shape[0]
+
+    def __getitem__(self, idx):
+        
+        pair_sentence = [self.premises[idx], self.hypos[idx]]
+        label = self.labels[idx] 
+        
+        return pair_sentence , label

@@ -333,7 +333,7 @@ def debias_test(do,
 
                 distributions[do][mode][golden] = torch.stack(distributions[do][mode][golden], dim=0)
 
-                predictions = torch.argmax(distributions[do][mode][golden],dim=1).tolist()
+                predictions = torch.argmax(distributions[do][mode][golden],dim=-1).tolist()
 
                 print(f"{mode} : {Counter(predictions)}")
 

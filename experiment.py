@@ -23,7 +23,7 @@ from nn_pruning.patch_coordinator import (
     SparseTrainingArguments,
     ModelPatchingCoordinator,
 )
-from data import ExperimentDataset
+from data import ExperimentDataset, Hans
 from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
 from utils import debias_test
@@ -128,7 +128,10 @@ def main():
   
     
     valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
-    json_file = 'multinli_1.0_dev_matched.jsonl'
+    
+    hans_json = 'heuristics_evaluation_set.jsonl'
+
+    dev_json = 'multinli_1.0_dev_matched.jsonl'
     
     # used to compute nie scores
     num_samples = 300 #3000
@@ -165,13 +168,17 @@ def main():
     
     # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(valid_path,
-                             json_file,
+                             dev_json,
                              upper_bound = upper_bound,
                              lower_bound = lower_bound,
                              encode = tokenizer,
                              is_group_by_class = is_group_by_class,
                              num_samples = num_samples
                             )
+
+    hans_set = Hans(valid_path,
+                    hans_json,
+                    num_samples=300)
 
     dataloader = DataLoader(experiment_set, 
                         batch_size = 32,
