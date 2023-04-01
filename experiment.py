@@ -23,7 +23,7 @@ from nn_pruning.patch_coordinator import (
     SparseTrainingArguments,
     ModelPatchingCoordinator,
 )
-from data import ExperimentDataset, Hans
+from data import ExperimentDataset, Hans, get_predictions
 from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
 from utils import debias_test
@@ -176,14 +176,26 @@ def main():
                              num_samples = num_samples
                             )
 
-    hans_set = Hans(valid_path,
-                    hans_json,
-                    num_samples=300)
-
     dataloader = DataLoader(experiment_set, 
                         batch_size = 32,
                         shuffle = False, 
                         num_workers=0)
+
+    get_predictions(mode[0], 
+                    select_layer[0],
+                    model,
+                    tokenizer,
+                    DEVICE, 
+                    layers, 
+                    heads,
+                    counterfactual_paths,
+                    label_maps,
+                    valid_path,
+                    hans_json,
+                    is_group_by_class, 
+                    is_averaged_embeddings,
+                    intervention_type=intervention_type)
+    
 
     if getting_counterfactual:
     

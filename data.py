@@ -21,8 +21,9 @@ from nn_pruning.patch_coordinator import (
     ModelPatchingCoordinator,
 )
 
-from utils import get_overlap_thresholds, group_by_treatment
-from intervention import Intervention
+from utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
+from intervention import Intervention, neuron_intervention
+
 
 class ExperimentDataset(Dataset):
     def __init__(self, data_path, json_file, upper_bound, lower_bound, encode, is_group_by_class, num_samples, DEBUG=False) -> None: 
@@ -199,3 +200,102 @@ class Hans(Dataset):
         label = self.labels[idx] 
         
         return pair_sentence , label
+
+def get_predictions(do,
+                    layer,
+                    model,
+                    tokenizer,
+                    DEVICE, 
+                    layers, 
+                    heads,
+                    counterfactual_paths,
+                    label_maps,
+                    valid_path,
+                    json_file,
+                    is_group_by_class, 
+                    is_averaged_embeddings,
+                    intervention_type):
+    
+    mediators = {}
+    
+    mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
+    mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
+    mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
+    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
+    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
+    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
+
+    hans_set = Hans(valid_path,
+                    json_file,
+                    num_samples=300)
+
+    hans_loader = DataLoader(hans_set, 
+                        batch_size = 32,
+                        shuffle = False, 
+                        num_workers=0)
+
+    
+    path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
+    
+    with open(path, 'rb') as handle:
+        # get [CLS] activation 
+        top_neuron = pickle.load(handle)
+
+    cls = get_hidden_representations(counterfactual_paths, 
+                                    layers, 
+                                    heads, 
+                                    is_group_by_class, 
+                                    is_averaged_embeddings)
+    
+    component = list(top_neuron.keys())[0].split('-')[0]
+    neuron_id  = int(list(top_neuron.keys())[0].split('-')[1])
+
+    Z = cls[component][do][layer]
+
+    distributions = {}
+    
+    for mode in ["Null", "Intervene"]: distributions[mode] = []
+    
+    # test hans loader
+    for batch_idx, (sentences, labels) in enumerate(hans_loader):
+
+        premises, hypos = sentences
+
+        pair_sentences = [[premise, hypo] for premise, hypo in zip(premises, hypos)]
+
+        inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+            
+        inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+
+        #labels = [label_maps[label] for label in labels]
+        # mediator used to intervene
+        cur_dist = {}
+
+        for mode in ["Null", "Intervene"]:
+
+            if mode == "Intervene": 
+
+                hooks = []
+                
+                hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(
+                                                                                neuron_ids = [neuron_id], 
+                                                                                DEVICE = DEVICE ,
+                                                                                value = Z,
+                                                                                intervention_type=intervention_type)))
+
+            with torch.no_grad(): 
+                
+                # Todo: generalize to distribution if the storage is enough
+                cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
+            
+            
+            if mode == "Intervene": 
+                for hook in hooks: hook.remove() 
+
+            for sample_idx in range(cur_dist[mode].shape[0]):
+
+                distributions[mode].append(cur_dist[mode][sample_idx,:])
+
+        
+        breakpoint()
+
