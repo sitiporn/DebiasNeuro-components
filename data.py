@@ -250,6 +250,9 @@ def get_predictions(do,
     component = list(top_neuron.keys())[0].split('-')[0]
     neuron_id  = int(list(top_neuron.keys())[0].split('-')[1])
 
+    print(f"component : {component}")
+    print(f"neuron_id : {neuron_id}")
+
     Z = cls[component][do][layer]
 
     distributions = {}
@@ -289,13 +292,19 @@ def get_predictions(do,
                 cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
             
             
+            
             if mode == "Intervene": 
                 for hook in hooks: hook.remove() 
 
             for sample_idx in range(cur_dist[mode].shape[0]):
 
                 distributions[mode].append(cur_dist[mode][sample_idx,:])
-
         
-        breakpoint()
+    path = f'../pickles/prediction/{do}_L{layer}.pickle'  
+    
+    with open(path, 'wb') as handle: 
+        
+        pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f'saving predictions into : {path}')
+        
 

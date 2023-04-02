@@ -337,7 +337,6 @@ def debias_test(do,
 
                 print(f"{mode} : {Counter(predictions)}")
 
-
 def trace_counterfactual(do, 
                         layer, 
                         model, 
