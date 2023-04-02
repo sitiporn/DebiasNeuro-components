@@ -300,13 +300,15 @@ def get_predictions(do,
 
                 distributions[mode].append(cur_dist[mode][sample_idx,:])
         
-    path = f'../pickles/prediction/{do}_L{layer}.pickle'  
+    prediction_path = f'../pickles/prediction/{do}_L{layer}.pickle'  
     
-    with open(path, 'wb') as handle: 
+    with open(prediction_path, 'wb') as handle: 
         
         pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving predictions into : {path}')
 
-    breakpoint()
-        
+
+# def report_result(path):
+
+#     pass
 
