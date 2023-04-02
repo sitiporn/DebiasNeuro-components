@@ -337,6 +337,14 @@ def debias_test(do,
 
                 print(f"{mode} : {Counter(predictions)}")
 
+def get_ans(ans: int):
+
+    # Todo: generalize to all challenge  sets 
+    if ans == 1:
+        return "entailment"
+    else:
+        return "non-entailment"
+
 def trace_counterfactual(do, 
                         layer, 
                         model, 
