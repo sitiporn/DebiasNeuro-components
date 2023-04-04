@@ -194,7 +194,6 @@ def main():
                     hans_json,
                     is_group_by_class, 
                     is_averaged_embeddings,
-                    single_neuron= True,
                     intervention_type=intervention_type)
     
 

@@ -254,7 +254,6 @@ def get_predictions(do,
     print(f"components : {components}") 
     print(f"neurons : {neuron_ids}") 
 
-
     distributions = {}
     golden_answers = {}
     Z = None
@@ -288,20 +287,18 @@ def get_predictions(do,
 
                     Z = cls[component][do][layer]
 
-                    # print(f"curent neuron: {component}-{neuron_id}")
-                    
                     hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(
                                                                                 neuron_ids = [int(neuron_id)], 
+                                                                                component=component,
                                                                                 DEVICE = DEVICE ,
                                                                                 value = Z,
-                                                                                intervention_type=intervention_type)))
+                                                                                intervention_type=intervention_type,
+                                                                                debug=True)))
 
             with torch.no_grad(): 
                 
                 # Todo: generalize to distribution if the storage is enough
                 cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
-            
-            
             
             if mode == "Intervene": 
                 for hook in hooks: hook.remove() 
@@ -310,6 +307,8 @@ def get_predictions(do,
 
                 distributions[mode].append(cur_dist[mode][sample_idx,:])
                 golden_answers[mode].append(labels[sample_idx])
+
+        breakpoint()
 
     prediction_path = f'../pickles/prediction/{do}_L{layer}.pickle'  
     

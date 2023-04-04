@@ -35,9 +35,11 @@ def get_mediators(model):
     return mediators
 
 def neuron_intervention(neuron_ids, 
+                       component,
                        DEVICE,
                        value,
-                       intervention_type='replace'):
+                       intervention_type='replace',
+                       debug=False):
     
     # Hook for changing representation during forward pass
     def intervention_hook(module,
@@ -60,6 +62,11 @@ def neuron_intervention(neuron_ids,
         neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1).to(DEVICE)
         
         output.masked_scatter_(scatter_mask, neuron_values)
+
+        if debug:
+            print(f"Intervention hook:")
+            print(f"component-neuron : {component}-{neuron_ids}")
+            print(output[:3,:3, neuron_ids])
 
     return intervention_hook
 
