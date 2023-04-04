@@ -215,7 +215,8 @@ def get_predictions(do,
                     json_file,
                     is_group_by_class, 
                     is_averaged_embeddings,
-                    intervention_type):
+                    intervention_type,
+                    single_neuron = False):
 
     mediators  = get_mediators(model)
 
@@ -241,16 +242,22 @@ def get_predictions(do,
                                     is_group_by_class, 
                                     is_averaged_embeddings)
     
-    component = list(top_neuron.keys())[0].split('-')[0]
-    neuron_id  = int(list(top_neuron.keys())[0].split('-')[1])
 
-    print(f"component : {component}")
-    print(f"neuron_id : {neuron_id}")
+    components = [neuron.split('-')[0] for neuron, v in top_neuron.items()]
+    neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron.items()]
 
-    Z = cls[component][do][layer]
+    if single_neuron: 
+        components = [components[0]]
+        neuron_ids = [neuron_ids[0]]
+
+    print(f"++++  All mediators ++++")
+    print(f"components : {components}") 
+    print(f"neurons : {neuron_ids}") 
+
 
     distributions = {}
     golden_answers = {}
+    Z = None
     
     for mode in ["Null", "Intervene"]: 
         distributions[mode] = []
@@ -277,8 +284,14 @@ def get_predictions(do,
 
                 hooks = []
                 
-                hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(
-                                                                                neuron_ids = [neuron_id], 
+                for component, neuron_id in zip(components, neuron_ids):
+
+                    Z = cls[component][do][layer]
+
+                    # print(f"curent neuron: {component}-{neuron_id}")
+                    
+                    hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(
+                                                                                neuron_ids = [int(neuron_id)], 
                                                                                 DEVICE = DEVICE ,
                                                                                 value = Z,
                                                                                 intervention_type=intervention_type)))
