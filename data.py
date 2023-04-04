@@ -23,6 +23,7 @@ from nn_pruning.patch_coordinator import (
 
 from utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
 from intervention import Intervention, neuron_intervention
+from utils import get_ans
 
 
 class ExperimentDataset(Dataset):
@@ -256,8 +257,11 @@ def get_predictions(do,
     Z = cls[component][do][layer]
 
     distributions = {}
+    golden_answers = {}
     
-    for mode in ["Null", "Intervene"]: distributions[mode] = []
+    for mode in ["Null", "Intervene"]: 
+        distributions[mode] = []
+        golden_answers[mode] = []
     
     # test hans loader
     for batch_idx, (sentences, labels) in enumerate(hans_loader):
@@ -299,16 +303,94 @@ def get_predictions(do,
             for sample_idx in range(cur_dist[mode].shape[0]):
 
                 distributions[mode].append(cur_dist[mode][sample_idx,:])
-        
+                golden_answers[mode].append(labels[sample_idx])
+
     prediction_path = f'../pickles/prediction/{do}_L{layer}.pickle'  
     
     with open(prediction_path, 'wb') as handle: 
         
         pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving predictions into : {path}')
+        print(f'saving labels into : {path}')
+
+    prepare_result(prediction_path=prediction_path, 
+                  hans_set=hans_set,
+                  component=component,
+                  do=do,
+                  layer=layer)
+
+def prepare_result(prediction_path, hans_set, component, do, layer):
+    
+    with open(prediction_path, 'rb') as handle: 
+        
+        distributions = pickle.load(handle)
+        golden_answers = pickle.load(handle)
+        print(f'loading predictions from : {prediction_path}')
+
+    text_answers = {}
+    txt_path = None
+
+    for mode in list(distributions.keys()):
+
+        if mode not in text_answers.keys(): text_answers[mode] = []
+
+        for sample_id in range(len(distributions[mode])):
+        
+            text_prediction = get_ans(torch.argmax(distributions[mode][sample_id], dim=-1))
+            
+            text_answers[mode].append(text_prediction)
 
 
-# def report_result(path):
+    # Todo: create text file for Null and Intervention
 
-#     pass
 
+    # headers = ['pairID', 'gold_label']
+    # file = open('filepath','a')
+
+    for mode in list(distributions.keys()):
+
+        txt_path  = f'../pickles/prediction/bert_{mode}.txt'  
+        
+        # Todo: generalize to all challege sets
+        if  os.path.exists(txt_path) and mode == 'Null': continue
+
+        if mode == 'Intervene': 
+            txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{component}_{do}.txt'  
+        
+        # Todo: write Null prediction if isn't exist
+
+        
+        # Todo: write Intervention prediction if isn't exist
+        # in format : {mode}_L{layer}_{component}.txt
+        # distributions[]
+        
+        with open(txt_path, "w") as fobj:
+
+            headers = ['pairID', 'gold_label']
+
+            fobj.write(f'{headers[0]}' + "," + f'{headers[1]}' +"\n")
+            
+            for sample_id, ans in enumerate(text_answers[mode]):
+
+                fobj.write(f"ex{sample_id}" + "," + ans +"\n")
+        
+    
+    
+
+
+        
+
+        
+
+
+
+
+
+    
+
+
+     
+
+
+    
