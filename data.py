@@ -22,7 +22,7 @@ from nn_pruning.patch_coordinator import (
 )
 
 from utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
-from intervention import Intervention, neuron_intervention
+from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans
 
 
@@ -216,15 +216,8 @@ def get_predictions(do,
                     is_group_by_class, 
                     is_averaged_embeddings,
                     intervention_type):
-    
-    mediators = {}
-    
-    mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
-    mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
-    mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
-    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
-    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
-    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
+
+    mediators  = get_mediators(model)
 
     hans_set = Hans(valid_path,
                     json_file,

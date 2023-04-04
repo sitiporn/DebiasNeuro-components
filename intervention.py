@@ -21,6 +21,19 @@ from nn_pruning.patch_coordinator import (
     ModelPatchingCoordinator,
 )
 
+def get_mediators(model):
+    
+    mediators = {}
+    
+    mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
+    mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
+    mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
+    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
+    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
+    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
+
+    return mediators
+
 def neuron_intervention(neuron_ids, 
                        DEVICE,
                        value,
@@ -39,6 +52,8 @@ def neuron_intervention(neuron_ids,
         scatter_mask[:,0, neuron_ids] = 1
 
         if intervention_type == "remove": value[neuron_ids] = 0
+
+        #if intervention_type == "neg": value[neuron_ids]  
         
         neuron_values = value[neuron_ids]
         
