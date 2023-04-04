@@ -231,6 +231,7 @@ def get_predictions(do,
 
     
     path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
+    prediction_path = None
     
     with open(path, 'rb') as handle:
         # get [CLS] activation 
@@ -249,6 +250,9 @@ def get_predictions(do,
     if single_neuron: 
         components = [components[0]]
         neuron_ids = [neuron_ids[0]]
+        prediction_path = f'../pickles/prediction/{do}_L{layer}_{component}.pickle'  
+    else:
+        prediction_path = f'../pickles/prediction/{do}_L{layer}_top-k.pickle'  
 
     print(f"++++  All mediators ++++")
     print(f"components : {components}") 
@@ -256,7 +260,6 @@ def get_predictions(do,
 
     distributions = {}
     golden_answers = {}
-    Z = None
     
     for mode in ["Null", "Intervene"]: 
         distributions[mode] = []
@@ -292,8 +295,7 @@ def get_predictions(do,
                                                                                 component=component,
                                                                                 DEVICE = DEVICE ,
                                                                                 value = Z,
-                                                                                intervention_type=intervention_type,
-                                                                                debug=True)))
+                                                                                intervention_type=intervention_type)))
 
             with torch.no_grad(): 
                 
@@ -308,24 +310,22 @@ def get_predictions(do,
                 distributions[mode].append(cur_dist[mode][sample_idx,:])
                 golden_answers[mode].append(labels[sample_idx])
 
-        breakpoint()
 
-    prediction_path = f'../pickles/prediction/{do}_L{layer}.pickle'  
     
     with open(prediction_path, 'wb') as handle: 
         
         pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f'saving predictions into : {path}')
-        print(f'saving labels into : {path}')
+        print(f'saving distributions and labels into : {prediction_path}')
 
     prepare_result(prediction_path=prediction_path, 
                   hans_set=hans_set,
                   component=component,
                   do=do,
-                  layer=layer)
+                  layer=layer,
+                  single_neuron=single_neuron)
 
-def prepare_result(prediction_path, hans_set, component, do, layer):
+def prepare_result(prediction_path, hans_set, component, do, layer, single_neuron=True):
     
     with open(prediction_path, 'rb') as handle: 
         
@@ -361,7 +361,11 @@ def prepare_result(prediction_path, hans_set, component, do, layer):
         if  os.path.exists(txt_path) and mode == 'Null': continue
 
         if mode == 'Intervene': 
-            txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{component}_{do}.txt'  
+
+            if single_neuron:
+                 txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{component}_{do}.txt'  
+            else:
+                 txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_top-k_{do}.txt'  
         
         # Todo: write Null prediction if isn't exist
 

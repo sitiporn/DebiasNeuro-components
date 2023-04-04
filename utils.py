@@ -296,6 +296,7 @@ def debias_test(do,
                     
                     hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(
                                                                                     neuron_ids = [neuron_id], 
+                                                                                    component= component,
                                                                                     DEVICE = DEVICE ,
                                                                                     value = Z,
                                                                                     intervention_type=intervention_type)))
