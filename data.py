@@ -254,10 +254,10 @@ def get_predictions(do,
         if single_neuron: 
             components = [components[0]]
             neuron_ids = [neuron_ids[0]]
-            prediction_path = f'../pickles/prediction/{do}_L{layer}_{component}.pickle'  
+            prediction_path = f'../pickles/prediction/{do}_L{layer}_{component}_{intervention_type}.pickle'  
 
         else:
-            prediction_path = f'../pickles/prediction/{do}_L{layer}_{percent}-k.pickle'  
+            prediction_path = f'../pickles/prediction/{do}_L{layer}_{percent}-k_{intervention_type}.pickle'  
 
         distributions = {}
         golden_answers = {}
@@ -325,9 +325,10 @@ def get_predictions(do,
                     do=do,
                     layer=layer,
                     percent = percent,
+                    intervention_type = intervention_type,
                     single_neuron=single_neuron)
 
-def prepare_result(prediction_path, hans_set, component, do, layer, percent, single_neuron=True):
+def prepare_result(prediction_path, hans_set, component, do, layer, percent, intervention_type, single_neuron=True):
     
     with open(prediction_path, 'rb') as handle: 
         
@@ -365,9 +366,9 @@ def prepare_result(prediction_path, hans_set, component, do, layer, percent, sin
         if mode == 'Intervene': 
 
             if single_neuron:
-                 txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{component}_{do}.txt'  
+                 txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{component}_{do}_{intervention_type}.txt'  
             else:
-                 txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{percent}-k_{do}.txt'  
+                 txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{percent}-k_{do}_{intervention_type}.txt'  
         
         # Todo: write Null prediction if isn't exist
         
