@@ -16,6 +16,7 @@ debug = False
 prediction_path = '../pickles/prediction/' 
 neuron_path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
 evaluations  = {}
+evaluation_path = f'../pickles/evaluations/topk_{do}_L{layer}.pickle'
 
 # ++++++++++++++++++++++++++++++++
 
@@ -155,5 +156,9 @@ for k_percent in (t := tqdm(list(top_neuron.keys()))):
             print(heuristic + ": " + str(percent))
 
             evaluations[k_percent][cur_class][heuristic] = percent
+
+with open(evaluation_path, 'wb') as handle: 
+    pickle.dump(evaluations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    print(f'saving evaluation predictoins into : {evaluation_path}')
 
 
