@@ -28,7 +28,7 @@ with open(neuron_path, 'rb') as handle:
 
 for k_percent in (t := tqdm(list(top_neuron.keys()))):
     
-    intervene_path = f'bert_Intervene_L{layer}_{k_percent}-k_{do}.txt'
+    intervene_path = f'bert_Intervene_L{layer}_{k_percent}-k_{do}_{intervention_type}.txt'
 
     evaluations[k_percent] = {}
     
