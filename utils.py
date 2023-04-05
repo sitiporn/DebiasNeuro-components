@@ -14,6 +14,7 @@ import statistics
 from collections import Counter
 from torch.utils.data import Dataset, DataLoader
 from collections import Counter
+from intervention import get_mediators
 
 def report_gpu(): 
   print(f"++++++++++++++++++++++++++++++")
@@ -252,20 +253,18 @@ def debias_test(do,
     with open(path, 'rb') as handle:
         # get [CLS] activation 
         top_neuron = pickle.load(handle)
+
+    # ++++++++++++  for single neuron intervention ++++++++++++
+    percent, nie = list(top_neuron.keys())[0], list(top_neuron.values())[0] 
     
-    component = list(top_neuron.keys())[0].split('-')[0]
-    neuron_id  = int(list(top_neuron.keys())[0].split('-')[1])
+    component = list(top_neuron[percent].keys())[0].split('-')[0]
+    neuron_id  = int(list(top_neuron[percent].keys())[0].split('-')[1])
     
     print(f"component : {component}")
     print(f"neuron_id : {neuron_id}")
-
+    
     # mediator used to intervene
-    mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
-    mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
-    mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
-    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
-    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
-    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
+    mediators  = get_mediators(model)
 
     cls = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings)
     
