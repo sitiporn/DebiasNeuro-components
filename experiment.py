@@ -181,20 +181,6 @@ def main():
                         shuffle = False, 
                         num_workers=0)
 
-    get_predictions(mode[0], 
-                    select_layer[0],
-                    model,
-                    tokenizer,
-                    DEVICE, 
-                    layers, 
-                    heads,
-                    counterfactual_paths,
-                    label_maps,
-                    valid_path,
-                    hans_json,
-                    is_group_by_class, 
-                    is_averaged_embeddings,
-                    intervention_type=intervention_type)
     
 
     if getting_counterfactual:
@@ -331,6 +317,21 @@ def main():
                             is_averaged_embeddings, 
                             intervention_type, 
                             debug)
+    
+    get_predictions(mode[0], 
+                    select_layer[0],
+                    model,
+                    tokenizer,
+                    DEVICE, 
+                    layers, 
+                    heads,
+                    counterfactual_paths,
+                    label_maps,
+                    valid_path,
+                    hans_json,
+                    is_group_by_class, 
+                    is_averaged_embeddings,
+                    intervention_type=intervention_type)
 
 if __name__ == "__main__":
     main()

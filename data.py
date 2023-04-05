@@ -242,90 +242,92 @@ def get_predictions(do,
                                     heads, 
                                     is_group_by_class, 
                                     is_averaged_embeddings)
-    
 
-    components = [neuron.split('-')[0] for neuron, v in top_neuron.items()]
-    neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron.items()]
-
-    if single_neuron: 
-        components = [components[0]]
-        neuron_ids = [neuron_ids[0]]
-        prediction_path = f'../pickles/prediction/{do}_L{layer}_{component}.pickle'  
-    else:
-        prediction_path = f'../pickles/prediction/{do}_L{layer}_top-k.pickle'  
-
-    print(f"++++  All mediators ++++")
-    print(f"components : {components}") 
-    print(f"neurons : {neuron_ids}") 
-
-    distributions = {}
-    golden_answers = {}
-    
-    for mode in ["Null", "Intervene"]: 
-        distributions[mode] = []
-        golden_answers[mode] = []
-    
-    # test hans loader
-    for batch_idx, (sentences, labels) in enumerate(hans_loader):
-
-        premises, hypos = sentences
-
-        pair_sentences = [[premise, hypo] for premise, hypo in zip(premises, hypos)]
-
-        inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
             
-        inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
-
-        #labels = [label_maps[label] for label in labels]
-        # mediator used to intervene
-        cur_dist = {}
-
-        for mode in ["Null", "Intervene"]:
-
-            if mode == "Intervene": 
-
-                hooks = []
-                
-                for component, neuron_id in zip(components, neuron_ids):
-
-                    Z = cls[component][do][layer]
-
-                    hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(
-                                                                                neuron_ids = [int(neuron_id)], 
-                                                                                component=component,
-                                                                                DEVICE = DEVICE ,
-                                                                                value = Z,
-                                                                                intervention_type=intervention_type)))
-
-            with torch.no_grad(): 
-                
-                # Todo: generalize to distribution if the storage is enough
-                cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
+    for percent in (t := tqdm(list(top_neuron.keys()))):
             
-            if mode == "Intervene": 
-                for hook in hooks: hook.remove() 
-
-            for sample_idx in range(cur_dist[mode].shape[0]):
-
-                distributions[mode].append(cur_dist[mode][sample_idx,:])
-                golden_answers[mode].append(labels[sample_idx])
-
-
+        t.set_description(f": Top {percent*100}-K")
     
-    with open(prediction_path, 'wb') as handle: 
+        components = [neuron.split('-')[0] for neuron, v in top_neuron[percent].items()]
+        neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[percent].items()]
+
+        if single_neuron: 
+            components = [components[0]]
+            neuron_ids = [neuron_ids[0]]
+            prediction_path = f'../pickles/prediction/{do}_L{layer}_{component}.pickle'  
+
+        else:
+            prediction_path = f'../pickles/prediction/{do}_L{layer}_{percent}-k.pickle'  
+
+        distributions = {}
+        golden_answers = {}
         
-        pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f'saving distributions and labels into : {prediction_path}')
+        for mode in ["Null", "Intervene"]: 
+            distributions[mode] = []
+            golden_answers[mode] = []
+        
+        # test hans loader
+        for batch_idx, (sentences, labels) in enumerate(hans_loader):
 
-    prepare_result(prediction_path=prediction_path, 
-                  hans_set=hans_set,
-                  component=component,
-                  do=do,
-                  layer=layer,
-                  single_neuron=single_neuron)
+            premises, hypos = sentences
 
-def prepare_result(prediction_path, hans_set, component, do, layer, single_neuron=True):
+            pair_sentences = [[premise, hypo] for premise, hypo in zip(premises, hypos)]
+
+            inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                
+            inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+
+            #labels = [label_maps[label] for label in labels]
+            # mediator used to intervene
+            cur_dist = {}
+
+            for mode in ["Null", "Intervene"]:
+
+                if mode == "Intervene": 
+
+                    hooks = []
+                    
+                    for component, neuron_id in zip(components, neuron_ids):
+
+                        Z = cls[component][do][layer]
+
+                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(
+                                                                                    neuron_ids = [int(neuron_id)], 
+                                                                                    component=component,
+                                                                                    DEVICE = DEVICE ,
+                                                                                    value = Z,
+                                                                                    intervention_type=intervention_type)))
+
+                with torch.no_grad(): 
+                    
+                    # Todo: generalize to distribution if the storage is enough
+                    cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
+                
+                if mode == "Intervene": 
+                    for hook in hooks: hook.remove() 
+
+                for sample_idx in range(cur_dist[mode].shape[0]):
+
+                    distributions[mode].append(cur_dist[mode][sample_idx,:])
+                    golden_answers[mode].append(labels[sample_idx])
+
+
+        
+        with open(prediction_path, 'wb') as handle: 
+            
+            pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f'saving distributions and labels into : {prediction_path}')
+
+        prepare_result(prediction_path=prediction_path, 
+                    hans_set=hans_set,
+                    component=component,
+                    do=do,
+                    layer=layer,
+                    percent = percent,
+                    single_neuron=single_neuron)
+
+def prepare_result(prediction_path, hans_set, component, do, layer, percent, single_neuron=True):
     
     with open(prediction_path, 'rb') as handle: 
         
@@ -365,10 +367,9 @@ def prepare_result(prediction_path, hans_set, component, do, layer, single_neuro
             if single_neuron:
                  txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{component}_{do}.txt'  
             else:
-                 txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_top-k_{do}.txt'  
+                 txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{percent}-k_{do}.txt'  
         
         # Todo: write Null prediction if isn't exist
-
         
         # Todo: write Intervention prediction if isn't exist
         # in format : {mode}_L{layer}_{component}.txt
