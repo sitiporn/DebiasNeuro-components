@@ -82,6 +82,17 @@ def main():
                         default=False,
                         required=False,
                         help="tracing counterfactual")
+    parser.add_argument("--debias",
+                        type=bool,
+                        default=False,
+                        required=False,
+                        help="debias component")
+    
+    parser.add_argument("--get_prediction",
+                        type=bool,
+                        default=False,
+                        required=False,
+                        help="get distributions")
     
     args = parser.parse_args()
 
@@ -93,6 +104,8 @@ def main():
     getting_counterfactual = args.get_counterfactual
     embedding_summary = args.embedding_summary
     is_traced = args.trace
+    is_prediction = args.get_prediction
+    debias = args.debias
 
     DEBUG = True
     debug = False # for tracing top counterfactual 
@@ -100,7 +113,6 @@ def main():
     # for collecting counterfactual representations
     is_group_by_class =   False
     is_averaged_embeddings =   True
-    debias = True
     
     counterfactual_paths = []
     NIE_paths = []
@@ -142,7 +154,8 @@ def main():
     # percent threshold of overlap score
     upper_bound = 95
     lower_bound = 5
-    intervention_type = "remove"
+    # intervention_type = "remove"
+    intervention_type = "neg"
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -317,21 +330,23 @@ def main():
                             is_averaged_embeddings, 
                             intervention_type, 
                             debug)
+
+    if is_prediction:
     
-    get_predictions(mode[0], 
-                    select_layer[0],
-                    model,
-                    tokenizer,
-                    DEVICE, 
-                    layers, 
-                    heads,
-                    counterfactual_paths,
-                    label_maps,
-                    valid_path,
-                    hans_json,
-                    is_group_by_class, 
-                    is_averaged_embeddings,
-                    intervention_type=intervention_type)
+        get_predictions(mode[0], 
+                        select_layer[0],
+                        model,
+                        tokenizer,
+                        DEVICE, 
+                        layers, 
+                        heads,
+                        counterfactual_paths,
+                        label_maps,
+                        valid_path,
+                        hans_json,
+                        is_group_by_class, 
+                        is_averaged_embeddings,
+                        intervention_type=intervention_type)
 
 if __name__ == "__main__":
     main()

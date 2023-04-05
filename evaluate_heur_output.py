@@ -145,9 +145,6 @@ for k_percent in (t := tqdm(list(top_neuron.keys()))):
         
         for heuristic in heuristic_list:
             
-            # if heuristic not in evalutations[k_percent][cur_class].keys():  evalutations[k_percent][cur_class][heuristic] = {}
-
-            
             correct = tables['correct'][cur_class][heuristic]
             incorrect = tables['incorrect'][cur_class][heuristic]
             
