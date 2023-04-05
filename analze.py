@@ -125,7 +125,11 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
             del counterfactual_components
             report_gpu()
      
-def get_top_k(NIE_paths, layers, treatments, top_k=5):
+def get_top_k(NIE_paths, layers, treatments, k=5):
+
+    topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
+    top_neurons = {}
+    num_neurons = None
         
     # compute average NIE
     for do in treatments:
@@ -153,18 +157,23 @@ def get_top_k(NIE_paths, layers, treatments, top_k=5):
             
                     # Todo: get component and neuron_id and value 
             
-            top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
+
+            # top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
+            all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
+
+            for percent in topk['percent']:
+                
+                num_neurons =  len(list(all_neurons.keys())) * percent
+                num_neurons = int(num_neurons)
+
+                print(f"++++++++ Component-Neuron_id: {round(percent, 2)} :+++++++++")
+                
+                top_neurons[round(percent, 2)] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
 
             with open(f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle', 'wb') as handle:
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !")
 
-            """
-            --layer 5 --treatment True
-            {'O-381': tensor(4.3630), 'AO-381': tensor(1.8403), 'AO-308': tensor(1.0662), 'O-308': tensor(1.0362), 'I-2478': tensor(0.2469)}
-            {'AO-308': tensor(0.6541), 'O-308': tensor(0.6391), 'O-381': tensor(0.3282), 'I-2478': tensor(0.1128), 'AO-381': tensor(0.0798)}
-            
-            """
 def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class):
     
     label_remaps = { 0 :'contradiction', 1 : 'entailment', 2 : 'neutral'}
