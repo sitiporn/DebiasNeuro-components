@@ -3,8 +3,8 @@
 ### Todo
 -  [x] intervention exist bias neurons by replace hidden representation of [CLS] with zero
 -  [x] remove [CLS] representations of candidates neurons on the High-overlap score set 
--  [ ] reformat model's predictions of both Null and Intervention to either entail or non entailment
--  [ ] using package of challenge set's paper to evaluate model's predictions
+-  [x] reformat model's predictions of both Null and Intervention to either entail or non entailment
+-  [x] using package of challenge set's paper to evaluate model's predictions
 
 ## Result
 
