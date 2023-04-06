@@ -125,7 +125,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
             del counterfactual_components
             report_gpu()
      
-def get_top_k(NIE_paths, layers, treatments, k=5):
+def get_top_k(NIE_paths, layers, treatments, k=5, debug=False):
 
     topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
     top_neurons = {}
@@ -183,7 +183,6 @@ def get_top_k(NIE_paths, layers, treatments, k=5):
                     pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     print(f"Done saving top neurons into pickle !") 
 
-    breakpoint()
 
     if len(layers) == 12:
         
@@ -201,9 +200,13 @@ def get_top_k(NIE_paths, layers, treatments, k=5):
         with open(f'../pickles/top_neurons/top_neuron_{do}_all_layers.pickle', 'wb') as handle:
             pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Done saving top neurons into pickle !") 
-    
 
-            
+        if debug:
+            print(f"neurons:")
+            print(list(top_neurons[0.01].keys())[:20])
+            print(f"NIE values :")
+            print(list(top_neurons[0.01].values())[:20])
+    
 
 def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class):
     
