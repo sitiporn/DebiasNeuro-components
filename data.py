@@ -278,7 +278,7 @@ def get_predictions(do,
             if layer == -1:
                 prediction_path = f'../pickles/prediction/{do}_all_layers_{percent}-k_{intervention_type}.pickle'  
             else:
-                prediction_path = f'../pickles/prediction/{do}_L_{percent}-k_{intervention_type}.pickle'  
+                prediction_path = f'../pickles/prediction/{do}_L{layer}_{percent}-k_{intervention_type}.pickle'
 
         distributions = {}
         golden_answers = {}
