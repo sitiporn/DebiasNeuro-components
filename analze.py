@@ -131,8 +131,6 @@ def get_top_k(NIE_paths, layers, treatments, k=5, debug=False):
     top_neurons = {}
     num_neurons = None
 
-    """ ../pickles/NIE/NIE_avg_high_level_[0]_High-overlap.pickle """
-
     if -1 in layers: layers = [*range(0, 12, 1)]
         
     # compute average NIE

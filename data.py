@@ -230,7 +230,11 @@ def get_predictions(do,
                         num_workers=0)
 
     
-    path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
+    if layer == -1:
+        path = f'../pickles/top_neurons/top_neuron_{do}_all_layers.pickle'
+    else:
+        path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
+        
     prediction_path = None
     
     with open(path, 'rb') as handle:
@@ -243,21 +247,38 @@ def get_predictions(do,
                                     is_group_by_class, 
                                     is_averaged_embeddings)
 
-            
     for percent in (t := tqdm(list(top_neuron.keys()))):
             
         t.set_description(f": Top {percent*100}-K")
-    
-        components = [neuron.split('-')[0] for neuron, v in top_neuron[percent].items()]
-        neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[percent].items()]
+
+        if layer == -1:
+            
+            components = [neuron.split('-')[2] for neuron, v in top_neuron[percent].items()]
+            neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[percent].items()]
+            
+            layer_ids = [neuron.split('-')[1] for neuron, v in top_neuron[percent].items()]
+            
+        
+        else:
+            components = [neuron.split('-')[0] for neuron, v in top_neuron[percent].items()]
+            neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[percent].items()]
+            
+            layer_ids =  [layer] * len(components)
 
         if single_neuron: 
+            
+            layer_ids =  [layer]
             components = [components[0]]
             neuron_ids = [neuron_ids[0]]
+            
             prediction_path = f'../pickles/prediction/{do}_L{layer}_{component}_{intervention_type}.pickle'  
 
         else:
-            prediction_path = f'../pickles/prediction/{do}_L{layer}_{percent}-k_{intervention_type}.pickle'  
+            
+            if layer == -1:
+                prediction_path = f'../pickles/prediction/{do}_all_layers_{percent}-k_{intervention_type}.pickle'  
+            else:
+                prediction_path = f'../pickles/prediction/{do}_L_{percent}-k_{intervention_type}.pickle'  
 
         distributions = {}
         golden_answers = {}
@@ -287,11 +308,11 @@ def get_predictions(do,
 
                     hooks = []
                     
-                    for component, neuron_id in zip(components, neuron_ids):
+                    for layer_id, component, neuron_id in zip(layer_ids, components, neuron_ids):
 
-                        Z = cls[component][do][layer]
+                        Z = cls[component][do][int(layer_id)]
 
-                        hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(
+                        hooks.append(mediators[component](int(layer_id)).register_forward_hook(neuron_intervention(
                                                                                     neuron_ids = [int(neuron_id)], 
                                                                                     component=component,
                                                                                     DEVICE = DEVICE ,
@@ -368,7 +389,11 @@ def prepare_result(prediction_path, hans_set, component, do, layer, percent, int
             if single_neuron:
                  txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{component}_{do}_{intervention_type}.txt'  
             else:
-                 txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{percent}-k_{do}_{intervention_type}.txt'  
+            
+                if layer == -1:
+                    txt_path = f'../pickles/prediction/bert_{mode}_all_layers_{percent}-k_{do}_{intervention_type}.txt'  
+                else:
+                    txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{percent}-k_{do}_{intervention_type}.txt'  
         
         # Todo: write Null prediction if isn't exist
         
