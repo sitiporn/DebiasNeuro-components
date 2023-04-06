@@ -130,12 +130,14 @@ def get_top_k(NIE_paths, layers, treatments, k=5):
     topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
     top_neurons = {}
     num_neurons = None
+
+    """ ../pickles/NIE/NIE_avg_high_level_[0]_High-overlap.pickle """
+
+    if -1 in layers: layers = [*range(0, 12, 1)]
         
     # compute average NIE
     for do in treatments:
         
-        for layer in layers:
-            
             ranking_nie = {}
         
             for cur_path in NIE_paths:
@@ -147,32 +149,61 @@ def get_top_k(NIE_paths, layers, treatments, k=5):
                     
                     print(f"current : {cur_path}")
 
+                layer = int(cur_path.split('_')[-2][1:-1])
+                
                 for component in NIE[do].keys():
                 
                     for neuron_id in NIE[do][component][layer].keys():
                         
                         NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter[do][component][layer][neuron_id]
 
-                        ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+                        if len(layers) == 1:
+                            ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+                        else:
+                            ranking_nie[f"L-{layer}-"+component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
             
                     # Todo: get component and neuron_id and value 
             
 
             # top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
-            all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
-
-            for percent in topk['percent']:
+            if len(layers) == 1: 
                 
-                num_neurons =  len(list(all_neurons.keys())) * percent
-                num_neurons = int(num_neurons)
+                all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
 
-                print(f"++++++++ Component-Neuron_id: {round(percent, 2)} :+++++++++")
-                
-                top_neurons[round(percent, 2)] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+                for percent in topk['percent']:
+                    
+                    num_neurons =  len(list(all_neurons.keys())) * percent
+                    num_neurons = int(num_neurons)
 
-            with open(f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle', 'wb') as handle:
-                pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"Done saving top neurons into pickle !")
+                    print(f"++++++++ Component-Neuron_id: {round(percent, 2)} :+++++++++")
+                    
+                    top_neurons[round(percent, 2)] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+
+                with open(f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle', 'wb') as handle:
+                    pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    print(f"Done saving top neurons into pickle !") 
+
+    breakpoint()
+
+    if len(layers) == 12:
+        
+        all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
+        
+        for percent in topk['percent']:
+            
+            num_neurons =  len(list(all_neurons.keys())) * percent
+            num_neurons = int(num_neurons)
+
+            print(f"++++++++ Component-Neuron_id: {round(percent, 2)} :+++++++++")
+            
+            top_neurons[round(percent, 2)] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+
+        with open(f'../pickles/top_neurons/top_neuron_{do}_all_layers.pickle', 'wb') as handle:
+            pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"Done saving top neurons into pickle !") 
+    
+
+            
 
 def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class):
     

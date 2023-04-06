@@ -60,7 +60,7 @@ def neuron_intervention(neuron_ids,
             print(output[:5,:3, neuron_ids])
 
         if intervention_type == "neg":
-            output[:,0, neuron_ids] = output[:,0, neuron_ids] * -1 
+            output[:,0, neuron_ids] = output[:,0, neuron_ids] * -1
         
         else:
             neuron_values = value[neuron_ids]

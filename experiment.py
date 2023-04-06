@@ -156,6 +156,7 @@ def main():
     lower_bound = 5
     # intervention_type = "remove"
     intervention_type = "neg"
+    k = 20
 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -178,6 +179,7 @@ def main():
     print(f"lower_bound : {lower_bound}")
     print(f"samples used to compute nie scores : {num_samples}") 
     print(f"Intervention type : {intervention_type}")
+    print(f"Top {k}%k")
     
     # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(valid_path,
@@ -284,7 +286,7 @@ def main():
         print(f"perform ranking top neurons...")
         
         if sum(is_NIE_exist) == len(is_NIE_exist):
-            get_top_k(NIE_paths, select_layer, treatments=mode)
+            get_top_k(NIE_paths, select_layer, treatments=mode,k=k)
         else:
             print("NIE is not enought to get top k")
             return

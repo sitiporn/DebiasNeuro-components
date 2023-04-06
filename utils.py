@@ -997,14 +997,21 @@ class Classifier(nn.Module):
 
 
 
-def geting_NIE_paths(NIE_paths, layer, do, counterfactual_paths, is_NIE_exist, is_averaged_embeddings, is_group_by_class):
+def geting_NIE_paths(NIE_paths, layers, do, counterfactual_paths, is_NIE_exist, is_averaged_embeddings, is_group_by_class):
+
+    if -1 in layers: layers = [*range(0, 12, 1)]
 
     if is_averaged_embeddings:
 
-        NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layer}_{do[0]}.pickle'
-        NIE_paths.append(NIE_path)
-        is_NIE_exist.append(os.path.isfile(NIE_path))
+        for layer in layers:
 
+            if not isinstance(layer, list):
+                cur_layer = [layer]
+            
+            NIE_path = f'../pickles/NIE/NIE_avg_high_level_{cur_layer}_{do[0]}.pickle'
+            NIE_paths.append(NIE_path)
+            
+            is_NIE_exist.append(os.path.isfile(NIE_path))
     else:
     
         for cur_path in counterfactual_paths:
