@@ -228,6 +228,8 @@ def get_predictions(do,
                         batch_size = 32,
                         shuffle = False, 
                         num_workers=0)
+    
+    prediction_path = '../pickles/prediction/' 
 
     
     if layer == -1:
@@ -235,7 +237,6 @@ def get_predictions(do,
     else:
         path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
         
-    prediction_path = None
     
     with open(path, 'rb') as handle:
         # get [CLS] activation 
@@ -271,15 +272,16 @@ def get_predictions(do,
             components = [components[0]]
             neuron_ids = [neuron_ids[0]]
             
-            prediction_path = f'../pickles/prediction/{do}_L{layer}_{component}_{intervention_type}.pickle'  
+            raw_distribution_path = f'raw_distribution_{do}_L{layer}_{component}_{intervention_type}.pickle'  
 
         else:
             
             if layer == -1:
-                prediction_path = f'../pickles/prediction/{do}_all_layers_{percent}-k_{intervention_type}.pickle'  
+                raw_distribution_path = f'raw_distribution_{do}_all_layers_{percent}-k_{intervention_type}.pickle'  
             else:
-                prediction_path = f'../pickles/prediction/{do}_L{layer}_{percent}-k_{intervention_type}.pickle'
+                raw_distribution_path = f'raw_distribution_{do}_L{layer}_{percent}-k_{intervention_type}.pickle'
 
+            
         distributions = {}
         golden_answers = {}
         
@@ -332,15 +334,14 @@ def get_predictions(do,
                     distributions[mode].append(cur_dist[mode][sample_idx,:])
                     golden_answers[mode].append(labels[sample_idx])
 
-
+        raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
         
-        with open(prediction_path, 'wb') as handle: 
-            
+        with open(raw_distribution_path, 'wb') as handle: 
             pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f'saving distributions and labels into : {prediction_path}')
+            print(f'saving distributions and labels into : {raw_distribution_path}')
 
-        prepare_result(prediction_path=prediction_path, 
+        prepare_result(raw_distribution_path=raw_distribution_path, 
                     hans_set=hans_set,
                     component=component,
                     do=do,
@@ -349,16 +350,16 @@ def get_predictions(do,
                     intervention_type = intervention_type,
                     single_neuron=single_neuron)
 
-def prepare_result(prediction_path, hans_set, component, do, layer, percent, intervention_type, single_neuron=True):
+def prepare_result(raw_distribution_path, hans_set, component, do, layer, percent, intervention_type, single_neuron=True):
     
-    with open(prediction_path, 'rb') as handle: 
+    with open(raw_distribution_path, 'rb') as handle: 
         
         distributions = pickle.load(handle)
         golden_answers = pickle.load(handle)
-        print(f'loading predictions from : {prediction_path}')
+        print(f'loading raw predictions from pickle: {raw_distribution_path}')
 
     text_answers = {}
-    txt_path = None
+    text_answer_path = None
 
     for mode in list(distributions.keys()):
 
@@ -371,29 +372,23 @@ def prepare_result(prediction_path, hans_set, component, do, layer, percent, int
             text_answers[mode].append(text_prediction)
 
 
-    # Todo: create text file for Null and Intervention
-
-
-    # headers = ['pairID', 'gold_label']
-    # file = open('filepath','a')
-
     for mode in list(distributions.keys()):
 
-        txt_path  = f'../pickles/prediction/bert_{mode}.txt'  
+        text_answer_path = f'../pickles/prediction/txt_answer_{mode}.txt'  
         
         # Todo: generalize to all challege sets
-        if  os.path.exists(txt_path) and mode == 'Null': continue
+        if  os.path.exists(text_answer_path) and mode == 'Null': continue
 
         if mode == 'Intervene': 
 
             if single_neuron:
-                 txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{component}_{do}_{intervention_type}.txt'  
+                text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{component}_{do}_{intervention_type}.txt'  
             else:
             
                 if layer == -1:
-                    txt_path = f'../pickles/prediction/bert_{mode}_all_layers_{percent}-k_{do}_{intervention_type}.txt'  
+                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_all_layers_{percent}-k_{do}_{intervention_type}.txt'  
                 else:
-                    txt_path = f'../pickles/prediction/bert_{mode}_L{layer}_{percent}-k_{do}_{intervention_type}.txt'  
+                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{percent}-k_{do}_{intervention_type}.txt'  
         
         # Todo: write Null prediction if isn't exist
         
@@ -401,7 +396,7 @@ def prepare_result(prediction_path, hans_set, component, do, layer, percent, int
         # in format : {mode}_L{layer}_{component}.txt
         # distributions[]
         
-        with open(txt_path, "w") as fobj:
+        with open(text_answer_path, "w") as fobj:
 
             headers = ['pairID', 'gold_label']
 
@@ -410,8 +405,9 @@ def prepare_result(prediction_path, hans_set, component, do, layer, percent, int
             for sample_id, ans in enumerate(text_answers[mode]):
 
                 fobj.write(f"ex{sample_id}" + "," + ans +"\n")
+
+            print(f"saving text answer's bert predictions: {text_answer_path}")
         
-    
     
 
 
