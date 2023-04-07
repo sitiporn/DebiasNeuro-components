@@ -13,33 +13,40 @@ do = 'High-overlap'
 layer = 1
 debug = False
 intervention_type = "neg"
+all_layers = False
 
 prediction_path = '../pickles/prediction/' 
-neuron_path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
 evaluations  = {}
-# evaluation_path = f'../pickles/evaluations/topk_{do}_L{layer}.pickle'
-evaluation_path_neg = f'../pickles/evaluations/topk_{do}_L{layer}_{intervention_type}.pickle'
+mode = "Intervene"
+
+if all_layers:
+    evaluation_path = f'../pickles/evaluations/topk_{do}_all_layers_{intervention_type}.pickle'
+    neuron_path = f'../pickles/top_neurons/top_neuron_{do}_all_layers.pickle'
+else:
+    evaluation_path = f'../pickles/evaluations/topk_{do}_L{layer}_{intervention_type}.pickle'
+    neuron_path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
 
 # ++++++++++++++++++++++++++++++++
-
 with open(neuron_path, 'rb') as handle:
     # get [CLS] activation 
     top_neuron = pickle.load(handle)
 
 for k_percent in (t := tqdm(list(top_neuron.keys()))):
     
-    intervene_path = f'bert_Intervene_L{layer}_{k_percent}-k_{do}_{intervention_type}.txt'
+    text_answer_path = f'txt_answer_{mode}_L{layer}_{k_percent}-k_{do}_{intervention_type}.txt'  
+
+    if all_layers: text_answer_path = f'txt_answer_{mode}_all_layers_{k_percent}-k_{do}_{intervention_type}.txt'  
 
     evaluations[k_percent] = {}
     
     tables = {}
 
     
-    t.set_description(f": Top {intervene_path}")
+    t.set_description(f": Top {text_answer_path}")
     
-    intervene_path  = os.path.join(prediction_path,  intervene_path)
+    text_answer_path  = os.path.join(prediction_path,  text_answer_path)
     
-    fi = open(intervene_path, "r")
+    fi = open(text_answer_path, "r")
 
     first = True
     guess_dict = {}
@@ -156,8 +163,8 @@ for k_percent in (t := tqdm(list(top_neuron.keys()))):
 
             evaluations[k_percent][cur_class][heuristic] = percent
 
-with open(evaluation_path_neg, 'wb') as handle: 
+with open(evaluation_path, 'wb') as handle: 
     pickle.dump(evaluations, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    print(f'saving evaluation predictoins into : {evaluation_path_neg}')
+    print(f'saving evaluation predictoins into : {evaluation_path}')
 
 
