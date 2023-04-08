@@ -5,9 +5,9 @@
 -  [x] remove [CLS] representations of candidates neurons on the High-overlap score set 
 -  [x] reformat model's predictions of both Null and Intervention to either entail or non entailment
 -  [x] using package of challenge set's paper to evaluate model's predictions
--  [ ] find top 20 K-percent neurons based on NIE scores
--  [ ] maksing incremental top 1-20 K-percent neurons and computing heuristic
--  [ ] plot the incremental heuristic scores between 1 and 20 
+-  [x] find top 20 K-percent neurons based on NIE scores
+-  [x] maksing incremental top 1-20 K-percent neurons and computing heuristic
+-  [x] plot the incremental heuristic scores between 1 and 20 
 
 
 
