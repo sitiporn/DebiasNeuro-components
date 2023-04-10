@@ -94,8 +94,17 @@ def main():
                         required=False,
                         help="get distributions")
     
+    parser.add_argument('--dev_name', 
+                        type=str, 
+                        help='optional filename', 
+                        default="mismatched")
+
+    
+    print(f"=========== Configs  ===============") 
+    
     args = parser.parse_args()
 
+    # +++++++++++ read  CLI configs ++++++++++
     select_layer = [args.layer]
     do = args.treatment
     is_analysis = args.analysis
@@ -106,24 +115,49 @@ def main():
     is_traced = args.trace
     is_prediction = args.get_prediction
     debias = args.debias
+    dev_set_name = args.dev_name
 
     DEBUG = True
     debug = False # for tracing top counterfactual 
-    collect_representation = True
-    # for collecting counterfactual representations
+    
+    # ++++++ select type of counterfactual representatoins +++++++++
     is_group_by_class =   False
     is_averaged_embeddings =   True
+    intervention_type = "neg" # ["remove", "neg"]
+    upper_bound = 95
+    lower_bound = 5
+    torch.manual_seed(42)
+    collect_representation = True
+    mode = ["High-overlap"]  if do else  ["Low-overlap"] 
     
     counterfactual_paths = []
     NIE_paths = []
     is_NIE_exist = []
     is_counterfactual_exist = []
+    
+    # +++ Compute nie scores ++ 
+    num_samples = 300 #3000
+    label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
+    layers = [*range(0, 12, 1)]
+    heads =  [*range(0, 12, 1)]
+         
+    # experiment set
+    k = 20
+    save_nie_set_path = f'../pickles/class_level_nie_{num_samples}_samples.pickle' if is_group_by_class else f'../pickles/nie_{num_samples}_samples.pickle'
+    dev_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
+    
+    if dev_set_name =='mismatched': dev_json = 'multinli_1.0_dev_mismatched.jsonl'
+    elif dev_set_name == 'matched': dev_json = 'multinli_1.0_dev_matched.jsonl'
+    elif dev_set_name == 'hans': dev_json = 'heuristics_evaluation_set.jsonl' 
 
-    # to use as counterfactual !! 
-    if do: 
-        mode = ["High-overlap"] 
-    else:
-        mode = ["Low-overlap"]
+    print(f"is_group_by_class : {is_group_by_class}")
+    print(f"is_averaged_embeddings : {is_averaged_embeddings}")
+    print(f"+percent threshold of overlap score")
+    print(f"upper_bound : {upper_bound}")
+    print(f"lower_bound : {lower_bound}")
+    print(f"samples used to compute nie scores : {num_samples}") 
+    print(f"Intervention type : {intervention_type}")
+    print(f"Top {k}%k")
 
     geting_counterfactual_paths(counterfactual_paths,
                                 is_counterfactual_exist,
@@ -139,25 +173,8 @@ def main():
                     is_group_by_class)
   
     
-    valid_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     
-    hans_json = 'heuristics_evaluation_set.jsonl'
-
-    dev_json = 'multinli_1.0_dev_matched.jsonl'
     
-    # used to compute nie scores
-    num_samples = 300 #3000
-    label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
-
-    save_nie_set_path = f'../pickles/class_level_nie_{num_samples}_samples.pickle' if is_group_by_class else f'../pickles/nie_{num_samples}_samples.pickle'
-         
-    # percent threshold of overlap score
-    upper_bound = 95
-    lower_bound = 5
-    # intervention_type = "remove"
-    intervention_type = "neg"
-    k = 20
-
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     tokenizer = AutoTokenizer.from_pretrained("../bert-base-uncased-mnli/")
@@ -165,24 +182,10 @@ def main():
     model = model.to(DEVICE)
         
     # Todo: generalize for every model 
-    layers = [*range(0, 12, 1)]
-    heads =  [*range(0, 12, 1)]
     
-    torch.manual_seed(42)
-    
-    print(f"=========== Configs  ===============") 
-    
-    print(f"is_group_by_class : {is_group_by_class}")
-    print(f"is_averaged_embeddings : {is_averaged_embeddings}")
-    print(f"+percent threshold of overlap score")
-    print(f"upper_bound : {upper_bound}")
-    print(f"lower_bound : {lower_bound}")
-    print(f"samples used to compute nie scores : {num_samples}") 
-    print(f"Intervention type : {intervention_type}")
-    print(f"Top {k}%k")
     
     # using same seed everytime we create HOL and LOL sets 
-    experiment_set = ExperimentDataset(valid_path,
+    experiment_set = ExperimentDataset(dev_path,
                              dev_json,
                              upper_bound = upper_bound,
                              lower_bound = lower_bound,
@@ -344,8 +347,8 @@ def main():
                         heads,
                         counterfactual_paths,
                         label_maps,
-                        valid_path,
-                        hans_json,
+                        dev_path,
+                        dev_json,
                         is_group_by_class, 
                         is_averaged_embeddings,
                         intervention_type=intervention_type)

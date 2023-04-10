@@ -180,7 +180,6 @@ class Hans(Dataset):
     def __init__(self, 
                 data_path, 
                 json_file, 
-                num_samples, 
                 DEBUG=False) -> None: 
 
         data_path = os.path.join(data_path, json_file)
@@ -220,11 +219,11 @@ def get_predictions(do,
 
     mediators  = get_mediators(model)
 
-    hans_set = Hans(valid_path,
-                    json_file,
-                    num_samples=300)
+    breakpoint()
 
-    hans_loader = DataLoader(hans_set, 
+    dev_set = Hans(valid_path, json_file)
+
+    dev_loader = DataLoader(dev_set, 
                         batch_size = 32,
                         shuffle = False, 
                         num_workers=0)
@@ -371,7 +370,6 @@ def prepare_result(raw_distribution_path, hans_set, component, do, layer, percen
             
             text_answers[mode].append(text_prediction)
 
-
     for mode in list(distributions.keys()):
 
         text_answer_path = f'../pickles/prediction/txt_answer_{mode}.txt'  
@@ -382,7 +380,9 @@ def prepare_result(raw_distribution_path, hans_set, component, do, layer, percen
         if mode == 'Intervene': 
 
             if single_neuron:
+
                 text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{component}_{do}_{intervention_type}.txt'  
+            
             else:
             
                 if layer == -1:
