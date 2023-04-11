@@ -418,6 +418,42 @@ def prepare_result(raw_distribution_path, hans_set, component, do, layer, percen
                 fobj.write(f"ex{sample_id}" + "," + ans +"\n")
 
             print(f"saving text answer's bert predictions: {text_answer_path}")
+
+def print_config(getting_counterfactual, 
+                exp_json,
+                dev_json,
+                is_group_by_class,
+                is_averaged_embeddings,
+                upper_bound,
+                lower_bound,
+                num_samples,
+                intervention_type,
+                k,
+                is_counterfactual_exist,
+                counterfactual_paths):
+
+            
+        print(f"=========== Configs  ===============") 
+        print(f"current experiment set :{exp_json}")
+        print(f"current dev set: {dev_json}")
+        print(f"is_group_by_class : {is_group_by_class}")
+        print(f"is_averaged_embeddings : {is_averaged_embeddings}")
+        print(f"+percent threshold of overlap score")
+        print(f"upper_bound : {upper_bound}")
+        print(f"lower_bound : {lower_bound}")
+        print(f"samples used to compute nie scores : {num_samples}") 
+        print(f"Intervention type : {intervention_type}")
+        print(f"Top {k}%k")
+
+
+        if not getting_counterfactual:
+
+            print(f"HOL and LOL representation in the following paths ")
+
+            for idx, path in enumerate(counterfactual_paths):
+                print(f"current: {path} ,  : {is_counterfactual_exist[idx]} ")
+        
+        print(f"=========== End configs  =========") 
         
     
 

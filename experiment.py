@@ -23,7 +23,7 @@ from nn_pruning.patch_coordinator import (
     SparseTrainingArguments,
     ModelPatchingCoordinator,
 )
-from data import ExperimentDataset, Dev, get_predictions
+from data import ExperimentDataset, Dev, get_predictions, print_config
 from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
 from utils import debias_test
@@ -100,7 +100,6 @@ def main():
                         default="matched")
 
     
-    print(f"=========== Configs  ===============") 
     
     args = parser.parse_args()
 
@@ -151,17 +150,6 @@ def main():
     if dev_set_name =='mismatched': dev_json['mismatched'] = 'multinli_1.0_dev_mismatched.jsonl'
     elif dev_set_name == 'hans':    dev_json['hans'] = 'heuristics_evaluation_set.jsonl' 
     elif dev_set_name == 'matched': dev_json['matched'] = 'multinli_1.0_dev_matched.jsonl'
-    
-    print(f"current experiment set :{exp_json}")
-    print(f"current dev set: {dev_json}")
-    print(f"is_group_by_class : {is_group_by_class}")
-    print(f"is_averaged_embeddings : {is_averaged_embeddings}")
-    print(f"+percent threshold of overlap score")
-    print(f"upper_bound : {upper_bound}")
-    print(f"lower_bound : {lower_bound}")
-    print(f"samples used to compute nie scores : {num_samples}") 
-    print(f"Intervention type : {intervention_type}")
-    print(f"Top {k}%k")
 
     geting_counterfactual_paths(counterfactual_paths,
                                 is_counterfactual_exist,
@@ -215,15 +203,21 @@ def main():
                                  layers = layers,
                                  heads = heads,
                                  is_averaged_embeddings = is_averaged_embeddings)
-    else:
 
-        print(f"HOL and LOL representation in the following paths ")
-
-        for idx, path in enumerate(counterfactual_paths):
-            print(f"current: {path} ,  : {is_counterfactual_exist[idx]} ")
-        
-    print(f"=========== End configs  =========") 
     
+    print_config(getting_counterfactual, 
+                exp_json,
+                dev_json,
+                is_group_by_class,
+                is_averaged_embeddings,
+                upper_bound,
+                lower_bound,
+                num_samples,
+                intervention_type,
+                k,
+                is_counterfactual_exist,
+                counterfactual_paths)
+
     if not os.path.isfile(save_nie_set_path):
 
         combine_types = []
