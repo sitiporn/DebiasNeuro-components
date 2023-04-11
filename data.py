@@ -176,19 +176,31 @@ class ExperimentDataset(Dataset):
         return pair_sentences , labels
 
 
-class Hans(Dataset):
+class Dev(Dataset):
     def __init__(self, 
                 data_path, 
                 json_file, 
                 DEBUG=False) -> None: 
 
-        data_path = os.path.join(data_path, json_file)
+        dev_name = list(json_file.keys())[0]
+        
+        data_path = os.path.join(data_path, json_file[dev_name])
 
         self.df = pd.read_json(data_path, lines=True)
+        
+        
+        if dev_name == 'mismatched':
+            if '-' in self.df.gold_label.unique(): 
+                self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
 
-        self.premises = self.df.premise.tolist()
-        self.hypos = self.df.hypothesis.tolist()
+
+        self.premises = self.df.sentence1.tolist() if dev_name == "mismatched" else self.df.premise.tolist()
+        self.hypos = self.df.sentence2.tolist() if dev_name == "mismatched" else self.df.hypothesis.tolist()
+        
         self.labels = self.df.gold_label.tolist()
+
+        breakpoint()
+
 
     def __len__(self):
 
@@ -219,17 +231,16 @@ def get_predictions(do,
 
     mediators  = get_mediators(model)
 
-    breakpoint()
 
-    dev_set = Hans(valid_path, json_file)
+    dev_set = Dev(valid_path, json_file)
 
     dev_loader = DataLoader(dev_set, 
                         batch_size = 32,
                         shuffle = False, 
                         num_workers=0)
     
+    
     prediction_path = '../pickles/prediction/' 
-
     
     if layer == -1:
         path = f'../pickles/top_neurons/top_neuron_{do}_all_layers.pickle'
@@ -289,7 +300,7 @@ def get_predictions(do,
             golden_answers[mode] = []
         
         # test hans loader
-        for batch_idx, (sentences, labels) in enumerate(hans_loader):
+        for batch_idx, (sentences, labels) in enumerate(dev_loader):
 
             premises, hypos = sentences
 
@@ -341,7 +352,7 @@ def get_predictions(do,
             print(f'saving distributions and labels into : {raw_distribution_path}')
 
         prepare_result(raw_distribution_path=raw_distribution_path, 
-                    hans_set=hans_set,
+                    hans_set=dev_set,
                     component=component,
                     do=do,
                     layer=layer,

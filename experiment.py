@@ -23,7 +23,7 @@ from nn_pruning.patch_coordinator import (
     SparseTrainingArguments,
     ModelPatchingCoordinator,
 )
-from data import ExperimentDataset, Hans, get_predictions
+from data import ExperimentDataset, Dev, get_predictions
 from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
 from utils import debias_test
@@ -97,7 +97,7 @@ def main():
     parser.add_argument('--dev_name', 
                         type=str, 
                         help='optional filename', 
-                        default="mismatched")
+                        default="matched")
 
     
     print(f"=========== Configs  ===============") 
@@ -141,15 +141,19 @@ def main():
     layers = [*range(0, 12, 1)]
     heads =  [*range(0, 12, 1)]
          
-    # experiment set
+    # +++++++++++++  experiment set +++++++++++++++
     k = 20
     save_nie_set_path = f'../pickles/class_level_nie_{num_samples}_samples.pickle' if is_group_by_class else f'../pickles/nie_{num_samples}_samples.pickle'
     dev_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
+    exp_json = 'multinli_1.0_dev_matched.jsonl'
+    dev_json = {}
     
-    if dev_set_name =='mismatched': dev_json = 'multinli_1.0_dev_mismatched.jsonl'
-    elif dev_set_name == 'matched': dev_json = 'multinli_1.0_dev_matched.jsonl'
-    elif dev_set_name == 'hans': dev_json = 'heuristics_evaluation_set.jsonl' 
-
+    if dev_set_name =='mismatched': dev_json['mismatched'] = 'multinli_1.0_dev_mismatched.jsonl'
+    elif dev_set_name == 'hans':    dev_json['hans'] = 'heuristics_evaluation_set.jsonl' 
+    elif dev_set_name == 'matched': dev_json['matched'] = 'multinli_1.0_dev_matched.jsonl'
+    
+    print(f"current experiment set :{exp_json}")
+    print(f"current dev set: {dev_json}")
     print(f"is_group_by_class : {is_group_by_class}")
     print(f"is_averaged_embeddings : {is_averaged_embeddings}")
     print(f"+percent threshold of overlap score")
@@ -186,7 +190,7 @@ def main():
     
     # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(dev_path,
-                             dev_json,
+                             exp_json,
                              upper_bound = upper_bound,
                              lower_bound = lower_bound,
                              encode = tokenizer,
@@ -199,7 +203,6 @@ def main():
                         shuffle = False, 
                         num_workers=0)
 
-    
 
     if getting_counterfactual:
     
