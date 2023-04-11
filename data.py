@@ -182,25 +182,22 @@ class Dev(Dataset):
                 json_file, 
                 DEBUG=False) -> None: 
 
-        dev_name = list(json_file.keys())[0]
+        self.dev_name = list(json_file.keys())[0]
         
-        data_path = os.path.join(data_path, json_file[dev_name])
+        data_path = os.path.join(data_path, json_file[self.dev_name])
 
         self.df = pd.read_json(data_path, lines=True)
         
         
-        if dev_name == 'mismatched':
+        if self.dev_name == 'mismatched':
             if '-' in self.df.gold_label.unique(): 
                 self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
 
 
-        self.premises = self.df.sentence1.tolist() if dev_name == "mismatched" else self.df.premise.tolist()
-        self.hypos = self.df.sentence2.tolist() if dev_name == "mismatched" else self.df.hypothesis.tolist()
+        self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
+        self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
         
         self.labels = self.df.gold_label.tolist()
-
-        breakpoint()
-
 
     def __len__(self):
 
@@ -242,6 +239,7 @@ def get_predictions(do,
     
     prediction_path = '../pickles/prediction/' 
     
+    # from validation set
     if layer == -1:
         path = f'../pickles/top_neurons/top_neuron_{do}_all_layers.pickle'
     else:
@@ -282,14 +280,14 @@ def get_predictions(do,
             components = [components[0]]
             neuron_ids = [neuron_ids[0]]
             
-            raw_distribution_path = f'raw_distribution_{do}_L{layer}_{component}_{intervention_type}.pickle'  
+            raw_distribution_path = f'raw_distribution_{do}_L{layer}_{component}_{intervention_type}_{dev_set.dev_name}.pickle'  
 
         else:
             
             if layer == -1:
-                raw_distribution_path = f'raw_distribution_{do}_all_layers_{percent}-k_{intervention_type}.pickle'  
+                raw_distribution_path = f'raw_distribution_{do}_all_layers_{percent}-k_{intervention_type}_{dev_set.dev_name}.pickle'  
             else:
-                raw_distribution_path = f'raw_distribution_{do}_L{layer}_{percent}-k_{intervention_type}.pickle'
+                raw_distribution_path = f'raw_distribution_{do}_L{layer}_{percent}-k_{intervention_type}_{dev_set.dev_name}.pickle'
 
             
         distributions = {}
@@ -342,8 +340,8 @@ def get_predictions(do,
                 for sample_idx in range(cur_dist[mode].shape[0]):
 
                     distributions[mode].append(cur_dist[mode][sample_idx,:])
-                    golden_answers[mode].append(labels[sample_idx])
-
+                    golden_answers[mode].append(labels[sample_idx]) 
+        
         raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
         
         with open(raw_distribution_path, 'wb') as handle: 
@@ -352,7 +350,7 @@ def get_predictions(do,
             print(f'saving distributions and labels into : {raw_distribution_path}')
 
         prepare_result(raw_distribution_path=raw_distribution_path, 
-                    hans_set=dev_set,
+                    dev_set = dev_set,
                     component=component,
                     do=do,
                     layer=layer,
@@ -360,7 +358,7 @@ def get_predictions(do,
                     intervention_type = intervention_type,
                     single_neuron=single_neuron)
 
-def prepare_result(raw_distribution_path, hans_set, component, do, layer, percent, intervention_type, single_neuron=True):
+def prepare_result(raw_distribution_path, dev_set, component, do, layer, percent, intervention_type, single_neuron=True):
     
     with open(raw_distribution_path, 'rb') as handle: 
         
@@ -383,7 +381,7 @@ def prepare_result(raw_distribution_path, hans_set, component, do, layer, percen
 
     for mode in list(distributions.keys()):
 
-        text_answer_path = f'../pickles/prediction/txt_answer_{mode}.txt'  
+        text_answer_path = f'../pickles/prediction/txt_answer_{mode}_{dev_set.dev_name}.txt'  
         
         # Todo: generalize to all challege sets
         if  os.path.exists(text_answer_path) and mode == 'Null': continue
@@ -392,14 +390,14 @@ def prepare_result(raw_distribution_path, hans_set, component, do, layer, percen
 
             if single_neuron:
 
-                text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{component}_{do}_{intervention_type}.txt'  
+                text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{component}_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
             
             else:
             
                 if layer == -1:
-                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_all_layers_{percent}-k_{do}_{intervention_type}.txt'  
+                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_all_layers_{percent}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
                 else:
-                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{percent}-k_{do}_{intervention_type}.txt'  
+                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{percent}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
         
         # Todo: write Null prediction if isn't exist
         
