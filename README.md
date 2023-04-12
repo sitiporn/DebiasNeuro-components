@@ -35,24 +35,30 @@ as they are rely on shortcut word
 2. Interpret attention head 
     - the assumption; most will attention word overlap
 
-
-
-## Problems
-- confident scores of sample that we get is high among samples 
-
-
-## Notes
-
-- how to we select candiate set to test bias ?
-    - is there statistic of model prediction incorrecly on high overlap ?
-
-
-- block entire path from X - > Y; TE = direct effect, IDE = 0; in the context of representation
-- do we need to find candidate sample that have high TE first ?
-
-
 ## Observation 
 
 - NIE-all and NIE-sum; NIE-all << NIE-sum (componet working together); Nuerons
 - NIE-all and NIE-sum; NIE-all ~ NIE-sum (component can working indiviudually); attention head
 - ref: Causal Mediation Analysis for Interpreting Neural NLP:
+
+
+## Research Question
+
+- RQ1: which components mediate annotation artifact [NIE] ?
+    - [Layers/ Neurons] NIE of top 5% of neurons in each layers
+    - [Attention head]
+    - [Neurons overhead] across different cases
+
+- RQ2: Counterfactual and representation
+    1. High overlap word overlap [Avg rep]
+        - all above threshold 
+        - control for class balance overlap vs non-overlap
+    2. Low overlap word overlap  [Avg rep]
+        - all above threshold 
+        - control for class balance overlap vs non-overlap
+
+- RQ3: Things we can control  condition on: 
+    - Class 
+    - Annotation artifact
+    - etc.
+
