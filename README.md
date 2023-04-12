@@ -11,6 +11,7 @@
 -  [x] vary the number of neurons from topk from entire layers experiment on (MNLI-mismatched)
 -  [ ] vary value of neuron's representation experiment on (MNLI-mismatched)
 -  [ ] perform attention heads intervention using counterfactual and all set up same as neuron intervention
+-  [ ] Plot median of NIE for every layers
 
 ## Result
 
