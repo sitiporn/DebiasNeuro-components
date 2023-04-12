@@ -122,7 +122,7 @@ def main():
     # ++++++ select type of counterfactual representatoins +++++++++
     is_group_by_class =   False
     is_averaged_embeddings =   True
-    intervention_type = "neg" # ["remove", "neg"]
+    intervention_type = "remove" # ["remove", "neg"]
     upper_bound = 95
     lower_bound = 5
     torch.manual_seed(42)
@@ -141,7 +141,8 @@ def main():
     heads =  [*range(0, 12, 1)]
          
     # +++++++++++++  experiment set +++++++++++++++
-    k = 20
+    k = None # percent
+    num_top_neurons = 60 #  the number of neurons 
     save_nie_set_path = f'../pickles/class_level_nie_{num_samples}_samples.pickle' if is_group_by_class else f'../pickles/nie_{num_samples}_samples.pickle'
     dev_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     exp_json = 'multinli_1.0_dev_matched.jsonl'
@@ -163,8 +164,6 @@ def main():
                     is_NIE_exist,
                     is_averaged_embeddings,
                     is_group_by_class)
-  
-    
     
     
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -215,6 +214,7 @@ def main():
                 num_samples,
                 intervention_type,
                 k,
+                num_top_neurons,
                 is_counterfactual_exist,
                 counterfactual_paths)
 
@@ -286,7 +286,7 @@ def main():
         print(f"perform ranking top neurons...")
         
         if sum(is_NIE_exist) == len(is_NIE_exist):
-            get_top_k(NIE_paths, select_layer, treatments=mode,k=k)
+            get_top_k(NIE_paths, select_layer, treatments=mode, num_top_neurons=num_top_neurons)
         else:
             print("NIE is not enought to get top k")
             return
@@ -348,6 +348,8 @@ def main():
                         dev_json,
                         is_group_by_class, 
                         is_averaged_embeddings,
+                        k=k,
+                        num_top_neurons=num_top_neurons,
                         intervention_type=intervention_type)
 
 if __name__ == "__main__":

@@ -125,9 +125,14 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
             del counterfactual_components
             report_gpu()
      
-def get_top_k(NIE_paths, layers, treatments, k=5, debug=False):
+def get_top_k(NIE_paths, layers, treatments, k = None, num_top_neurons = None, debug=False):
 
-    topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
+    
+    if k is not None: topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
+    if num_top_neurons is not None: topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()}
+
+    key = list(topk.keys())[0]
+   
     top_neurons = {}
     num_neurons = None
 
@@ -161,23 +166,22 @@ def get_top_k(NIE_paths, layers, treatments, k=5, debug=False):
                             ranking_nie[f"L-{layer}-"+component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
             
                     # Todo: get component and neuron_id and value 
-            
 
             # top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
             if len(layers) == 1: 
                 
                 all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
 
-                for percent in topk['percent']:
+                for value in topk[key]:
                     
-                    num_neurons =  len(list(all_neurons.keys())) * percent
+                    num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
                     num_neurons = int(num_neurons)
 
-                    print(f"++++++++ Component-Neuron_id: {round(percent, 2)} :+++++++++")
+                    print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
                     
-                    top_neurons[round(percent, 2)] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+                    top_neurons[round(value, 2) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
 
-                with open(f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle', 'wb') as handle:
+                with open(f'../pickles/top_neurons/top_neuron_{key}_{do}_{layer}.pickle', 'wb') as handle:
                     pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     print(f"Done saving top neurons into pickle !") 
 
@@ -186,16 +190,16 @@ def get_top_k(NIE_paths, layers, treatments, k=5, debug=False):
         
         all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
         
-        for percent in topk['percent']:
+        for value in topk[key]:
             
-            num_neurons =  len(list(all_neurons.keys())) * percent
+            num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
             num_neurons = int(num_neurons)
 
-            print(f"++++++++ Component-Neuron_id: {round(percent, 2)} :+++++++++")
+            print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
             
-            top_neurons[round(percent, 2)] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+            top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
 
-        with open(f'../pickles/top_neurons/top_neuron_{do}_all_layers.pickle', 'wb') as handle:
+        with open(f'../pickles/top_neurons/top_neuron_{key}_{do}_all_layers.pickle', 'wb') as handle:
             pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Done saving top neurons into pickle !") 
 
@@ -204,7 +208,7 @@ def get_top_k(NIE_paths, layers, treatments, k=5, debug=False):
             print(list(top_neurons[0.01].keys())[:20])
             print(f"NIE values :")
             print(list(top_neurons[0.01].values())[:20])
-    
+
 
 def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class):
     

@@ -224,6 +224,8 @@ def get_predictions(do,
                     is_group_by_class, 
                     is_averaged_embeddings,
                     intervention_type,
+                    k = None,
+                    num_top_neurons = None,
                     single_neuron = False):
 
     mediators  = get_mediators(model)
@@ -238,12 +240,15 @@ def get_predictions(do,
     
     
     prediction_path = '../pickles/prediction/' 
+
+    if k is not None: key = 'percent' 
+    if num_top_neurons is not None:  key = 'neurons' 
     
     # from validation set
     if layer == -1:
-        path = f'../pickles/top_neurons/top_neuron_{do}_all_layers.pickle'
+        path = f'../pickles/top_neurons/top_neuron_{key}_{do}_all_layers.pickle'
     else:
-        path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
+        path = f'../pickles/top_neurons/top_neuron_{key}_{do}_{layer}.pickle'
         
     
     with open(path, 'rb') as handle:
@@ -256,21 +261,21 @@ def get_predictions(do,
                                     is_group_by_class, 
                                     is_averaged_embeddings)
 
-    for percent in (t := tqdm(list(top_neuron.keys()))):
+    for value in (t := tqdm(list(top_neuron.keys()))):
             
-        t.set_description(f": Top {percent*100}-K")
+        t.set_description(f": Top {value*100 if key == 'percent' else value}-K")
 
         if layer == -1:
             
-            components = [neuron.split('-')[2] for neuron, v in top_neuron[percent].items()]
-            neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[percent].items()]
+            components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
+            neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[value].items()]
             
-            layer_ids = [neuron.split('-')[1] for neuron, v in top_neuron[percent].items()]
+            layer_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
             
         
         else:
-            components = [neuron.split('-')[0] for neuron, v in top_neuron[percent].items()]
-            neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[percent].items()]
+            components = [neuron.split('-')[0] for neuron, v in top_neuron[value].items()]
+            neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
             
             layer_ids =  [layer] * len(components)
 
@@ -280,15 +285,14 @@ def get_predictions(do,
             components = [components[0]]
             neuron_ids = [neuron_ids[0]]
             
-            raw_distribution_path = f'raw_distribution_{do}_L{layer}_{component}_{intervention_type}_{dev_set.dev_name}.pickle'  
+            raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{component}_{intervention_type}_{dev_set.dev_name}.pickle'  
 
         else:
             
             if layer == -1:
-                raw_distribution_path = f'raw_distribution_{do}_all_layers_{percent}-k_{intervention_type}_{dev_set.dev_name}.pickle'  
+                raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{intervention_type}_{dev_set.dev_name}.pickle'  
             else:
-                raw_distribution_path = f'raw_distribution_{do}_L{layer}_{percent}-k_{intervention_type}_{dev_set.dev_name}.pickle'
-
+                raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{intervention_type}_{dev_set.dev_name}.pickle'
             
         distributions = {}
         golden_answers = {}
@@ -349,16 +353,17 @@ def get_predictions(do,
             pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f'saving distributions and labels into : {raw_distribution_path}')
 
+
         prepare_result(raw_distribution_path=raw_distribution_path, 
                     dev_set = dev_set,
-                    component=component,
+                    component= components[0] if single_neuron else None,
                     do=do,
                     layer=layer,
-                    percent = percent,
+                    value = value,
                     intervention_type = intervention_type,
                     single_neuron=single_neuron)
 
-def prepare_result(raw_distribution_path, dev_set, component, do, layer, percent, intervention_type, single_neuron=True):
+def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, single_neuron=True):
     
     with open(raw_distribution_path, 'rb') as handle: 
         
@@ -395,9 +400,9 @@ def prepare_result(raw_distribution_path, dev_set, component, do, layer, percent
             else:
             
                 if layer == -1:
-                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_all_layers_{percent}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
+                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_all_layers_{value}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
                 else:
-                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{percent}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
+                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{value}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
         
         # Todo: write Null prediction if isn't exist
         
@@ -427,6 +432,7 @@ def print_config(getting_counterfactual,
                 num_samples,
                 intervention_type,
                 k,
+                num_top_neurons,
                 is_counterfactual_exist,
                 counterfactual_paths):
 
@@ -441,8 +447,9 @@ def print_config(getting_counterfactual,
         print(f"lower_bound : {lower_bound}")
         print(f"samples used to compute nie scores : {num_samples}") 
         print(f"Intervention type : {intervention_type}")
-        print(f"Top {k}%k")
-
+        
+        if k is not None : print(f"Top {k} %k")
+        if num_top_neurons is not None : print(f"Top number of neurons {num_top_neurons}")
 
         if not getting_counterfactual:
 
