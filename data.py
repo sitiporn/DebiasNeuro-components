@@ -354,14 +354,46 @@ def get_predictions(do,
             print(f'saving distributions and labels into : {raw_distribution_path}')
 
 
-        prepare_result(raw_distribution_path=raw_distribution_path, 
-                    dev_set = dev_set,
-                    component= components[0] if single_neuron else None,
-                    do=do,
-                    layer=layer,
-                    value = value,
-                    intervention_type = intervention_type,
-                    single_neuron=single_neuron)
+        if dev_set.dev_name == 'hans':
+            
+            prepare_result(raw_distribution_path=raw_distribution_path, 
+                        dev_set = dev_set,
+                        component= components[0] if single_neuron else None,
+                        do=do,
+                        layer=layer,
+                        value = value,
+                        intervention_type = intervention_type,
+                        single_neuron=single_neuron)
+
+        else:
+
+            
+            def compute_acc(raw_distribution, label_maps):
+
+                label_remaps = {v:k for k, v in label_maps.items()}
+                
+                acc = {k: [] for k in (['all'] + list(label_maps.keys())) }
+
+                with open(raw_distribution_path, 'rb') as handle: 
+                    
+                    distributions = pickle.load(handle)
+                    golden_answers = pickle.load(handle)
+                    
+                    print(f'loading distributions and labels from : {raw_distribution_path}')
+
+                for mode in distributions.keys():
+                    
+                    for dist, label in zip(distributions[mode], golden_answers[mode]):
+
+                        prediction = int(torch.argmax(dist))
+
+                        acc['all'].append(label_remaps[prediction] == label)
+                        acc[label].append(label_remaps[prediction] == label) 
+
+            
+            compute_acc(raw_distribution=raw_distribution_path, label_maps=label_maps)
+
+
 
 def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, single_neuron=True):
     
@@ -459,6 +491,7 @@ def print_config(getting_counterfactual,
                 print(f"current: {path} ,  : {is_counterfactual_exist[idx]} ")
         
         print(f"=========== End configs  =========") 
+
         
     
 
