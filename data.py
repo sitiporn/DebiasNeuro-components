@@ -237,6 +237,8 @@ def get_predictions(do,
                         batch_size = 32,
                         shuffle = False, 
                         num_workers=0)
+
+    acc = {}
     
     
     prediction_path = '../pickles/prediction/' 
@@ -390,8 +392,24 @@ def get_predictions(do,
                         acc['all'].append(label_remaps[prediction] == label)
                         acc[label].append(label_remaps[prediction] == label) 
 
+                    # compute acc
+
+                acc = { k: sum(acc[k]) / len(acc[k]) for k in list(acc.keys()) }
+                    
+
+                return acc 
             
-            compute_acc(raw_distribution=raw_distribution_path, label_maps=label_maps)
+            acc[value] = compute_acc(raw_distribution=raw_distribution_path, label_maps=label_maps)
+    
+    if dev_set.dev_name == 'hans':
+        
+        acc_path =  f'../pickles/evaluations/{key}_{do}_{intervention_type}_{dev_set.dev_name}.pickle'
+        
+        with open(acc_path,'rb') as handle:
+            pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"saving all accuracies into {acc_path} ")
+
+    breakpoint()
 
 
 
