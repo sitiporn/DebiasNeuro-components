@@ -44,12 +44,12 @@ as they are rely on shortcut word
 
 ## Research Question
 
-- RQ1: which components mediate annotation artifact [NIE] ?
+- Which components mediate annotation artifact [NIE] ?
     - [Layers/ Neurons] NIE of top 5% of neurons in each layers
     - [Attention head]
     - [Neurons overhead] across different cases
 
-- RQ2: Counterfactual and representation
+- Counterfactual and representation
     1. High overlap word overlap [Avg rep]
         - all above threshold 
         - control for class balance overlap vs non-overlap
@@ -57,7 +57,7 @@ as they are rely on shortcut word
         - all above threshold 
         - control for class balance overlap vs non-overlap
 
-- RQ3: Things we can control  condition on: 
+- Things we can control  condition on: 
     - Class 
     - Annotation artifact
     - etc.
