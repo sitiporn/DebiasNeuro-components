@@ -409,9 +409,6 @@ def get_predictions(do,
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {acc_path} ")
 
-    breakpoint()
-
-
 
 def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, single_neuron=True):
     

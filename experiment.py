@@ -122,7 +122,7 @@ def main():
     # ++++++ select type of counterfactual representatoins +++++++++
     is_group_by_class =   False
     is_averaged_embeddings =   True
-    intervention_type = "remove" # ["remove", "neg"]
+    intervention_type = "remove" # ["remove", "neg", "value"]
     upper_bound = 95
     lower_bound = 5
     torch.manual_seed(42)
@@ -142,7 +142,7 @@ def main():
          
     # +++++++++++++  experiment set +++++++++++++++
     k = None # percent
-    num_top_neurons = 60 #  the number of neurons 
+    num_top_neurons = 120 #  the number of neurons 
     save_nie_set_path = f'../pickles/class_level_nie_{num_samples}_samples.pickle' if is_group_by_class else f'../pickles/nie_{num_samples}_samples.pickle'
     dev_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
     exp_json = 'multinli_1.0_dev_matched.jsonl'
