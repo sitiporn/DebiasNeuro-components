@@ -228,19 +228,23 @@ def get_predictions(do,
                     num_top_neurons = None,
                     single_neuron = False):
 
-    mediators  = get_mediators(model)
     low  = -1 
     high =  1 
     size=50
-
-    torch.manual_seed(42)
-    epsilons = (low - high) * torch.rand(size) + high
-    epsilons = sorted(epsilons.tolist())
-    
     digits = 4
     mode = 0o666 # mode
     acc = {}
+
+    torch.manual_seed(42)
     
+    if intervention_type == "remove": epsilons = (low - high) * torch.rand(size) + high #the interval (low, high)
+    if intervention_type == "weaken": epsilons = torch.rand(50) #the interval [0,1)
+    if intervention_type not in ["remove","weaken"]: epsilons = [0]
+    
+    if not isinstance(epsilons, list): epsilons = epsilons.tolist()
+
+    epsilons = sorted(epsilons)
+    mediators  = get_mediators(model)
     dev_set = Dev(valid_path, json_file)
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
 

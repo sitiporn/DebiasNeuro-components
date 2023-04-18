@@ -53,12 +53,14 @@ def neuron_intervention(neuron_ids,
         # where to intervene
         # bz, seq_len, hidden_dim
         scatter_mask[:,0, neuron_ids] = 1
-
-        if intervention_type == "remove": value[neuron_ids] = 0 + epsilon
-
         if debug:
             print(f"before interventoin on {intervention_type}")
             print(output[:5,:3, neuron_ids])
+
+        
+        if intervention_type == "remove": value[neuron_ids] = 0 + epsilon
+        if intervention_type == "weaken": output[:,0, neuron_ids] = output[:,0, neuron_ids] * epsilon
+        
 
         if intervention_type == "neg":
             output[:,0, neuron_ids] = output[:,0, neuron_ids] * -1
