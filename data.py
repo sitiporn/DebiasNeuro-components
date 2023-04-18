@@ -226,7 +226,8 @@ def get_predictions(do,
                     intervention_type,
                     k = None,
                     num_top_neurons = None,
-                    single_neuron = False):
+                    single_neuron = False,
+                    debug = False):
 
     low  = -1 
     high =  1 
@@ -346,7 +347,8 @@ def get_predictions(do,
                                                                                         DEVICE = DEVICE ,
                                                                                         value = Z,
                                                                                         epsilon=epsilon,
-                                                                                        intervention_type=intervention_type)))
+                                                                                        intervention_type=intervention_type,
+                                                                                        debug=debug)))
 
                     with torch.no_grad(): 
                         

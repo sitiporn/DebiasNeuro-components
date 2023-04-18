@@ -120,7 +120,7 @@ def main():
     # ++++++ select type of counterfactual representatoins +++++++++
     is_group_by_class =   False
     is_averaged_embeddings =   True
-    intervention_type = "remove" # ["remove", "neg", "value"]
+    intervention_type = "weaken" # ["remove", "neg", "value","weaken"]
     upper_bound = 95
     lower_bound = 5
     torch.manual_seed(42)
@@ -348,7 +348,8 @@ def main():
                         is_averaged_embeddings,
                         k=k,
                         num_top_neurons=num_top_neurons,
-                        intervention_type=intervention_type)
+                        intervention_type=intervention_type,
+                        debug=DEBUG)
 
 if __name__ == "__main__":
     main()
