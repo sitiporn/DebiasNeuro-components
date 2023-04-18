@@ -230,19 +230,12 @@ def get_predictions(do,
 
     mediators  = get_mediators(model)
     epsilons = np.random.uniform(low=-1, high=1, size=(50,)).tolist()
-
-
-    dev_set = Dev(valid_path, json_file)
-
-    dev_loader = DataLoader(dev_set, 
-                        batch_size = 32,
-                        shuffle = False, 
-                        num_workers=0)
-
+    digits = 5
+    mode = 0o666 # mode
     acc = {}
     
-    
-    prediction_path = '../pickles/prediction/' 
+    dev_set = Dev(valid_path, json_file)
+    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
 
     if k is not None: key = 'percent' 
     if num_top_neurons is not None:  key = 'neurons' 
@@ -267,6 +260,10 @@ def get_predictions(do,
     for epsilon in (t := tqdm(epsilons)): 
         
         t.set_description(f"epsilon : {epsilon}")
+        
+        prediction_path =  os.path.join(prediction_path, round(epsilon, digits))
+
+        if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         
         for value in list(top_neuron.keys()):
             if layer == -1:
