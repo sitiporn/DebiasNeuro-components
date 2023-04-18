@@ -98,8 +98,6 @@ def main():
                         type=str, 
                         help='optional filename', 
                         default="matched")
-
-    
     
     args = parser.parse_args()
 

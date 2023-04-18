@@ -229,6 +229,7 @@ def get_predictions(do,
                     single_neuron = False):
 
     mediators  = get_mediators(model)
+    epsilons = np.random.uniform(low=-1, high=1, size=(50,)).tolist()
 
 
     dev_set = Dev(valid_path, json_file)
@@ -263,151 +264,152 @@ def get_predictions(do,
                                     is_group_by_class, 
                                     is_averaged_embeddings)
 
-    for value in (t := tqdm(list(top_neuron.keys()))):
-            
-        t.set_description(f": Top {value*100 if key == 'percent' else value}-K")
-
-        if layer == -1:
-            
-            components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
-            neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[value].items()]
-            
-            layer_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
-            
+    for epsilon in (t := tqdm(epsilons)): 
         
-        else:
-            components = [neuron.split('-')[0] for neuron, v in top_neuron[value].items()]
-            neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
-            
-            layer_ids =  [layer] * len(components)
-
-        if single_neuron: 
-            
-            layer_ids =  [layer]
-            components = [components[0]]
-            neuron_ids = [neuron_ids[0]]
-            
-            raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{component}_{intervention_type}_{dev_set.dev_name}.pickle'  
-
-        else:
-            
+        t.set_description(f"epsilon : {epsilon}")
+        
+        for value in list(top_neuron.keys()):
             if layer == -1:
-                raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{intervention_type}_{dev_set.dev_name}.pickle'  
-            else:
-                raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{intervention_type}_{dev_set.dev_name}.pickle'
+                
+                components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
+                neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[value].items()]
+                
+                layer_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
+                
             
-        distributions = {}
-        golden_answers = {}
-        
-        for mode in ["Null", "Intervene"]: 
-            distributions[mode] = []
-            golden_answers[mode] = []
-        
-        # test hans loader
-        for batch_idx, (sentences, labels) in enumerate(dev_loader):
-
-            premises, hypos = sentences
-
-            pair_sentences = [[premise, hypo] for premise, hypo in zip(premises, hypos)]
-
-            inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+            else:
+                components = [neuron.split('-')[0] for neuron, v in top_neuron[value].items()]
+                neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
                 
-            inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+                layer_ids =  [layer] * len(components)
 
-            #labels = [label_maps[label] for label in labels]
-            # mediator used to intervene
-            cur_dist = {}
-
-            for mode in ["Null", "Intervene"]:
-
-                if mode == "Intervene": 
-
-                    hooks = []
-                    
-                    for layer_id, component, neuron_id in zip(layer_ids, components, neuron_ids):
-
-                        Z = cls[component][do][int(layer_id)]
-
-                        hooks.append(mediators[component](int(layer_id)).register_forward_hook(neuron_intervention(
-                                                                                    neuron_ids = [int(neuron_id)], 
-                                                                                    component=component,
-                                                                                    DEVICE = DEVICE ,
-                                                                                    value = Z,
-                                                                                    intervention_type=intervention_type)))
-
-                with torch.no_grad(): 
-                    
-                    # Todo: generalize to distribution if the storage is enough
-                    cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
+            if single_neuron: 
                 
-                if mode == "Intervene": 
-                    for hook in hooks: hook.remove() 
+                layer_ids =  [layer]
+                components = [components[0]]
+                neuron_ids = [neuron_ids[0]]
+                
+                raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{component}_{intervention_type}_{dev_set.dev_name}.pickle'  
 
-                for sample_idx in range(cur_dist[mode].shape[0]):
+            else:
+                
+                if layer == -1:
+                    raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{intervention_type}_{dev_set.dev_name}.pickle'  
+                else:
+                    raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{intervention_type}_{dev_set.dev_name}.pickle'
+                
+            distributions = {}
+            golden_answers = {}
+            
+            for mode in ["Null", "Intervene"]: 
+                distributions[mode] = []
+                golden_answers[mode] = []
+            
+            # test hans loader
+            for batch_idx, (sentences, labels) in enumerate(dev_loader):
 
-                    distributions[mode].append(cur_dist[mode][sample_idx,:])
-                    golden_answers[mode].append(labels[sample_idx]) 
+                premises, hypos = sentences
+
+                pair_sentences = [[premise, hypo] for premise, hypo in zip(premises, hypos)]
+
+                inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                    
+                inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+
+                #labels = [label_maps[label] for label in labels]
+                # mediator used to intervene
+                cur_dist = {}
+
+                for mode in ["Null", "Intervene"]:
+
+                    if mode == "Intervene": 
+
+                        hooks = []
+                        
+                        for layer_id, component, neuron_id in zip(layer_ids, components, neuron_ids):
+
+                            Z = cls[component][do][int(layer_id)]
+
+                            hooks.append(mediators[component](int(layer_id)).register_forward_hook(neuron_intervention(
+                                                                                        neuron_ids = [int(neuron_id)], 
+                                                                                        component=component,
+                                                                                        DEVICE = DEVICE ,
+                                                                                        value = Z,
+                                                                                        epsilon=epsilon,
+                                                                                        intervention_type=intervention_type)))
+
+                    with torch.no_grad(): 
+                        
+                        # Todo: generalize to distribution if the storage is enough
+                        cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
+                    
+                    if mode == "Intervene": 
+                        for hook in hooks: hook.remove() 
+
+                    for sample_idx in range(cur_dist[mode].shape[0]):
+
+                        distributions[mode].append(cur_dist[mode][sample_idx,:])
+                        golden_answers[mode].append(labels[sample_idx]) 
+            
+            raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
+            
+            with open(raw_distribution_path, 'wb') as handle: 
+                pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving distributions and labels into : {raw_distribution_path}')
+
+            if dev_set.dev_name == 'hans':
+                
+                prepare_result(raw_distribution_path=raw_distribution_path, 
+                            dev_set = dev_set,
+                            component= components[0] if single_neuron else None,
+                            do=do,
+                            layer=layer,
+                            value = value,
+                            intervention_type = intervention_type,
+                            single_neuron=single_neuron)
+
+            else:
+
+                
+                def compute_acc(raw_distribution, label_maps):
+
+                    label_remaps = {v:k for k, v in label_maps.items()}
+                    
+                    acc = {k: [] for k in (['all'] + list(label_maps.keys())) }
+
+                    with open(raw_distribution_path, 'rb') as handle: 
+                        
+                        distributions = pickle.load(handle)
+                        golden_answers = pickle.load(handle)
+                        
+                        print(f'loading distributions and labels from : {raw_distribution_path}')
+
+                    for mode in distributions.keys():
+                        
+                        for dist, label in zip(distributions[mode], golden_answers[mode]):
+
+                            prediction = int(torch.argmax(dist))
+
+                            acc['all'].append(label_remaps[prediction] == label)
+                            acc[label].append(label_remaps[prediction] == label) 
+
+                        # compute acc
+
+                    acc = { k: sum(acc[k]) / len(acc[k]) for k in list(acc.keys()) }
+                        
+
+                    return acc 
+                
+                acc[value] = compute_acc(raw_distribution=raw_distribution_path, label_maps=label_maps)
         
-        raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
-        
-        with open(raw_distribution_path, 'wb') as handle: 
-            pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f'saving distributions and labels into : {raw_distribution_path}')
-
-
         if dev_set.dev_name == 'hans':
             
-            prepare_result(raw_distribution_path=raw_distribution_path, 
-                        dev_set = dev_set,
-                        component= components[0] if single_neuron else None,
-                        do=do,
-                        layer=layer,
-                        value = value,
-                        intervention_type = intervention_type,
-                        single_neuron=single_neuron)
-
-        else:
-
+            acc_path =  f'../pickles/evaluations/{key}_{do}_{intervention_type}_{dev_set.dev_name}.pickle'
             
-            def compute_acc(raw_distribution, label_maps):
-
-                label_remaps = {v:k for k, v in label_maps.items()}
-                
-                acc = {k: [] for k in (['all'] + list(label_maps.keys())) }
-
-                with open(raw_distribution_path, 'rb') as handle: 
-                    
-                    distributions = pickle.load(handle)
-                    golden_answers = pickle.load(handle)
-                    
-                    print(f'loading distributions and labels from : {raw_distribution_path}')
-
-                for mode in distributions.keys():
-                    
-                    for dist, label in zip(distributions[mode], golden_answers[mode]):
-
-                        prediction = int(torch.argmax(dist))
-
-                        acc['all'].append(label_remaps[prediction] == label)
-                        acc[label].append(label_remaps[prediction] == label) 
-
-                    # compute acc
-
-                acc = { k: sum(acc[k]) / len(acc[k]) for k in list(acc.keys()) }
-                    
-
-                return acc 
-            
-            acc[value] = compute_acc(raw_distribution=raw_distribution_path, label_maps=label_maps)
-    
-    if dev_set.dev_name == 'hans':
-        
-        acc_path =  f'../pickles/evaluations/{key}_{do}_{intervention_type}_{dev_set.dev_name}.pickle'
-        
-        with open(acc_path,'rb') as handle:
-            pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f"saving all accuracies into {acc_path} ")
+            with open(acc_path,'rb') as handle:
+                pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f"saving all accuracies into {acc_path} ")
 
 
 def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, single_neuron=True):

@@ -38,6 +38,7 @@ def neuron_intervention(neuron_ids,
                        component,
                        DEVICE,
                        value,
+                       epsilon=0,
                        intervention_type='replace',
                        debug=False):
     
@@ -53,7 +54,7 @@ def neuron_intervention(neuron_ids,
         # bz, seq_len, hidden_dim
         scatter_mask[:,0, neuron_ids] = 1
 
-        if intervention_type == "remove": value[neuron_ids] = 0
+        if intervention_type == "remove": value[neuron_ids] = 0 + epsilon
 
         if debug:
             print(f"before interventoin on {intervention_type}")
