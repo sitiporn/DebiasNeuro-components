@@ -229,8 +229,15 @@ def get_predictions(do,
                     single_neuron = False):
 
     mediators  = get_mediators(model)
-    epsilons = np.random.uniform(low=-1, high=1, size=(50,)).tolist()
-    digits = 5
+    low  = -1 
+    high =  1 
+    size=50
+
+    torch.manual_seed(42)
+    epsilons = (low - high) * torch.rand(size) + high
+    epsilons = sorted(epsilons.tolist())
+    
+    digits = 4
     mode = 0o666 # mode
     acc = {}
     
@@ -260,8 +267,10 @@ def get_predictions(do,
     for epsilon in (t := tqdm(epsilons)): 
         
         t.set_description(f"epsilon : {epsilon}")
+
+        prediction_path = '../pickles/prediction/' 
         
-        prediction_path =  os.path.join(prediction_path, round(epsilon, digits))
+        prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, digits)}')
 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         
@@ -402,16 +411,18 @@ def get_predictions(do,
         
             
         eval_path =  f'../pickles/evaluations/'
-        eval_path =  os.path.join(eval_path, f'{round(epsilon, digits)}')
+        eval_path =  os.path.join(eval_path, f'v{round(epsilon, digits)}')
 
         if not os.path.isdir(eval_path): os.mkdir(eval_path) 
 
         eval_path = os.path.join(eval_path, f'{key}_{do}_{intervention_type}_{dev_set.dev_name}.pickle')
+
         
-        with open(eval_path,'rb') as handle:
+        with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
 
+        breakpoint()
 
 def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, single_neuron=True):
     
