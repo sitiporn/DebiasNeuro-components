@@ -400,13 +400,17 @@ def get_predictions(do,
                 
                 acc[value] = compute_acc(raw_distribution=raw_distribution_path, label_maps=label_maps)
         
-        if dev_set.dev_name == 'hans':
             
-            acc_path =  f'../pickles/evaluations/{key}_{do}_{intervention_type}_{dev_set.dev_name}.pickle'
-            
-            with open(acc_path,'rb') as handle:
-                pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"saving all accuracies into {acc_path} ")
+        eval_path =  f'../pickles/evaluations/'
+        eval_path =  os.path.join(eval_path, f'{round(epsilon, digits)}')
+
+        if not os.path.isdir(eval_path): os.mkdir(eval_path) 
+
+        eval_path = os.path.join(eval_path, f'{key}_{do}_{intervention_type}_{dev_set.dev_name}.pickle')
+        
+        with open(eval_path,'rb') as handle:
+            pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"saving all accuracies into {eval_path} ")
 
 
 def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, single_neuron=True):
