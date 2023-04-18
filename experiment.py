@@ -348,8 +348,7 @@ def main():
                         is_averaged_embeddings,
                         k=k,
                         num_top_neurons=num_top_neurons,
-                        intervention_type=intervention_type,
-                        debug=DEBUG)
+                        intervention_type=intervention_type)
 
 if __name__ == "__main__":
     main()

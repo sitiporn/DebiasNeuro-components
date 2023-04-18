@@ -21,4 +21,3 @@
 
 
 python3 experiment.py --dev_name mismatched --treatment True --get_prediction True --top_k True
-# python3 experiment.py --dev_name mismatched --treatment True --top_k 60 --get_prediction True --top_k True

@@ -75,7 +75,6 @@ def neuron_intervention(neuron_ids,
             print(f"component-neuron : {component}-{neuron_ids}")
             print(output[:5,:3, neuron_ids])
 
-        breakpoint()
 
     return intervention_hook
 
