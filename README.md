@@ -9,7 +9,7 @@
 -  [x] maksing incremental top 1-20 K-percent neurons and computing heuristic
 -  [x] plot the incremental heuristic scores between 1 and 20 
 -  [x] vary the number of neurons from topk from entire layers experiment on (MNLI-mismatched)
--  [ ] vary value of neuron's representation experiment on (MNLI-mismatched)
+-  [x] vary value of neuron's representation experiment on (MNLI-mismatched)
 -  [ ] perform attention heads intervention using counterfactual and all set up same as neuron intervention
 -  [ ] Plot median of NIE for every layers
 
