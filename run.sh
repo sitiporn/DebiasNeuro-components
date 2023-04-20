@@ -18,6 +18,10 @@
 #   --get_prediction GET_PREDICTION
 #                         get distributions
 #   --dev_name DEV_NAME   optional filename
+#   --weaken WEAKEN       best weaken rate towards activation
+#   --neuron_group NEURON_GROUP
+#                         best combination group of neurons to intervene
 
 
-python3 experiment.py --dev_name hans --treatment True --get_prediction True --top_k True
+# python3 experiment.py --dev_name mismatched --treatment True --get_prediction True --top_k True
+python3 experiment.py --dev_name hans --treatment True --get_prediction True --top_k True --weaken 0.7936 --neuron_group 45

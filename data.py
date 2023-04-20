@@ -183,11 +183,8 @@ class Dev(Dataset):
                 DEBUG=False) -> None: 
 
         self.dev_name = list(json_file.keys())[0]
-        
         data_path = os.path.join(data_path, json_file[self.dev_name])
-
         self.df = pd.read_json(data_path, lines=True)
-        
         
         if self.dev_name == 'mismatched':
             if '-' in self.df.gold_label.unique(): 
@@ -196,7 +193,6 @@ class Dev(Dataset):
 
         self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
         self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
-        
         self.labels = self.df.gold_label.tolist()
 
     def __len__(self):
@@ -227,6 +223,8 @@ def get_predictions(do,
                     k = None,
                     num_top_neurons = None,
                     single_neuron = False,
+                    best_weaken_val = None,
+                    best_neuron_group = None,
                     debug = False):
 
     low  = -1 
@@ -238,10 +236,9 @@ def get_predictions(do,
 
     torch.manual_seed(42)
     
-    if intervention_type == "remove": epsilons = (low - high) * torch.rand(size) + high #the interval (low, high)
-    if intervention_type == "weaken": epsilons = torch.rand(50) #the interval [0,1)
+    if intervention_type == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
+    if intervention_type == "weaken": epsilons = [best_weaken_val] if best_weaken_val is not None else torch.rand(50) 
     if intervention_type not in ["remove","weaken"]: epsilons = [0]
-    
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
 
     epsilons = sorted(epsilons)
@@ -249,19 +246,15 @@ def get_predictions(do,
     dev_set = Dev(valid_path, json_file)
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
 
-    if k is not None: key = 'percent' 
-    if num_top_neurons is not None:  key = 'neurons' 
+    key = 'percent' if k is not None  else best_weaken_val if best_weaken_val is not None else 'neurons'
     
-    # from validation set
-    if layer == -1:
-        path = f'../pickles/top_neurons/top_neuron_{key}_{do}_all_layers.pickle'
-    else:
-        path = f'../pickles/top_neurons/top_neuron_{key}_{do}_{layer}.pickle'
-        
+    # from validation(dev matched) set
+    path = f'../pickles/top_neurons/top_neuron_{key}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{key}_{do}_{layer}.pickle'
     
-    with open(path, 'rb') as handle:
-        # get [CLS] activation 
-        top_neuron = pickle.load(handle)
+    # get position of top neurons 
+    with open(path, 'rb') as handle: top_neuron = pickle.load(handle)
+    
+    num_neuron_groups = [best_neuron_group] if best_neuron_group is not None else list(top_neuron.keys())
 
     cls = get_hidden_representations(counterfactual_paths, 
                                     layers, 
@@ -279,24 +272,23 @@ def get_predictions(do,
 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         
-        for value in list(top_neuron.keys()):
+        for value in num_neuron_groups:
+            
             if layer == -1:
                 
                 components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
                 neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[value].items()]
-                
-                layer_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
+                layer_ids  = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
                 
             
             else:
                 components = [neuron.split('-')[0] for neuron, v in top_neuron[value].items()]
                 neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
-                
-                layer_ids =  [layer] * len(components)
+                layer_ids  =  [layer] * len(components)
 
             if single_neuron: 
                 
-                layer_ids =  [layer]
+                layer_ids  =  [layer]
                 components = [components[0]]
                 neuron_ids = [neuron_ids[0]]
                 
@@ -311,6 +303,8 @@ def get_predictions(do,
                 
             distributions = {}
             golden_answers = {}
+
+            breakpoint()
             
             for mode in ["Null", "Intervene"]: 
                 distributions[mode] = []
@@ -379,6 +373,7 @@ def get_predictions(do,
                             layer=layer,
                             value = value,
                             intervention_type = intervention_type,
+                            key= key,
                             single_neuron=single_neuron)
 
             else:
@@ -428,7 +423,7 @@ def get_predictions(do,
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
 
-def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, single_neuron=True):
+def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, key, single_neuron=True):
     
     with open(raw_distribution_path, 'rb') as handle: 
         
@@ -460,14 +455,14 @@ def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, 
 
             if single_neuron:
 
-                text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{component}_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
+                text_answer_path = f'../pickles/prediction/txt_answer_{key}_{mode}_L{layer}_{component}_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
             
             else:
             
                 if layer == -1:
-                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_all_layers_{value}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
+                    text_answer_path = f'../pickles/prediction/txt_answer_{key}_{mode}_all_layers_{value}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
                 else:
-                    text_answer_path = f'../pickles/prediction/txt_answer_{mode}_L{layer}_{value}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
+                    text_answer_path = f'../pickles/prediction/txt_answer_{key}_{mode}_L{layer}_{value}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
         
         # Todo: write Null prediction if isn't exist
         

@@ -99,6 +99,18 @@ def main():
                         help='optional filename', 
                         default="matched")
     
+    parser.add_argument("--weaken",
+                        type=float,
+                        default=None,
+                        required=False,
+                        help="best weaken rate towards activation")
+    
+    parser.add_argument("--neuron_group",
+                        type=int,
+                        default=False,
+                        required=False,
+                        help="best combination group of neurons to intervene")
+    
     args = parser.parse_args()
 
     # +++++++++++ read  CLI configs ++++++++++
@@ -113,6 +125,9 @@ def main():
     is_prediction = args.get_prediction
     debias = args.debias
     dev_set_name = args.dev_name
+    weaken_val = args.weaken
+    neuron_group = args.neuron_group
+
 
     DEBUG = True
     debug = False # for tracing top counterfactual 
@@ -348,6 +363,8 @@ def main():
                         is_averaged_embeddings,
                         k=k,
                         num_top_neurons=num_top_neurons,
+                        best_weaken_val = weaken_val,
+                        best_neuron_group = neuron_group,
                         intervention_type=intervention_type)
 
 if __name__ == "__main__":
