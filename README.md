@@ -12,6 +12,8 @@
 -  [x] vary value of neuron's representation experiment on (MNLI-mismatched)
 -  [ ] perform attention heads intervention using counterfactual and all set up same as neuron intervention
 -  [ ] Plot median of NIE for every layers
+-  [ ] recheck input and output module of attention block
+-  [ ] design intervention for attention head to use as counterfactual
 
 ## Result
 
