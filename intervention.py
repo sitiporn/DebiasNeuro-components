@@ -47,20 +47,23 @@ def neuron_intervention(neuron_ids,
                             input,
                             output):
         
+        CLS_TOKEN = 0
+        
         # define mask where to overwrite
         scatter_mask = torch.zeros_like(output, dtype = torch.bool)
 
         # where to intervene
         # bz, seq_len, hidden_dim
-        scatter_mask[:,0, neuron_ids] = 1
+        scatter_mask[:, CLS_TOKEN, neuron_ids] = 1
+        
         if debug:
             print(f"before interventoin on {intervention_type}")
             print(output[:5,:3, neuron_ids])
 
         
         # replace values
-        if intervention_type == "weaken": output[:,0, neuron_ids] = output[:,0, neuron_ids] * epsilon
-        if intervention_type == "neg": output[:,0, neuron_ids] = output[:,0, neuron_ids] * -1
+        if intervention_type == "weaken": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * epsilon
+        if intervention_type == "neg": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * -1
         
         if intervention_type ==  'remove':
             

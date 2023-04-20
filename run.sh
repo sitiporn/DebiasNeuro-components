@@ -20,4 +20,4 @@
 #   --dev_name DEV_NAME   optional filename
 
 
-python3 experiment.py --dev_name mismatched --treatment True --get_prediction True --top_k True
+python3 experiment.py --dev_name hans --treatment True --get_prediction True --top_k True
