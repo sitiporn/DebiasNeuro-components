@@ -12,40 +12,43 @@ def format_label(label):
 do = 'High-overlap'
 layer = 1
 debug = False
-intervention_type = "neg"
-all_layers = False
+intervention_type = "weaken"
+all_layers = True
+dev_set = 'hans'
 
+# use to read prediction txt files
 prediction_path = '../pickles/prediction/' 
 evaluations  = {}
-mode = "Intervene"
+intervene_mode = "Intervene"
+k = None
+best_weaken_val = 0.7936
+best_neuron_group = 45
+top_mode =  'percent' if k is not None  else 'neurons'
+prediction_mode = 'percent' if k is not None  else best_weaken_val if best_weaken_val is not None else 'neurons'
 
-if all_layers:
-    evaluation_path = f'../pickles/evaluations/topk_{do}_all_layers_{intervention_type}.pickle'
-    neuron_path = f'../pickles/top_neurons/top_neuron_{do}_all_layers.pickle'
-else:
-    evaluation_path = f'../pickles/evaluations/topk_{do}_L{layer}_{intervention_type}.pickle'
-    neuron_path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
+eval_path = f'../pickles/evaluations/topk_{do}_all_layers_{intervention_type}.pickle'if all_layers else f'../pickles/evaluations/topk_{do}_L{layer}_{intervention_type}.pickle'
+neuron_path = f'../pickles/top_neurons/top_neuron_{top_mode}_{do}_all_layers.pickle' if all_layers else f'../pickles/top_neurons/top_neuron_{top_mode}_{do}_{layer}.pickle'
+
+with open(neuron_path, 'rb') as handle: top_neuron = pickle.load(handle)
+num_neuron_groups = [best_neuron_group] if best_neuron_group is not None else list(top_neuron.keys())
+
 
 # ++++++++++++++++++++++++++++++++
-with open(neuron_path, 'rb') as handle:
-    # get [CLS] activation 
-    top_neuron = pickle.load(handle)
 
-for k_percent in (t := tqdm(list(top_neuron.keys()))):
+for group in (t := tqdm(num_neuron_groups)):
     
-    text_answer_path = f'txt_answer_{mode}_L{layer}_{k_percent}-k_{do}_{intervention_type}.txt'  
+    text_answer_path = f'txt_answer_{prediction_mode}_{intervene_mode}_L{layer}_{group}-k_{do}_{intervention_type}_{dev_set}.txt'  
 
-    if all_layers: text_answer_path = f'txt_answer_{mode}_all_layers_{k_percent}-k_{do}_{intervention_type}.txt'  
+    if all_layers: text_answer_path = f'txt_answer_{prediction_mode}_{intervene_mode}_all_layers_{group}-k_{do}_{intervention_type}_{dev_set}.txt'  
 
-    evaluations[k_percent] = {}
+    evaluations[group] = {}
     
     tables = {}
-
     
     t.set_description(f": Top {text_answer_path}")
     
     text_answer_path  = os.path.join(prediction_path,  text_answer_path)
-    
+
     fi = open(text_answer_path, "r")
 
     first = True
@@ -150,7 +153,7 @@ for k_percent in (t := tqdm(list(top_neuron.keys()))):
         
         print(f"Heuristic  {cur_class} results:")
 
-        if cur_class not in evaluations[k_percent].keys():  evaluations[k_percent][cur_class] = {}
+        if cur_class not in evaluations[group].keys():  evaluations[group][cur_class] = {}
         
         for heuristic in heuristic_list:
             
@@ -161,10 +164,10 @@ for k_percent in (t := tqdm(list(top_neuron.keys()))):
             percent = correct * 1.0 / total
             print(heuristic + ": " + str(percent))
 
-            evaluations[k_percent][cur_class][heuristic] = percent
+            evaluations[group][cur_class][heuristic] = percent
 
-with open(evaluation_path, 'wb') as handle: 
+with open(eval_path, 'wb') as handle: 
     pickle.dump(evaluations, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    print(f'saving evaluation predictoins into : {evaluation_path}')
+    print(f'saving evaluation predictoins into : {eval_path}')
 
 
