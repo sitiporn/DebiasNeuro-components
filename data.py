@@ -247,14 +247,19 @@ def get_predictions(do,
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
 
     key = 'percent' if k is not None  else best_weaken_val if best_weaken_val is not None else 'neurons'
+
+    top_k_mode =  'percent' if k is not None  else 'neurons'
     
     # from validation(dev matched) set
-    path = f'../pickles/top_neurons/top_neuron_{key}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{key}_{do}_{layer}.pickle'
+    path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
     
     # get position of top neurons 
     with open(path, 'rb') as handle: top_neuron = pickle.load(handle)
+
     
     num_neuron_groups = [best_neuron_group] if best_neuron_group is not None else list(top_neuron.keys())
+
+    # breakpoint()
 
     cls = get_hidden_representations(counterfactual_paths, 
                                     layers, 
@@ -304,7 +309,6 @@ def get_predictions(do,
             distributions = {}
             golden_answers = {}
 
-            breakpoint()
             
             for mode in ["Null", "Intervene"]: 
                 distributions[mode] = []
