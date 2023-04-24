@@ -226,18 +226,25 @@ def get_predictions(do,
                     best_weaken_val = None,
                     best_neuron_group = None,
                     debug = False):
+    """
+    best_weaken, best_neuron_group
 
-    low  = -1 
-    high =  1 
-    size=50
-    digits = 4
+    ('0.8', '45') 
+    
+    """
+
+    low  =  0
+    high =  1
+    size= 50
+    digits = 1
     mode = 0o666 # mode
+    step = 0.0001 
     acc = {}
 
     torch.manual_seed(42)
     
     if intervention_type == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
-    if intervention_type == "weaken": epsilons = [best_weaken_val] if best_weaken_val is not None else torch.rand(50) 
+    if intervention_type == "weaken": epsilons = [best_weaken_val] if best_weaken_val is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
     if intervention_type not in ["remove","weaken"]: epsilons = [0]
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
 
@@ -247,25 +254,24 @@ def get_predictions(do,
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
 
     key = 'percent' if k is not None  else best_weaken_val if best_weaken_val is not None else 'neurons'
-
-    top_k_mode =  'percent' if k is not None  else 'neurons'
+    top_k_mode =  'percent' if k is not None  else 'neurons' 
     
     # from validation(dev matched) set
     path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
     
     # get position of top neurons 
-    with open(path, 'rb') as handle: top_neuron = pickle.load(handle)
-
+    with open(path, 'rb') as handle: top_neuron = pickle.load(handle) 
     
     num_neuron_groups = [best_neuron_group] if best_neuron_group is not None else list(top_neuron.keys())
-
-    # breakpoint()
 
     cls = get_hidden_representations(counterfactual_paths, 
                                     layers, 
                                     heads, 
                                     is_group_by_class, 
                                     is_averaged_embeddings)
+
+    print(f"get prediction : {epsilons}")
+    print(f"num_neuron_groups  : {num_neuron_groups }")
 
     for epsilon in (t := tqdm(epsilons)): 
         
@@ -279,6 +285,7 @@ def get_predictions(do,
         
         for value in num_neuron_groups:
             
+            print(f"current value : {value}")
             if layer == -1:
                 
                 components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]

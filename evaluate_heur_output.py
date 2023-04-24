@@ -21,8 +21,8 @@ prediction_path = '../pickles/prediction/'
 evaluations  = {}
 intervene_mode = "Intervene"
 k = None
-best_weaken_val = 0.7936
-best_neuron_group = 45
+best_weaken_val = None
+best_neuron_group = None
 top_mode =  'percent' if k is not None  else 'neurons'
 prediction_mode = 'percent' if k is not None  else best_weaken_val if best_weaken_val is not None else 'neurons'
 
@@ -169,5 +169,4 @@ for group in (t := tqdm(num_neuron_groups)):
 with open(eval_path, 'wb') as handle: 
     pickle.dump(evaluations, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print(f'saving evaluation predictoins into : {eval_path}')
-
 

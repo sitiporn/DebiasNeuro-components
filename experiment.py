@@ -107,7 +107,7 @@ def main():
     
     parser.add_argument("--neuron_group",
                         type=int,
-                        default=False,
+                        default=None,
                         required=False,
                         help="best combination group of neurons to intervene")
     
