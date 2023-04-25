@@ -233,12 +233,12 @@ def get_predictions(do,
     
     """
 
-    low  =  0
-    high =  1
+    low  =  0.785 # 0.75   
+    high =  0.795 # 0.85
+    step =  0.001
+    digits = len(str(step).split('.')[-1])
     size= 50
-    digits = 1
     mode = 0o666 # mode
-    step = 0.0001 
     acc = {}
 
     torch.manual_seed(42)
@@ -250,6 +250,14 @@ def get_predictions(do,
 
     epsilons = sorted(epsilons)
     mediators  = get_mediators(model)
+
+
+    print(f"low :{low} , high : {high}")
+    print(f"step : {step}")
+    print(f"digits : {digits}")
+    print(f"size : {size}")
+    print(f"num epsilon : {len(epsilons)}")
+
     dev_set = Dev(valid_path, json_file)
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
 
@@ -270,12 +278,8 @@ def get_predictions(do,
                                     is_group_by_class, 
                                     is_averaged_embeddings)
 
-    print(f"get prediction : {epsilons}")
-    print(f"num_neuron_groups  : {num_neuron_groups }")
-
     for epsilon in (t := tqdm(epsilons)): 
         
-        t.set_description(f"epsilon : {epsilon}")
 
         prediction_path = '../pickles/prediction/' 
         
@@ -283,9 +287,10 @@ def get_predictions(do,
 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         
-        for value in num_neuron_groups:
+        t.set_description(f"epsilon : {epsilon} , prediction path : {prediction_path}")
+        
+        for value in (n:= tqdm(num_neuron_groups)):
             
-            print(f"current value : {value}")
             if layer == -1:
                 
                 components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
@@ -412,13 +417,14 @@ def get_predictions(do,
                             acc['all'].append(label_remaps[prediction] == label)
                             acc[label].append(label_remaps[prediction] == label) 
 
-                        # compute acc
-
+                    
+                    # compute acc
                     acc = { k: sum(acc[k]) / len(acc[k]) for k in list(acc.keys()) }
                         
 
                     return acc 
                 
+                # acc of each neuron groups
                 acc[value] = compute_acc(raw_distribution=raw_distribution_path, label_maps=label_maps)
         
             
