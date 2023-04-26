@@ -42,14 +42,16 @@ class ComputingEmbeddings:
         self.label_remaps = label_remaps
         self.tokenizer = tokenizer
 
-def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatments, heads, tokenizer, experiment_set, label_maps, is_averaged_embeddings , is_group_by_class,DEVICE, DEBUG=False):
-
+def cma_analysis(config, save_nie_set_path, model, treatments, tokenizer, experiment_set, DEVICE, DEBUG=False):
 
     mediators = {}
     counter = None
     nie_dataset = None
     nie_dataloader = None
     counter_predictions  = {} 
+    layers = [config['layer']]
+    
+    print(f"perform Causal Mediation analysis...")
     
     with open(save_nie_set_path, 'rb') as handle:
         
@@ -66,14 +68,14 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
     mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
     mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
 
-    if is_averaged_embeddings: 
+    if config['is_averaged_embeddings']: 
         
         NIE = {}
         counter = {}
         
-        cls = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings)
+        cls = get_hidden_representations(config['counterfactual_paths'], config['layer'], config['heads'], config['is_group_by_class'], config['is_averaged_embeddings'])
 
-        high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
+        high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, config['layer'], model, config['label_maps'], tokenizer, treatments, DEVICE)
                 
         NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layers}_{treatments[0]}.pickle'
             
@@ -84,7 +86,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
 
     else:
         
-        for cur_path in (t := tqdm(counterfactual_paths)):
+        for cur_path in (t := tqdm(config['counterfactual_paths'])):
          
             counter = {}
             NIE = {}
@@ -112,7 +114,7 @@ def cma_analysis(counterfactual_paths , save_nie_set_path, model, layers, treatm
                 
                 NIE_path = f'../pickles/individual_class_level/{layers}_{component}_{treatments[0]}.pickle'
 
-            intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, probs,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE)
+            intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, probs,counter_predictions, layers, model, config['label_maps'], tokenizer, treatments, DEVICE)
             
             with open(NIE_path, 'wb') as handle: 
                 
