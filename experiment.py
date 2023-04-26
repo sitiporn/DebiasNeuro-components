@@ -48,7 +48,7 @@ def main():
     elif config["dev-name"] == 'matched':    config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
 
     geting_counterfactual_paths(config)
-    geting_NIE_paths(config, mode)
+    geting_NIE_paths(config,mode)
     
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -59,7 +59,7 @@ def main():
     # Todo: generalize for every model 
     
     # using same seed everytime we create HOL and LOL sets 
-    experiment_set = ExperimentDataset()                            
+    experiment_set = ExperimentDataset(config, encode = tokenizer)                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
 
     if config['getting_counterfactual']: collect_output_components(config, DEVICE = DEVICE)
