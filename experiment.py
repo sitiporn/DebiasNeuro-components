@@ -48,7 +48,7 @@ def main():
     elif config["dev-name"] == 'matched':    config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
 
     geting_counterfactual_paths(config)
-    geting_NIE_paths(config)
+    geting_NIE_paths(config, mode)
     
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -111,13 +111,14 @@ def main():
             pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Done saving NIE set  into {save_nie_set_path} !")
 
-    if config['analysis']:  cma_analysis(save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
-    if config['topk']: return None if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
-    if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, DEVICE)
-    if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
-    if config['debias']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
-    if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
-    if config['is_prediction']: get_predictions(model, tokenizer, DEVICE)
+    if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
+    breakpoint()
+    # if config['topk']: return None if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
+    # if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, DEVICE)
+    # if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
+    # if config['debias']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
+    # if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
+    # if config['is_prediction']: get_predictions(model, tokenizer, DEVICE)
 
 if __name__ == "__main__":
     main()

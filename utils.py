@@ -24,14 +24,13 @@ def report_gpu():
   print(f"after emptying cache : {torch.cuda.list_gpu_processes()}")
   print(f"++++++++++++++++++++++++++++++")
   
-def geting_counterfactual_paths(counterfactual_paths, is_counterfactual_exist, is_averaged_embeddings, is_group_by_class):
-
-
+def geting_counterfactual_paths(config):
+    
     for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
 
-        if is_averaged_embeddings:
+        if config["is_averaged_embeddings"]:
                 
-            if is_group_by_class:
+            if config["is_group_by_class"]:
 
                 cur_path = f'../pickles/avg_class_level_{component}_counterfactual_representation.pickle'
 
@@ -40,7 +39,7 @@ def geting_counterfactual_paths(counterfactual_paths, is_counterfactual_exist, i
 
         else:
 
-            if is_group_by_class:
+            if config["is_group_by_class"]:
             
                     if component == "I":
                         
@@ -50,15 +49,15 @@ def geting_counterfactual_paths(counterfactual_paths, is_counterfactual_exist, i
                             
                                 cur_path = f'../pickles/individual_class_level_{component}_{do}_{class_name}_counterfactual_representation.pickle'
                                 
-                                counterfactual_paths.append(cur_path)
-                                is_counterfactual_exist.append(os.path.isfile(cur_path))
+                                config["counterfactual_paths"].append(cur_path)
+                                config['is_counterfactual_exist'].append(os.path.isfile(cur_path))
                                 
                     else: 
 
                         cur_path = f'../pickles/individual_class_level_{component}_counterfactual_representation.pickle'
 
-                        counterfactual_paths.append(cur_path)
-                        is_counterfactual_exist.append(os.path.isfile(cur_path))
+                        config['counterfactual_paths'].append(cur_path)
+                        config['is_counterfactual_exist'].append(os.path.isfile(cur_path))
 
                     continue
 
@@ -66,8 +65,8 @@ def geting_counterfactual_paths(counterfactual_paths, is_counterfactual_exist, i
 
                 cur_path = f'../pickles/individual_{component}_counterfactual_representation.pickle'
 
-        counterfactual_paths.append(cur_path)
-        is_counterfactual_exist.append(os.path.isfile(cur_path))
+        config['counterfactual_paths'].append(cur_path)
+        config['is_counterfactual_exist'].append(os.path.isfile(cur_path))
 
 class BertAttentionOverride(nn.Module):
     """A copy of `modeling_bert.BertSelfAttention` class, but with overridden attention values"""
@@ -997,32 +996,32 @@ class Classifier(nn.Module):
 
 
 
-def geting_NIE_paths(NIE_paths, layers, do, counterfactual_paths, is_NIE_exist, is_averaged_embeddings, is_group_by_class):
+def geting_NIE_paths(config, mode):
 
-    if -1 in layers: layers = [*range(0, 12, 1)]
 
-    if is_averaged_embeddings:
+    if -1 in [config['layer']]: layers = [*range(0, 12, 1)]
+
+    if config['is_averaged_embeddings']:
 
         for layer in layers:
 
             if not isinstance(layer, list):
                 cur_layer = [layer]
             
-            NIE_path = f'../pickles/NIE/NIE_avg_high_level_{cur_layer}_{do[0]}.pickle'
-            NIE_paths.append(NIE_path)
-            
-            is_NIE_exist.append(os.path.isfile(NIE_path))
+            NIE_path = f'../pickles/NIE/NIE_avg_high_level_{cur_layer}_{mode[0]}.pickle'
+            config["NIE_paths"].append(NIE_path)
+            config['is_NIE_exist'].append(os.path.isfile(NIE_path))
     else:
     
-        for cur_path in counterfactual_paths:
+        for cur_path in config['counterfactual_paths']:
             
             # extract infor from current path 
             component = sorted(cur_path.split("_"), key=len)[0]  
             class_name = None
             
-            NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layer}_{do[0]}.pickle'
+            NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layer}_{mode[0]}.pickle'
             
             print(f"current path: {NIE_path} , is_exist : {os.path.isfile(cur_path)}")
 
-            NIE_paths.append(NIE_path)
-            is_NIE_exist.append(os.path.isfile(cur_path))
+            config['NIE_paths'].append(NIE_path)
+            config['is_NIE_exist'].append(os.path.isfile(cur_path))
