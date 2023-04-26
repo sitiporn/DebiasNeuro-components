@@ -27,216 +27,51 @@ from data import ExperimentDataset, Dev, get_predictions, print_config
 from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
 from utils import debias_test
+import yaml
 
 def main():
-    
-    
-    parser = argparse.ArgumentParser()
 
-    ## Required parameters
-    parser.add_argument("--layer",
-                        type=int,
-                        default=-1,
-                        required=False,
-                        help="layers to intervene")
+    with open("config.yaml", "r") as yamlfile:
+        config = yaml.load(yamlfile, Loader=yaml.FullLoader)
+        print(config)
 
     
-    parser.add_argument("--treatment",
-                        type=bool,
-                        default=False,
-                        required=False,
-                        help="high or low overlap")
-
-    parser.add_argument("--analysis",
-                        type=bool,
-                        default=False,
-                        required=False,
-                        help="compute cma analysis")
-    
-    parser.add_argument("--top_k",
-                        type=bool,
-                        default=False,
-                        required=False,
-                        help="get top K analysis")
-    
-    parser.add_argument("--distribution",
-                        type=bool,
-                        default=False,
-                        required=False,
-                        help="get top distribution")
-    
-    parser.add_argument("--embedding_summary",
-                        type=bool,
-                        default=False,
-                        required=False,
-                        help="get average embeddings")
-    
-    parser.add_argument("--get_counterfactual",
-                        type=bool,
-                        default=False,
-                        required=False,
-                        help="get average embeddings")
-    
-    parser.add_argument("--trace",
-                        type=bool,
-                        default=False,
-                        required=False,
-                        help="tracing counterfactual")
-    parser.add_argument("--debias",
-                        type=bool,
-                        default=False,
-                        required=False,
-                        help="debias component")
-    
-    parser.add_argument("--get_prediction",
-                        type=bool,
-                        default=False,
-                        required=False,
-                        help="get distributions")
-    
-    parser.add_argument('--dev_name', 
-                        type=str, 
-                        help='optional filename', 
-                        default="matched")
-    
-    parser.add_argument("--weaken",
-                        type=float,
-                        default=None,
-                        required=False,
-                        help="best weaken rate towards activation")
-    
-    parser.add_argument("--neuron_group",
-                        type=int,
-                        default=None,
-                        required=False,
-                        help="best combination group of neurons to intervene")
-    
-    args = parser.parse_args()
-
-    # +++++++++++ read  CLI configs ++++++++++
-    select_layer = [args.layer]
-    do = args.treatment
-    is_analysis = args.analysis
-    is_topk = args.top_k
-    distribution = args.distribution
-    getting_counterfactual = args.get_counterfactual
-    embedding_summary = args.embedding_summary
-    is_traced = args.trace
-    is_prediction = args.get_prediction
-    debias = args.debias
-    dev_set_name = args.dev_name
-    weaken_val = args.weaken
-    neuron_group = args.neuron_group
-
-
     DEBUG = True
     debug = False # for tracing top counterfactual 
-    
-    # ++++++ select type of counterfactual representatoins +++++++++
-    is_group_by_class =   False
-    is_averaged_embeddings =   True
-    intervention_type = "weaken" # ["remove", "neg", "value","weaken"]
-    upper_bound = 95
-    lower_bound = 5
-    torch.manual_seed(42)
+    torch.manual_seed(config['seed'])
     collect_representation = True
-    mode = ["High-overlap"]  if do else  ["Low-overlap"] 
+    mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
+    save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
     
-    counterfactual_paths = []
-    NIE_paths = []
-    is_NIE_exist = []
-    is_counterfactual_exist = []
-    
-    # +++ Compute nie scores ++ 
-    num_samples = 300 #3000
-    label_maps = {"contradiction": 0 , "entailment" : 1, "neutral": 2}
-    layers = [*range(0, 12, 1)]
-    heads =  [*range(0, 12, 1)]
-         
-    # +++++++++++++  experiment set +++++++++++++++
-    k = None # percent
-    num_top_neurons = 120 #  the number of neurons 
-    save_nie_set_path = f'../pickles/class_level_nie_{num_samples}_samples.pickle' if is_group_by_class else f'../pickles/nie_{num_samples}_samples.pickle'
-    dev_path = '../debias_fork_clean/debias_nlu_clean/data/nli/'
-    exp_json = 'multinli_1.0_dev_matched.jsonl'
-    dev_json = {}
-    
-    if dev_set_name =='mismatched': dev_json['mismatched'] = 'multinli_1.0_dev_mismatched.jsonl'
-    elif dev_set_name == 'hans':    dev_json['hans'] = 'heuristics_evaluation_set.jsonl' 
-    elif dev_set_name == 'matched': dev_json['matched'] = 'multinli_1.0_dev_matched.jsonl'
+    if   config["dev-name"] == 'mismatched': config["dev_json"]['mismatched'] = 'multinli_1.0_dev_mismatched.jsonl'
+    elif config["dev-name"] == 'hans':       config["dev_json"]['hans'] = 'heuristics_evaluation_set.jsonl' 
+    elif config["dev-name"] == 'matched':    config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
 
-    geting_counterfactual_paths(counterfactual_paths,
-                                is_counterfactual_exist,
-                                is_averaged_embeddings,
-                                is_group_by_class)
-
-    geting_NIE_paths(NIE_paths,
-                    select_layer,
-                    mode,
-                    counterfactual_paths,
-                    is_NIE_exist,
-                    is_averaged_embeddings,
-                    is_group_by_class)
-    
+    geting_counterfactual_paths(config)
+    geting_NIE_paths(config)
     
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    tokenizer = AutoTokenizer.from_pretrained("../bert-base-uncased-mnli/")
-    model = AutoModelForSequenceClassification.from_pretrained("../bert-base-uncased-mnli/")
+    tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
+    model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
         
     # Todo: generalize for every model 
     
-    
     # using same seed everytime we create HOL and LOL sets 
-    experiment_set = ExperimentDataset(dev_path,
-                             exp_json,
-                             upper_bound = upper_bound,
-                             lower_bound = lower_bound,
-                             encode = tokenizer,
-                             is_group_by_class = is_group_by_class,
-                             num_samples = num_samples
-                            )
+    experiment_set = ExperimentDataset()                            
+    dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
 
-    dataloader = DataLoader(experiment_set, 
-                        batch_size = 32,
-                        shuffle = False, 
-                        num_workers=0)
-
-
-    if getting_counterfactual:
+    if config['getting_counterfactual']: collect_output_components(config, DEVICE = DEVICE)
     
-        collect_output_components(model = model,
-                                 counterfactual_paths = counterfactual_paths,
-                                 experiment_set = experiment_set,
-                                 dataloader = dataloader,
-                                 tokenizer = tokenizer,
-                                 DEVICE = DEVICE,
-                                 layers = layers,
-                                 heads = heads,
-                                 is_averaged_embeddings = is_averaged_embeddings)
-
-    
-    print_config(getting_counterfactual, 
-                exp_json,
-                dev_json,
-                is_group_by_class,
-                is_averaged_embeddings,
-                upper_bound,
-                lower_bound,
-                num_samples,
-                intervention_type,
-                k,
-                num_top_neurons,
-                is_counterfactual_exist,
-                counterfactual_paths)
+    print_config(config)
 
     if not os.path.isfile(save_nie_set_path):
 
         combine_types = []
         pairs = {}
 
-        if is_group_by_class:
+        if config['is_group_by_class']:
             
             nie_dataset = {}
             nie_loader = {}
@@ -247,7 +82,7 @@ def main():
                 pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
                 
                 # samples data
-                ids = list(torch.randint(0, len(pairs[type]), size=(num_samples //3,)))
+                ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
                 pairs[type] = np.array(pairs[type])[ids,:].tolist()
                 
                 nie_dataset[type] = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs[type])]
@@ -262,7 +97,7 @@ def main():
                 pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
                 
                 # samples data
-                ids = list(torch.randint(0, len(pairs[type]), size=(num_samples //3,)))
+                ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
                 
                 pairs[type] = np.array(pairs[type])[ids,:].tolist()
                 combine_types.extend(pairs[type])
@@ -276,96 +111,13 @@ def main():
             pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Done saving NIE set  into {save_nie_set_path} !")
 
-    if is_analysis:  
-        
-        print(f"perform Causal Mediation analysis...")
-        
-        cma_analysis(counterfactual_paths = counterfactual_paths,
-                    save_nie_set_path = save_nie_set_path,
-                    model = model,
-                    layers = select_layer,
-                    treatments = mode,
-                    heads  =  heads,
-                    tokenizer = tokenizer,
-                    experiment_set = experiment_set,
-                    label_maps = label_maps,
-                    is_averaged_embeddings = is_averaged_embeddings,
-                    is_group_by_class = is_group_by_class,
-                    DEVICE = DEVICE,
-                    DEBUG = True)
-
-    if is_topk:
-
-        print(f"perform ranking top neurons...")
-        
-        if sum(is_NIE_exist) == len(is_NIE_exist):
-            get_top_k(NIE_paths, select_layer, treatments=mode, num_top_neurons=num_top_neurons)
-        else:
-            print("NIE is not enought to get top k")
-            return
-
-    if embedding_summary:
-
-        compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class = is_group_by_class)
-        # get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE)
-
-    if distribution:
-        
-        get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
-
-    if debias:
-
-        debias_test(mode[0], 
-                    select_layer[0], 
-                    model, 
-                    experiment_set, 
-                    tokenizer,
-                    DEVICE, 
-                    layers, 
-                    heads,
-                    counterfactual_paths,
-                    label_maps,
-                    is_group_by_class, 
-                    is_averaged_embeddings, 
-                    intervention_type = intervention_type)
-
-    if is_traced:
-        
-        trace_counterfactual(mode[0], 
-                            select_layer[0],
-                            model, 
-                            save_nie_set_path, 
-                            tokenizer,
-                            DEVICE, 
-                            layers, 
-                            heads,
-                            counterfactual_paths,
-                            label_maps,
-                            is_group_by_class, 
-                            is_averaged_embeddings, 
-                            intervention_type, 
-                            debug)
-
-    if is_prediction:
-    
-        get_predictions(mode[0], 
-                        select_layer[0],
-                        model,
-                        tokenizer,
-                        DEVICE, 
-                        layers, 
-                        heads,
-                        counterfactual_paths,
-                        label_maps,
-                        dev_path,
-                        dev_json,
-                        is_group_by_class, 
-                        is_averaged_embeddings,
-                        k=k,
-                        num_top_neurons=num_top_neurons,
-                        best_weaken_val = weaken_val,
-                        best_neuron_group = neuron_group,
-                        intervention_type=intervention_type)
+    if config['analysis']:  cma_analysis(save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
+    if config['topk']: return None if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
+    if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, DEVICE)
+    if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
+    if config['debias']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
+    if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
+    if config['is_prediction']: get_predictions(model, tokenizer, DEVICE)
 
 if __name__ == "__main__":
     main()

@@ -33,13 +33,13 @@
         
   # experiment set 
   "k":  null, 
-  "num_top_neurons": 120, #  the number of neurons 
-  "dev_path': "../debias_fork_clean/debias_nlu_clean/data/nli/",
+  "num_top_neurons": 120, 
+  "dev_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
   "exp_json": "multinli_1.0_dev_matched.jsonl",
   "dev_json": {},
   
   # data settings
-  "counterfactual_paths: [],
+  "counterfactual_paths": [],
   "NIE_paths": [],
   "is_NIE_exist": [],
   "is_counterfactual_exist": [],
