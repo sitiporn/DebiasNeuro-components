@@ -66,6 +66,8 @@ def main():
     
     print_config(config)
 
+    breakpoint()
+
     if not os.path.isfile(save_nie_set_path):
 
         combine_types = []
