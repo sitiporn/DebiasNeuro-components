@@ -3,6 +3,7 @@
   "layer": -1,
   "treatment": True,
   "analysis": False,
+  # default
   "topk": True,
   "distribution": False,
   "embedding_summary": False,
@@ -37,7 +38,7 @@
   "dev_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
   "exp_json": "multinli_1.0_dev_matched.jsonl",
   "dev_json": {},
-  
+
   # data settings
   "counterfactual_paths": [],
   "NIE_paths": [],
@@ -53,7 +54,8 @@
     "size": 50,
     "mode": 0o666,
     "acc": {}
-    }
+    },
+  "single_neuron": False
 }
 
 

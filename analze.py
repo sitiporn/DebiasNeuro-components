@@ -127,9 +127,13 @@ def cma_analysis(config, save_nie_set_path, model, treatments, tokenizer, experi
             del counterfactual_components
             report_gpu()
      
-def get_top_k(NIE_paths, layers, treatments, k = None, num_top_neurons = None, debug=False):
-
+def get_top_k(config, treatments, debug=False):
     
+    NIE_paths = config['NIE_paths']
+    layers = [config['layer']]
+    k = config['k']
+    num_top_neurons = config['num_top_neurons']
+
     if k is not None: topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
     if num_top_neurons is not None: topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()}
 

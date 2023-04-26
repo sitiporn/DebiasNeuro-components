@@ -27,7 +27,15 @@ from utils import get_ans
 
 
 class ExperimentDataset(Dataset):
-    def __init__(self, data_path, json_file, upper_bound, lower_bound, encode, is_group_by_class, num_samples, DEBUG=False) -> None: 
+    def __init__(self, config, encode, DEBUG=False) -> None: 
+        
+        data_path =  config['dev_path']
+        json_file =  config['exp_json']
+        upper_bound = config['upper_bound']
+        lower_bound = config['lower_bound'] 
+        is_group_by_class = config['is_group_by_class']
+        num_samples =  config['num_samples']
+        
         # combine these two set
         self.encode = encode
 
@@ -206,51 +214,27 @@ class Dev(Dataset):
         
         return pair_sentence , label
 
-def get_predictions(do,
-                    layer,
-                    model,
-                    tokenizer,
-                    DEVICE, 
-                    layers, 
-                    heads,
-                    counterfactual_paths,
-                    label_maps,
-                    valid_path,
-                    json_file,
-                    is_group_by_class, 
-                    is_averaged_embeddings,
-                    intervention_type,
-                    k = None,
-                    num_top_neurons = None,
-                    single_neuron = False,
-                    best_weaken_val = None,
-                    best_neuron_group = None,
-                    debug = False):
-    """
-    best_weaken, best_neuron_group
+def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
 
-    ('0.8', '45') 
-    
-    """
-
-    low  =  0.785 # 0.75   
-    high =  0.795 # 0.85
-    step =  0.001
+    low  =  config['params']['low'] #.7945 0.785  0.75   
+    high =  config['params']['high']  #.7955 0.795  0.85
+    step =  config['params']['step'] 
     digits = len(str(step).split('.')[-1])
-    size= 50
-    mode = 0o666 # mode
+    size= config['params']['size']
+    mode = config['params']['mode']
     acc = {}
+
+    layer = config['layer']
 
     torch.manual_seed(42)
     
-    if intervention_type == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
-    if intervention_type == "weaken": epsilons = [best_weaken_val] if best_weaken_val is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
-    if intervention_type not in ["remove","weaken"]: epsilons = [0]
+    if config['intervention_type'] == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
+    if config['intervention_type'] == "weaken": epsilons = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
+    if config['intervention_type'] not in ["remove","weaken"]: epsilons = [0]
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
 
     epsilons = sorted(epsilons)
     mediators  = get_mediators(model)
-
 
     print(f"low :{low} , high : {high}")
     print(f"step : {step}")
@@ -258,11 +242,11 @@ def get_predictions(do,
     print(f"size : {size}")
     print(f"num epsilon : {len(epsilons)}")
 
-    dev_set = Dev(valid_path, json_file)
+    dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
 
-    key = 'percent' if k is not None  else best_weaken_val if best_weaken_val is not None else 'neurons'
-    top_k_mode =  'percent' if k is not None  else 'neurons' 
+    key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+    top_k_mode =  'percent' if config['k'] is not None  else 'neurons' 
     
     # from validation(dev matched) set
     path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
@@ -270,13 +254,14 @@ def get_predictions(do,
     # get position of top neurons 
     with open(path, 'rb') as handle: top_neuron = pickle.load(handle) 
     
-    num_neuron_groups = [best_neuron_group] if best_neuron_group is not None else list(top_neuron.keys())
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
-    cls = get_hidden_representations(counterfactual_paths, 
-                                    layers, 
-                                    heads, 
-                                    is_group_by_class, 
-                                    is_averaged_embeddings)
+    cls = get_hidden_representations(config['counterfactual_paths'], 
+                                    config['layers'], 
+                                    config['heads'], 
+                                    config['is_group_by_class'], 
+                                    config['is_averaged_embeddings'])
+
 
     for epsilon in (t := tqdm(epsilons)): 
         
@@ -303,24 +288,23 @@ def get_predictions(do,
                 neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
                 layer_ids  =  [layer] * len(components)
 
-            if single_neuron: 
+            if config['single_neuron']: 
                 
                 layer_ids  =  [layer]
                 components = [components[0]]
                 neuron_ids = [neuron_ids[0]]
                 
-                raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{component}_{intervention_type}_{dev_set.dev_name}.pickle'  
+                raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{component}_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
 
             else:
                 
                 if layer == -1:
-                    raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{intervention_type}_{dev_set.dev_name}.pickle'  
+                    raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
                 else:
-                    raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{intervention_type}_{dev_set.dev_name}.pickle'
+                    raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev_name"]}.pickle'
                 
             distributions = {}
             golden_answers = {}
-
             
             for mode in ["Null", "Intervene"]: 
                 distributions[mode] = []
@@ -357,7 +341,7 @@ def get_predictions(do,
                                                                                         DEVICE = DEVICE ,
                                                                                         value = Z,
                                                                                         epsilon=epsilon,
-                                                                                        intervention_type=intervention_type,
+                                                                                        intervention_type=config["intervention_type"],
                                                                                         debug=debug)))
 
                     with torch.no_grad(): 
@@ -380,17 +364,18 @@ def get_predictions(do,
                 pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving distributions and labels into : {raw_distribution_path}')
 
+            
             if dev_set.dev_name == 'hans':
                 
                 prepare_result(raw_distribution_path=raw_distribution_path, 
                             dev_set = dev_set,
-                            component= components[0] if single_neuron else None,
+                            component= components[0] if config["single_neuron"] else None,
                             do=do,
                             layer=layer,
                             value = value,
-                            intervention_type = intervention_type,
+                            intervention_type = config["intervention_type"],
                             key= key,
-                            single_neuron=single_neuron)
+                            single_neuron= config["single_neuron"])
 
             else:
 
@@ -425,7 +410,7 @@ def get_predictions(do,
                     return acc 
                 
                 # acc of each neuron groups
-                acc[value] = compute_acc(raw_distribution=raw_distribution_path, label_maps=label_maps)
+                acc[value] = compute_acc(raw_distribution=raw_distribution_path, label_maps=config["label_maps"])
         
             
         eval_path =  f'../pickles/evaluations/'
@@ -433,12 +418,13 @@ def get_predictions(do,
 
         if not os.path.isdir(eval_path): os.mkdir(eval_path) 
 
-        eval_path = os.path.join(eval_path, f'{key}_{do}_{intervention_type}_{dev_set.dev_name}.pickle')
-
+        eval_path = os.path.join(eval_path, f'{key}_{do}_{config["intervention_type"]}_{config["dev_name"]}.pickle')
         
         with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
+        
+        breakpoint()
 
 def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, key, single_neuron=True):
     
@@ -499,43 +485,30 @@ def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, 
 
             print(f"saving text answer's bert predictions: {text_answer_path}")
 
-def print_config(getting_counterfactual, 
-                exp_json,
-                dev_json,
-                is_group_by_class,
-                is_averaged_embeddings,
-                upper_bound,
-                lower_bound,
-                num_samples,
-                intervention_type,
-                k,
-                num_top_neurons,
-                is_counterfactual_exist,
-                counterfactual_paths):
-
+def print_config(config):
             
-        print(f"=========== Configs  ===============") 
-        print(f"current experiment set :{exp_json}")
-        print(f"current dev set: {dev_json}")
-        print(f"is_group_by_class : {is_group_by_class}")
-        print(f"is_averaged_embeddings : {is_averaged_embeddings}")
-        print(f"+percent threshold of overlap score")
-        print(f"upper_bound : {upper_bound}")
-        print(f"lower_bound : {lower_bound}")
-        print(f"samples used to compute nie scores : {num_samples}") 
-        print(f"Intervention type : {intervention_type}")
-        
-        if k is not None : print(f"Top {k} %k")
-        if num_top_neurons is not None : print(f"Top number of neurons {num_top_neurons}")
+    print(f"=========== Configs  ===============") 
+    print(f"current experiment set :{config['exp_json']}")
+    print(f"current dev set: {config['dev_json']}")
+    print(f"is_group_by_class : {config['is_group_by_class']}")
+    print(f"is_averaged_embeddings : {config['is_averaged_embeddings']}")
+    print(f"+percent threshold of overlap score")
+    print(f"upper_bound : {config['upper_bound']}")
+    print(f"lower_bound : {config['lower_bound']}")
+    print(f"samples used to compute nie scores : {config['num_samples']}") 
+    print(f"Intervention type : {config['intervention_type']}")
+    
+    if config['k'] is not None : print(f"Top {config['k']} %k")
+    if config['num_top_neurons'] is not None : print(f"Top number of neurons {config['num_top_neurons']}")
 
-        if not getting_counterfactual:
+    if not config['getting_counterfactual']:
 
-            print(f"HOL and LOL representation in the following paths ")
+        print(f"HOL and LOL representation in the following paths ")
 
-            for idx, path in enumerate(counterfactual_paths):
-                print(f"current: {path} ,  : {is_counterfactual_exist[idx]} ")
-        
-        print(f"=========== End configs  =========") 
+        for idx, path in enumerate(config['counterfactual_paths']):
+            print(f"current: {path} ,  : {config['is_counterfactual_exist'][idx]} ")
+    
+    print(f"=========== End configs  =========") 
 
         
     
