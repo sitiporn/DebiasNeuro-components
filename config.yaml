@@ -1,0 +1,64 @@
+{
+  # +++++++++++ read  CLI configs ++++++++++
+  "layer": -1,
+  "treatment": True,
+  "analysis": False,
+  "topk": True,
+  "distribution": False,
+  "embedding_summary": False,
+  "getting_counterfactual": False,
+  "traced": False, 
+  "debias": False,
+  "get_prediction": True,
+  "dev-name": "hans",
+  "weaken": null,
+  "neuron_group": null,
+  
+  "model_name": "../bert-base-uncased-mnli/",
+  "is_group_by_class": False,
+  "is_averaged_embeddings": True,
+  "intervention_type": "weaken",
+  "upper_bound": 95,
+  "lower_bound": 5,
+  "seed": 42,
+  "collect_representation": True,
+  "DEBUG": True,
+  "debug": False, 
+  
+  # compute nie scores
+  "num_samples": 300,
+  "label_maps ": {"contradiction": 0 , "entailment" : 1, "neutral": 2 },
+  "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        
+  # experiment set 
+  "k":  null, 
+  "num_top_neurons": 120, #  the number of neurons 
+  "dev_path': "../debias_fork_clean/debias_nlu_clean/data/nli/",
+  "exp_json": "multinli_1.0_dev_matched.jsonl",
+  "dev_json": {},
+  
+  # data settings
+  "counterfactual_paths: [],
+  "NIE_paths": [],
+  "is_NIE_exist": [],
+  "is_counterfactual_exist": [],
+  
+  # optimizer settings
+  "params": {
+    # get prediction
+    "low": 0, 
+    "high": 1,
+    "step": 0.1,
+    "size": 50,
+    "mode": 0o666,
+    "acc": {}
+    }
+}
+
+
+
+
+
+    
+         
