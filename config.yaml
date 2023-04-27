@@ -56,7 +56,20 @@
     "mode": 0o666,
     "acc": {}
     },
-  "single_neuron": False
+  "single_neuron": False,
+
+  # evaluate hans
+  "eval": {
+    "do": 'High-overlap',
+    "layer": 1,
+    "debug": False,
+    "all_layers": True,
+    "intervention_mode": "Intervene"
+    },
+  
+  # use to read prediction txt files
+  "prediction_path": '../pickles/prediction/',
+  "evaluations":  {},
 }
 
 

@@ -2,6 +2,7 @@ import sys
 import pickle
 from tqdm import tqdm
 import os 
+import yaml
 
 def format_label(label):
     if label == "entailment":
@@ -9,45 +10,36 @@ def format_label(label):
     else:
         return "non-entailment"
 # ++++++  config ++++++++++++
-do = 'High-overlap'
-layer = 1
-debug = False
-intervention_type = "weaken"
-all_layers = True
-dev_set = 'hans'
+
+with open("config.yaml", "r") as yamlfile:
+    config = yaml.load(yamlfile, Loader=yaml.FullLoader)
+    print(config)
 
 # use to read prediction txt files
-prediction_path = '../pickles/prediction/' 
-evaluations  = {}
-intervene_mode = "Intervene"
-k = None
-best_weaken_val = None
-best_neuron_group = None
-top_mode =  'percent' if k is not None  else 'neurons'
-prediction_mode = 'percent' if k is not None  else best_weaken_val if best_weaken_val is not None else 'neurons'
+top_mode =  'percent' if config['k'] is not None  else 'neurons'
+prediction_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
 
-eval_path = f'../pickles/evaluations/topk_{do}_all_layers_{intervention_type}.pickle'if all_layers else f'../pickles/evaluations/topk_{do}_L{layer}_{intervention_type}.pickle'
-neuron_path = f'../pickles/top_neurons/top_neuron_{top_mode}_{do}_all_layers.pickle' if all_layers else f'../pickles/top_neurons/top_neuron_{top_mode}_{do}_{layer}.pickle'
+eval_path = f'../pickles/evaluations/topk_{config["do"]}_all_layers_{config["intervention_type"]}.pickle'if config['all_layers'] else f'../pickles/evaluations/topk_{config["do"]}_L{config["layer"]}_{config["intervention_type"]}.pickle'
+neuron_path = f'../pickles/top_neurons/top_neuron_{top_mode}_{config["do"]}_all_layers.pickle' if config['all_layers'] else f'../pickles/top_neurons/top_neuron_{top_mode}_{config["do"]}_{config["layer"]}.pickle'
 
 with open(neuron_path, 'rb') as handle: top_neuron = pickle.load(handle)
-num_neuron_groups = [best_neuron_group] if best_neuron_group is not None else list(top_neuron.keys())
-
+num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
 # ++++++++++++++++++++++++++++++++
 
 for group in (t := tqdm(num_neuron_groups)):
     
-    text_answer_path = f'txt_answer_{prediction_mode}_{intervene_mode}_L{layer}_{group}-k_{do}_{intervention_type}_{dev_set}.txt'  
+    text_answer_path = f'txt_answer_{prediction_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{group}-k_{config["do"]}_{config["eval"]["intervention_type"]}_{config["dev-name"]}.txt'  
 
-    if all_layers: text_answer_path = f'txt_answer_{prediction_mode}_{intervene_mode}_all_layers_{group}-k_{do}_{intervention_type}_{dev_set}.txt'  
+    if config['eval']['all_layers']: text_answer_path = f'txt_answer_{prediction_mode}_{config["eval"]["intervention_mode"]}_all_layers_{group}-k_{config["eval"]["do"]}_{config["eval"]["intervention_type"]}_{config["dev-name"]}.txt'  
 
-    evaluations[group] = {}
+    config['evaluations'][group] = {}
     
     tables = {}
     
     t.set_description(f": Top {text_answer_path}")
     
-    text_answer_path  = os.path.join(prediction_path,  text_answer_path)
+    text_answer_path  = os.path.join(config['prediction_path'],  text_answer_path)
 
     fi = open(text_answer_path, "r")
 
@@ -153,7 +145,7 @@ for group in (t := tqdm(num_neuron_groups)):
         
         print(f"Heuristic  {cur_class} results:")
 
-        if cur_class not in evaluations[group].keys():  evaluations[group][cur_class] = {}
+        if cur_class not in config["eval"]["evaluations"][group].keys():  config["eval"]["evaluations"][group][cur_class] = {}
         
         for heuristic in heuristic_list:
             
@@ -164,9 +156,9 @@ for group in (t := tqdm(num_neuron_groups)):
             percent = correct * 1.0 / total
             print(heuristic + ": " + str(percent))
 
-            evaluations[group][cur_class][heuristic] = percent
+            config["eval"]["evaluations"][group][cur_class][heuristic] = percent
 
 with open(eval_path, 'wb') as handle: 
-    pickle.dump(evaluations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    pickle.dump(config["eval"]["evaluations"], handle, protocol=pickle.HIGHEST_PROTOCOL)
     print(f'saving evaluation predictoins into : {eval_path}')
 
