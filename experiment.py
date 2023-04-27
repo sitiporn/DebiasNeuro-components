@@ -43,9 +43,9 @@ def main():
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
     
-    if   config["dev-name"] == 'mismatched': config["dev_json"]['mismatched'] = 'multinli_1.0_dev_mismatched.jsonl'
-    elif config["dev-name"] == 'hans':       config["dev_json"]['hans'] = 'heuristics_evaluation_set.jsonl' 
-    elif config["dev-name"] == 'matched':    config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
+    if config["dev-name"] == 'mismatched': config["dev_json"]['mismatched'] = 'multinli_1.0_dev_mismatched.jsonl'
+    elif config["dev-name"] == 'hans': config["dev_json"]['hans'] = 'heuristics_evaluation_set.jsonl' 
+    elif config["dev-name"] == 'matched': config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
 
     geting_counterfactual_paths(config)
     geting_NIE_paths(config,mode)
