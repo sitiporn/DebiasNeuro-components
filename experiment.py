@@ -26,7 +26,7 @@ from nn_pruning.patch_coordinator import (
 from data import ExperimentDataset, Dev, get_predictions, print_config
 from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
-from utils import debias_test
+from utils import debias_test, get_nie_set_path
 import yaml
 
 def main():
@@ -34,13 +34,13 @@ def main():
     with open("config.yaml", "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(config)
-
     
     DEBUG = True
     debug = False # for tracing top counterfactual 
     torch.manual_seed(config['seed'])
     collect_representation = True
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
+    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
     
     if   config["dev-name"] == 'mismatched': config["dev_json"]['mismatched'] = 'multinli_1.0_dev_mismatched.jsonl'
@@ -49,68 +49,19 @@ def main():
 
     geting_counterfactual_paths(config)
     geting_NIE_paths(config,mode)
-    
-    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
     model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
         
     # Todo: generalize for every model 
-    
     # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(config, encode = tokenizer)                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
 
     if config['getting_counterfactual']: collect_output_components(config, DEVICE = DEVICE)
-    
-    print_config(config)
-
-    if not os.path.isfile(save_nie_set_path):
-
-        combine_types = []
-        pairs = {}
-
-        if config['is_group_by_class']:
-            
-            nie_dataset = {}
-            nie_loader = {}
-
-            for type in ["contradiction","entailment","neutral"]:
-            
-                # get the whole set of validation 
-                pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
-                
-                # samples data
-                ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
-                pairs[type] = np.array(pairs[type])[ids,:].tolist()
-                
-                nie_dataset[type] = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs[type])]
-                nie_loader[type] = DataLoader(nie_dataset[type], batch_size=32)
-
-        else:
-
-            # balacing nie set across classes
-            for type in ["contradiction","entailment","neutral"]:
-            
-                # get the whole set of validation 
-                pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
-                
-                # samples data
-                ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
-                
-                pairs[type] = np.array(pairs[type])[ids,:].tolist()
-                combine_types.extend(pairs[type])
-
-            # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
-            nie_dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
-            nie_loader = DataLoader(nie_dataset, batch_size=32)
-        
-        with open(save_nie_set_path, 'wb') as handle:
-            pickle.dump(nie_dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f"Done saving NIE set  into {save_nie_set_path} !")
-
+    if config['print_config']: print_config(config)
+    if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
     if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, DEVICE)

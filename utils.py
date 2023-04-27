@@ -1025,3 +1025,48 @@ def geting_NIE_paths(config, mode):
 
             config['NIE_paths'].append(NIE_path)
             config['is_NIE_exist'].append(os.path.isfile(cur_path))
+
+def get_nie_set_path(config, experiment_set, save_nie_set_path):
+
+    combine_types = []
+    pairs = {}
+
+    if config['is_group_by_class']:
+        
+        nie_dataset = {}
+        nie_loader = {}
+
+        for type in ["contradiction","entailment","neutral"]:
+        
+            # get the whole set of validation 
+            pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
+            
+            # samples data
+            ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
+            pairs[type] = np.array(pairs[type])[ids,:].tolist()
+            
+            nie_dataset[type] = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs[type])]
+            nie_loader[type] = DataLoader(nie_dataset[type], batch_size=32)
+
+    else:
+
+        # balacing nie set across classes
+        for type in ["contradiction","entailment","neutral"]:
+        
+            # get the whole set of validation 
+            pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
+            
+            # samples data
+            ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
+            
+            pairs[type] = np.array(pairs[type])[ids,:].tolist()
+            combine_types.extend(pairs[type])
+
+        # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
+        nie_dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
+        nie_loader = DataLoader(nie_dataset, batch_size=32)
+    
+    with open(save_nie_set_path, 'wb') as handle:
+        pickle.dump(nie_dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"Done saving NIE set  into {save_nie_set_path} !")

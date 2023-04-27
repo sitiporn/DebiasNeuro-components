@@ -3,6 +3,7 @@
   "layer": -1,
   "treatment": True,
   "analysis": False,
+  "print_config": True,
   # default
   "topk": True,
   "distribution": False,
