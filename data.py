@@ -23,7 +23,7 @@ from nn_pruning.patch_coordinator import (
 
 from utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
 from intervention import Intervention, neuron_intervention, get_mediators
-from utils import get_ans
+from utils import get_ans, compute_acc
 
 
 class ExperimentDataset(Dataset):
@@ -365,54 +365,8 @@ def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
                 print(f'saving distributions and labels into : {raw_distribution_path}')
 
             
-            if dev_set.dev_name == 'hans':
+            if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
                 
-                prepare_result(raw_distribution_path=raw_distribution_path, 
-                            dev_set = dev_set,
-                            component= components[0] if config["single_neuron"] else None,
-                            do=do,
-                            layer=layer,
-                            value = value,
-                            intervention_type = config["intervention_type"],
-                            key= key,
-                            single_neuron= config["single_neuron"])
-
-            else:
-
-                
-                def compute_acc(raw_distribution, label_maps):
-
-                    label_remaps = {v:k for k, v in label_maps.items()}
-                    
-                    acc = {k: [] for k in (['all'] + list(label_maps.keys())) }
-
-                    with open(raw_distribution_path, 'rb') as handle: 
-                        
-                        distributions = pickle.load(handle)
-                        golden_answers = pickle.load(handle)
-                        
-                        print(f'loading distributions and labels from : {raw_distribution_path}')
-
-                    for mode in distributions.keys():
-                        
-                        for dist, label in zip(distributions[mode], golden_answers[mode]):
-
-                            prediction = int(torch.argmax(dist))
-
-                            acc['all'].append(label_remaps[prediction] == label)
-                            acc[label].append(label_remaps[prediction] == label) 
-
-                    
-                    # compute acc
-                    acc = { k: sum(acc[k]) / len(acc[k]) for k in list(acc.keys()) }
-                        
-
-                    return acc 
-                
-                # acc of each neuron groups
-                acc[value] = compute_acc(raw_distribution=raw_distribution_path, label_maps=config["label_maps"])
-        
-            
         eval_path =  f'../pickles/evaluations/'
         eval_path =  os.path.join(eval_path, f'v{round(epsilon, digits)}')
 
@@ -424,8 +378,6 @@ def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
         
-        breakpoint()
-
 def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, key, single_neuron=True):
     
     with open(raw_distribution_path, 'rb') as handle: 

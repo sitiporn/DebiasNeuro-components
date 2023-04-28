@@ -1070,3 +1070,33 @@ def get_nie_set_path(config, experiment_set, save_nie_set_path):
         pickle.dump(nie_dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving NIE set  into {save_nie_set_path} !")
+
+
+def compute_acc(raw_distribution_path, label_maps):
+
+    label_remaps = {v:k for k, v in label_maps.items()}
+    
+    acc = {k: [] for k in (['all'] + list(label_maps.keys())) }
+
+    with open(raw_distribution_path, 'rb') as handle: 
+        
+        distributions = pickle.load(handle)
+        golden_answers = pickle.load(handle)
+        
+        print(f'loading distributions and labels from : {raw_distribution_path}')
+
+    for mode in distributions.keys():
+        
+        for dist, label in zip(distributions[mode], golden_answers[mode]):
+
+            prediction = int(torch.argmax(dist))
+
+            acc['all'].append(label_remaps[prediction] == label)
+            acc[label].append(label_remaps[prediction] == label) 
+
+    
+    # compute acc
+    acc = { k: sum(acc[k]) / len(acc[k]) for k in list(acc.keys()) }
+        
+
+    return acc 
