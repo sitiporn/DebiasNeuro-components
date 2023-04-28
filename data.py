@@ -301,7 +301,7 @@ def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
                 if layer == -1:
                     raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
                 else:
-                    raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev_name"]}.pickle'
+                    raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
                 
             distributions = {}
             golden_answers = {}
@@ -372,7 +372,7 @@ def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
 
         if not os.path.isdir(eval_path): os.mkdir(eval_path) 
 
-        eval_path = os.path.join(eval_path, f'{key}_{do}_{config["intervention_type"]}_{config["dev_name"]}.pickle')
+        eval_path = os.path.join(eval_path, f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
         
         with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
