@@ -378,64 +378,97 @@ def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
         
-def prepare_result(raw_distribution_path, dev_set, component, do, layer, value, intervention_type, key, single_neuron=True):
+def convert_to_text_ans(config, raw_distribution_path, neuron_path):
+
+    """ changing distributions into text anaswers """
+
+    with open(neuron_path, 'rb') as handle: 
+        top_neuron = pickle.load(handle)
+
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
+
+    low  =  config['params']['low'] #.7945 0.785  0.75   
+    high =  config['params']['high']  #.7955 0.795  0.85
+    step =  config['params']['step'] 
+    digits = len(str(step).split('.')[-1])
+    size= config['params']['size']
+    mode = config['params']['mode']
+    layer = config['layer']
+    rank_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+    prediction_path = '../pickles/prediction/' 
+
+    if config['intervention_type'] == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
+    if config['intervention_type'] == "weaken": epsilons = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
+    if config['intervention_type'] not in ["remove","weaken"]: epsilons = [0]
+
+    for epsilon in (t := tqdm(epsilons)):  
+
+        # read pickle file used to interpret as text answers later
+        epsilon_path = f'v{round(epsilon, digits)}'
+       
+        for neurons in (n:= tqdm(num_neuron_groups)):
+
+            # why top neuron doesnt show result
+            # key : (percent, neuron, weaken)
+            # value : neuron_group
+        
+            # dont touch this 
+            raw_distribution_path = f'raw_distribution_{rank_mode}_{config["eval"]["do"]}_all_layers_{neurons}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
+            raw_distribution_path = os.path.join(os.path.join(prediction_path, epsilon_path),  raw_distribution_path)
+            
+            with open(raw_distribution_path, 'rb') as handle: 
+                distributions = pickle.load(handle)
+                golden_answers = pickle.load(handle)
+            
+            text_answers = {}
+            text_answer_path = None
+
+            for mode in list(distributions.keys()):
+
+                if mode not in text_answers.keys(): text_answers[mode] = []
+
+                for sample_id in range(len(distributions[mode])):
+                
+                    text_prediction = get_ans(torch.argmax(distributions[mode][sample_id], dim=-1))
+                    
+                    text_answers[mode].append(text_prediction)
+
+            for mode in list(distributions.keys()):
+
+                text_answer_path = f'txt_answer_{mode}_{config["dev-name"]}.txt'  
+                
+                # Todo: generalize to all challege sets
+                if  os.path.exists(text_answer_path) and mode == 'Null': continue
+
+                if mode == 'Intervene': 
+
+                    if config["single_neuron"]:
+
+                        component = [neuron.split('-')[2 if layer == -1 else 0] for neuron, v in top_neuron[neurons].items()][0]
+
+                        text_answer_path = f'txt_answer_{rank_mode}_{mode}_L{layer}_{component}_{config["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                    
+                    else:
+                    
+                        if layer == -1:
+                            text_answer_path = f'txt_answer_{rank_mode}_{mode}_all_layers_{neurons}-k_{config["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                        else:
+                            text_answer_path = f'txt_answer_{rank_mode}_{mode}_L{layer}_{neurons}-k_{config["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+            
+            text_answer_path  = os.path.join(os.path.join(prediction_path, epsilon_path), text_answer_path)
+
+            with open(text_answer_path, "w") as fobj:
+
+                headers = ['pairID', 'gold_label']
+
+                fobj.write(f'{headers[0]}' + "," + f'{headers[1]}' +"\n")
+                
+                for sample_id, ans in enumerate(text_answers[mode]):
+
+                    fobj.write(f"ex{sample_id}" + "," + ans +"\n")
+
+                print(f"saving text answer's bert predictions: {text_answer_path}")
     
-    with open(raw_distribution_path, 'rb') as handle: 
-        
-        distributions = pickle.load(handle)
-        golden_answers = pickle.load(handle)
-        print(f'loading raw predictions from pickle: {raw_distribution_path}')
-
-    text_answers = {}
-    text_answer_path = None
-
-    for mode in list(distributions.keys()):
-
-        if mode not in text_answers.keys(): text_answers[mode] = []
-
-        for sample_id in range(len(distributions[mode])):
-        
-            text_prediction = get_ans(torch.argmax(distributions[mode][sample_id], dim=-1))
-            
-            text_answers[mode].append(text_prediction)
-
-    for mode in list(distributions.keys()):
-
-        text_answer_path = f'../pickles/prediction/txt_answer_{mode}_{dev_set.dev_name}.txt'  
-        
-        # Todo: generalize to all challege sets
-        if  os.path.exists(text_answer_path) and mode == 'Null': continue
-
-        if mode == 'Intervene': 
-
-            if single_neuron:
-
-                text_answer_path = f'../pickles/prediction/txt_answer_{key}_{mode}_L{layer}_{component}_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
-            
-            else:
-            
-                if layer == -1:
-                    text_answer_path = f'../pickles/prediction/txt_answer_{key}_{mode}_all_layers_{value}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
-                else:
-                    text_answer_path = f'../pickles/prediction/txt_answer_{key}_{mode}_L{layer}_{value}-k_{do}_{intervention_type}_{dev_set.dev_name}.txt'  
-        
-        # Todo: write Null prediction if isn't exist
-        
-        # Todo: write Intervention prediction if isn't exist
-        # in format : {mode}_L{layer}_{component}.txt
-        # distributions[]
-        
-        with open(text_answer_path, "w") as fobj:
-
-            headers = ['pairID', 'gold_label']
-
-            fobj.write(f'{headers[0]}' + "," + f'{headers[1]}' +"\n")
-            
-            for sample_id, ans in enumerate(text_answers[mode]):
-
-                fobj.write(f"ex{sample_id}" + "," + ans +"\n")
-
-            print(f"saving text answer's bert predictions: {text_answer_path}")
 
 def print_config(config):
             
