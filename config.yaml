@@ -66,13 +66,15 @@
     "all_layers": True,
     "intervention_mode": "Intervene"
     },
+
+  # uppper bound test on test set
   
   # use to read prediction txt files
   "prediction_path": '../pickles/prediction/',
   "evaluations":  {},
 }
 
-
+#current jobs : 23185
 
 
 
