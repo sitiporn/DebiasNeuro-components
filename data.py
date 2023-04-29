@@ -378,9 +378,9 @@ def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
         
-def convert_to_text_ans(config, raw_distribution_path, neuron_path):
+def convert_to_text_ans(config, neuron_path):
 
-    """ changing distributions into text anaswers """
+    """ changing distributions into text anaswers on hans set"""
 
     with open(neuron_path, 'rb') as handle: 
         top_neuron = pickle.load(handle)
@@ -451,9 +451,9 @@ def convert_to_text_ans(config, raw_distribution_path, neuron_path):
                     else:
                     
                         if layer == -1:
-                            text_answer_path = f'txt_answer_{rank_mode}_{mode}_all_layers_{neurons}-k_{config["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                            text_answer_path = f'txt_answer_{rank_mode}_{mode}_all_layers_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
                         else:
-                            text_answer_path = f'txt_answer_{rank_mode}_{mode}_L{layer}_{neurons}-k_{config["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                            text_answer_path = f'txt_answer_{rank_mode}_{mode}_L{layer}_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
             
             text_answer_path  = os.path.join(os.path.join(prediction_path, epsilon_path), text_answer_path)
 
