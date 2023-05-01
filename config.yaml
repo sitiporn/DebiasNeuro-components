@@ -72,7 +72,8 @@
   # use to read prediction txt files
   "prediction_path": '../pickles/prediction/',
   "evaluations":  {},
-  "to_text": False
+  "to_text": False,
+  "get_result": True
   
 }
 
