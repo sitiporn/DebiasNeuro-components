@@ -96,8 +96,6 @@ def get_result(config, epsilons, eval_path, prediction_path, neuron_path, top_ne
             heuristic_nonent_correct_count_dict = {}
             heuristic_nonent_incorrect_count_dict = {}
 
-
-
             for heuristic in heuristic_list:
                 heuristic_ent_correct_count_dict[heuristic] = 0
                 heuristic_ent_incorrect_count_dict[heuristic] = 0
@@ -192,7 +190,51 @@ if config['intervention_type'] not in ["remove","weaken"]: epsilons = [0]
 with open(neuron_path, 'rb') as handle: 
     top_neuron = pickle.load(handle)
 
-if config['get_result']: get_result(config, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode)
+if config['get_result']: get_result(config, epsilons, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode)
 
+num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
+
+res = {}
+entail_scores = {}
+non_entail_scores = {}
+
+# Todo: get the best neuron position 
+for epsilon in (t := tqdm(epsilons)):  
+
+    epsilon_path = f'v{round(epsilon, digits)}'
+
+    t.set_description(f"epsilon : {epsilon} ")
+    
+    for group in num_neuron_groups:
+        
+        result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+
+        if config['eval']['all_layers']: result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+
+
+        result_path = os.path.join(os.path.join(eval_path, epsilon_path),  result_path)
+
+        cur_num_neurons = result_path.split("/")[-1].split('_')[5].split('-')[0]
+        cur_eps = result_path.split('/')[3].split('v')[-1]
+        
+        with open(result_path, 'rb') as handle: 
+            
+            current_score = pickle.load(handle)
+
+        
+
+        # Todo: combine combinatino of num_neuron and eps
+        entail_scores['lexical_overlap-'+f"{cur_eps}-{cur_num_neurons}"] = current_score[group]['entailed']['lexical_overlap']
+        non_entail_scores['lexical_overlap-'+f"{cur_eps}-{cur_num_neurons}"] = current_score[group]['non-entailed']['lexical_overlap']
+        
+
+        print(f"================= {epsilon} {group} ==================")
+        print(f"current entailment scores : {entail_scores}")
+        print(f"current non-entailment scores : {non_entail_scores}")
+
+
+    breakpoint()
+        
+        
 
             

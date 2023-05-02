@@ -468,7 +468,6 @@ def convert_to_text_ans(config, neuron_path):
                     fobj.write(f"ex{sample_id}" + "," + ans +"\n")
 
                 print(f"saving text answer's bert predictions: {text_answer_path}")
-    
 
 def print_config(config):
             
