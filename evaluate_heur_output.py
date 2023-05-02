@@ -240,20 +240,26 @@ non_ential_ranks = dict(sorted(non_entail_scores.items(), key=operator.itemgette
 entail_rank = list(dict(sorted(entail_scores.items(), key=operator.itemgetter(1), reverse=True)))
 non_ential_rank_keys = list(dict(sorted(non_entail_scores.items(), key=operator.itemgetter(1), reverse=True)))
 
+if config['save_rank']:
 
-count = 0
+    with open(result_path, 'wb') as handle: 
+        pickle.dump(entail_ranks, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(non_ential_ranks, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-for (k,v), (k2,v2) in zip(entail_ranks.items(), non_ential_ranks.items()):
 
-    print(f"current idx : {count}")
-    print(f"entail : {k} : {v}")
-    print(f"non-entail : {k2} : {v2}")
+# count = 0
 
-    if count == 20: break
+# for (k,v), (k2,v2) in zip(entail_ranks.items(), non_ential_ranks.items()):
 
-    count+=1
+#     print(f"current idx : {count}")
+#     print(f"entail : {k} : {v}")
+#     print(f"non-entail : {k2} : {v2}")
 
-breakpoint()
+#     if count == 20: break
+
+#     count+=1
+
+# breakpoint()
 
         
         
