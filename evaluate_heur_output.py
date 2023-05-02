@@ -7,6 +7,7 @@ import torch
 import numpy as np
 from utils import get_ans
 from data import convert_to_text_ans
+import operator
 
 def format_label(label):
     if label == "entailment":
@@ -221,19 +222,39 @@ for epsilon in (t := tqdm(epsilons)):
             
             current_score = pickle.load(handle)
 
-        
-
         # Todo: combine combinatino of num_neuron and eps
         entail_scores['lexical_overlap-'+f"{cur_eps}-{cur_num_neurons}"] = current_score[group]['entailed']['lexical_overlap']
         non_entail_scores['lexical_overlap-'+f"{cur_eps}-{cur_num_neurons}"] = current_score[group]['non-entailed']['lexical_overlap']
         
 
-        print(f"================= {epsilon} {group} ==================")
-        print(f"current entailment scores : {entail_scores}")
-        print(f"current non-entailment scores : {non_entail_scores}")
+        # print(f"================= {epsilon} {group} ==================")
+        # print(f"current entailment scores : {entail_scores}")
+        # print(f"current non-entailment scores : {non_entail_scores}")
+
+        # Todo: best of both entail and non-entail
 
 
-    breakpoint()
+entail_ranks = dict(sorted(entail_scores.items(), key=operator.itemgetter(1), reverse=True))
+non_ential_ranks = dict(sorted(non_entail_scores.items(), key=operator.itemgetter(1), reverse=True))
+
+entail_rank = list(dict(sorted(entail_scores.items(), key=operator.itemgetter(1), reverse=True)))
+non_ential_rank_keys = list(dict(sorted(non_entail_scores.items(), key=operator.itemgetter(1), reverse=True)))
+
+
+count = 0
+
+for (k,v), (k2,v2) in zip(entail_ranks.items(), non_ential_ranks.items()):
+
+    print(f"current idx : {count}")
+    print(f"entail : {k} : {v}")
+    print(f"non-entail : {k2} : {v2}")
+
+    if count == 20: break
+
+    count+=1
+
+breakpoint()
+
         
         
 
