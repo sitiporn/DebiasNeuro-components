@@ -196,9 +196,7 @@ if config['get_result']: get_result(config, epsilons, eval_path, prediction_path
 num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
 res = {}
-entail_scores = {}
-non_entail_scores = {}
-
+scores = {}
 # Todo: get the best neuron position 
 for epsilon in (t := tqdm(epsilons)):  
 
@@ -222,46 +220,37 @@ for epsilon in (t := tqdm(epsilons)):
             
             current_score = pickle.load(handle)
 
+        cur_score = []
+
         # Todo: combine combinatino of num_neuron and eps
-        entail_scores['lexical_overlap-'+f"{cur_eps}-{cur_num_neurons}"] = current_score[group]['entailed']['lexical_overlap']
-        non_entail_scores['lexical_overlap-'+f"{cur_eps}-{cur_num_neurons}"] = current_score[group]['non-entailed']['lexical_overlap']
-        
+        for type in ['entailed','non-entailed']:
 
-        # print(f"================= {epsilon} {group} ==================")
-        # print(f"current entailment scores : {entail_scores}")
-        # print(f"current non-entailment scores : {non_entail_scores}")
+            class_score = []
 
-        # Todo: best of both entail and non-entail
+            for score in ['lexical_overlap', 'subsequence','constituent']:
 
-
-entail_ranks = dict(sorted(entail_scores.items(), key=operator.itemgetter(1), reverse=True))
-non_ential_ranks = dict(sorted(non_entail_scores.items(), key=operator.itemgetter(1), reverse=True))
-
-entail_rank = list(dict(sorted(entail_scores.items(), key=operator.itemgetter(1), reverse=True)))
-non_ential_rank_keys = list(dict(sorted(non_entail_scores.items(), key=operator.itemgetter(1), reverse=True)))
-
-if config['save_rank']:
-
-    with open(result_path, 'wb') as handle: 
-        pickle.dump(entail_ranks, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(non_ential_ranks, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-
-# count = 0
-
-# for (k,v), (k2,v2) in zip(entail_ranks.items(), non_ential_ranks.items()):
-
-#     print(f"current idx : {count}")
-#     print(f"entail : {k} : {v}")
-#     print(f"non-entail : {k2} : {v2}")
-
-#     if count == 20: break
-
-#     count+=1
-
-# breakpoint()
-
-        
-        
-
+                class_score.append(current_score[group][type][score])
             
+            cur_score.append(class_score)
+
+        cur_score = torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
+        
+        scores[f"{cur_eps}-{cur_num_neurons}"] = cur_score
+
+rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
+key_rank_scores = list(rank_scores.keys())
+best_score_key = list(rank_scores.keys())[0]
+
+print(f"+++++++++++++ Config +++++++++++++++++++")
+print(f"Low: {low} , High : {high}, Step : {step}")
+print(f"Best scores : {rank_scores[best_score_key]} on weaken rate at {best_score_key.split('-')[0]}, {best_score_key.split('-')[1]} neurons")
+
+
+# if config['save_rank']:
+
+#     with open('../pickles/evaluations/ranks/combine_scores.pickle', 'wb') as handle: 
+#         pickle.dump(scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
+#         print(f"saving scores object")
+
+
+# Todo: avg  one class scores 
