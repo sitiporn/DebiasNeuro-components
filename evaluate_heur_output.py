@@ -213,12 +213,13 @@ for epsilon in (t := tqdm(epsilons)):
 
         result_path = os.path.join(os.path.join(eval_path, epsilon_path),  result_path)
 
-        cur_num_neurons = result_path.split("/")[-1].split('_')[5].split('-')[0]
-        cur_eps = result_path.split('/')[3].split('v')[-1]
+        # cur_num_neurons = result_path.split("/")[-1].split('_')[5].split('-')[0]
+        # cur_eps = result_path.split('/')[3].split('v')[-1]
         
         with open(result_path, 'rb') as handle: 
             
             current_score = pickle.load(handle)
+
 
         cur_score = []
 
@@ -234,23 +235,21 @@ for epsilon in (t := tqdm(epsilons)):
             cur_score.append(class_score)
 
         cur_score = torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
-        
-        scores[f"{cur_eps}-{cur_num_neurons}"] = cur_score
+        scores[f"{epsilon}-{group}"] = cur_score
 
 rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
+
 key_rank_scores = list(rank_scores.keys())
 best_score_key = list(rank_scores.keys())[0]
+null_score_key = list(rank_scores.keys())[48]
 
 print(f"+++++++++++++ Config +++++++++++++++++++")
 print(f"Low: {low} , High : {high}, Step : {step}")
-print(f"Best scores : {rank_scores[best_score_key]} on weaken rate at {best_score_key.split('-')[0]}, {best_score_key.split('-')[1]} neurons")
+print(f"optimize intervention scores : {rank_scores[best_score_key]} on weaken rate at {best_score_key.split('-')[0]}, {best_score_key.split('-')[1]} neurons")
+print(f"Null scores : {rank_scores[null_score_key]} with {null_score_key.split('-')[-1]} neurons")
 
+if config['save_rank']:
 
-# if config['save_rank']:
-
-#     with open('../pickles/evaluations/ranks/combine_scores.pickle', 'wb') as handle: 
-#         pickle.dump(scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
-#         print(f"saving scores object")
-
-
-# Todo: avg  one class scores 
+    with open('../pickles/evaluations/ranks/combine_scores.pickle', 'wb') as handle: 
+        pickle.dump(scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"saving scores object")
