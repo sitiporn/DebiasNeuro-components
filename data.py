@@ -494,6 +494,12 @@ def print_config(config):
     
     print(f"=========== End configs  =========") 
 
+def format_label(label):
+    if label == "entailment":
+        return "entailment"
+    else:
+        return "non-entailment"
+
 def get_result(config, epsilons, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode):
     
     if config['to_text']: convert_to_text_ans(config, neuron_path)

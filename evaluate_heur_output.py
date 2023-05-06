@@ -10,12 +10,6 @@ import operator
 from utils import get_num_neurons, get_params
 from data import get_result
 
-def format_label(label):
-    if label == "entailment":
-        return "entailment"
-    else:
-        return "non-entailment"
-
 # ++++++  config ++++++++++++
 
 with open("config.yaml", "r") as yamlfile:
