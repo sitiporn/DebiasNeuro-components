@@ -53,7 +53,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
     model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
-        
+
     # Todo: generalize for every model 
     # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(config, encode = tokenizer)                            

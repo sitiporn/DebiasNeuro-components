@@ -47,8 +47,18 @@
   "is_counterfactual_exist": [],
   
   # optimizer settings
-  "params": {
-    # get prediction
+  # range 0.0 to 0.10, step = 0.01
+  "percent": {
+    "low": 0.0, 
+    "high": 0.1,
+    "step": 0.01,
+    "size": 50,
+    "mode": 0o666,
+    "acc": {}
+    },
+
+  # range 0 to 1, step = 0.1
+  "weaken_family": {
     "low": 0, 
     "high": 1,
     "step": 0.1,
@@ -56,6 +66,7 @@
     "mode": 0o666,
     "acc": {}
     },
+  
   "single_neuron": False,
 
   # evaluate hans
@@ -74,8 +85,11 @@
   "evaluations":  {},
   "to_text": False,
   "get_result": False,
-  "save_rank": True
-  
+  "save_rank": True,
+
+  # neurons components
+  "attention_components": 3,
+  "nums": {}
 }
 
 #current jobs : 23185
