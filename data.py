@@ -500,15 +500,15 @@ def format_label(label):
     else:
         return "non-entailment"
 
-def get_result(config, epsilons, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode):
+def get_result(config, params, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode):
     
     if config['to_text']: convert_to_text_ans(config, neuron_path)
 
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
-    for epsilon in (t := tqdm(epsilons)):  
+    for epsilon in (t := tqdm(params['epsilons'])):  
 
-        epsilon_path = f'v{round(epsilon, digits)}'
+        epsilon_path = f'v{round(epsilon, digits["epsilons"])}'
 
         t.set_description(f"epsilon : {epsilon} ")
         
@@ -524,6 +524,8 @@ def get_result(config, epsilons, eval_path, prediction_path, neuron_path, top_ne
 
             text_answer_path = os.path.join(os.path.join(prediction_path, epsilon_path),  text_answer_path)
             result_path = os.path.join(os.path.join(eval_path, epsilon_path),  result_path)
+
+            breakpoint()
 
             tables = {}
 

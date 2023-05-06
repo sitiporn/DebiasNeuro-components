@@ -27,13 +27,9 @@ neuron_path = f'../pickles/top_neurons/top_neuron_{top_mode}_{config["eval"]["do
 with open(neuron_path, 'rb') as handle: 
     top_neuron = pickle.load(handle)
 
-params = get_params(config)
+params, digits = get_params(config)
 
-breakpoint()
-
-
-
-# if config['get_result']: get_result(config, epsilons, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode)
+if config['get_result']: get_result(config, params, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode)
 
 # num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 

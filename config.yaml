@@ -84,7 +84,7 @@
   "prediction_path": '../pickles/prediction/',
   "evaluations":  {},
   "to_text": False,
-  "get_result": False,
+  "get_result": True,
   "save_rank": True,
 
   # neurons components
