@@ -8,7 +8,7 @@ import numpy as np
 from utils import get_ans
 from data import convert_to_text_ans
 import operator
-from utils import get_num_neurons
+from utils import get_num_neurons, get_params
 
 def format_label(label):
     if label == "entailment":
@@ -180,82 +180,39 @@ neuron_path = f'../pickles/top_neurons/top_neuron_{top_mode}_{config["eval"]["do
 with open(neuron_path, 'rb') as handle: 
     top_neuron = pickle.load(handle)
 
-# ++++++++++  preparing optimize  weaken rates +++++++++++
-low  =  config['weaken_family']['low'] 
-high =  config['weaken_family']['high']  
-step =  config['weaken_family']['step'] 
-digits = len(str(step).split('.')[-1])
-size= config['weaken_family']['size']
-mode = config['weaken_family']['mode']
-
-if config['intervention_type'] == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
-if config['intervention_type'] == "weaken": epsilons = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
-if config['intervention_type'] not in ["remove","weaken"]: epsilons = [0]
-
-# +++++++++++ preparing for optimize percents of neurons +++++++++++++
-low  =  config['percent']['low'] 
-high =  config['percent']['high']  
-step =  config['percent']['step'] 
-digits = len(str(step).split('.')[-1])
-size= config['percent']['size']
-mode = config['percent']['mode']
-if config['intervention_type'] == "weaken": percents = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
-
-if config['get_result']: get_result(config, epsilons, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode)
-
-num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
-
-res = {}
-scores = {}
-
-percents = [round(val, digits)for val in np.arange(low, high, step).tolist()]
-digits = len(str(step).split('.')[-1])
-rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
-total_neurons = get_num_neurons(config)
+params = get_params(config)
 
 breakpoint()
 
-# Todo: get the best neuron position 
-for epsilon in (t := tqdm(epsilons)):  
-
-    epsilon_path = f'v{round(epsilon, digits)}'
-
-    t.set_description(f"epsilon : {epsilon} ")
-
-    for percent in percents:
-
-        result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{percent}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
-
-        if config['eval']['all_layers']: result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_all_layers_{percent}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
 
 
-        result_path = os.path.join(os.path.join(eval_path, epsilon_path),  result_path)
+# if config['get_result']: get_result(config, epsilons, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode)
 
-        # cur_num_neurons = result_path.split("/")[-1].split('_')[5].split('-')[0]
-        # cur_eps = result_path.split('/')[3].split('v')[-1]
+# num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
-        with open(result_path, 'rb') as handle: 
+# res = {}
+# scores = {}
 
-            current_score = pickle.load(handle)
-
-
-        cur_score = []
-
-
-key_rank_scores = list(rank_scores.keys())
-best_score_key = list(rank_scores.keys())[0]
-null_score_key = list(rank_scores.keys())[48]
-
-print(f"+++++++++++++ Config +++++++++++++++++++")
-print(f"Low: {low} , High : {high}, Step : {step}")
-print(f"optimize intervention scores : {rank_scores[best_score_key]} on weaken rate at {best_score_key.split('-')[0]}, {best_score_key.split('-')[1]} neurons")
-print(f"Null scores : {rank_scores[null_score_key]} with {null_score_key.split('-')[-1]} neurons")
-
-# # Todo: grid search on X percents and weaken rates
+# percents = [round(val, digits)for val in np.arange(low, high, step).tolist()]
+# digits = len(str(step).split('.')[-1])
+# rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
+# total_neurons = get_num_neurons(config)
 
 
-if config['save_rank']:
+# key_rank_scores = list(rank_scores.keys())
+# best_score_key = list(rank_scores.keys())[0]
+# null_score_key = list(rank_scores.keys())[48]
 
-    with open('../pickles/evaluations/ranks/combine_scores.pickle', 'wb') as handle: 
-        pickle.dump(scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"saving scores object")
+# print(f"+++++++++++++ Config +++++++++++++++++++")
+# print(f"Low: {low} , High : {high}, Step : {step}")
+# print(f"optimize intervention scores : {rank_scores[best_score_key]} on weaken rate at {best_score_key.split('-')[0]}, {best_score_key.split('-')[1]} neurons")
+# print(f"Null scores : {rank_scores[null_score_key]} with {null_score_key.split('-')[-1]} neurons")
+
+# # # Todo: grid search on X percents and weaken rates
+
+
+# if config['save_rank']:
+
+#     with open('../pickles/evaluations/ranks/combine_scores.pickle', 'wb') as handle: 
+#         pickle.dump(scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
+#         print(f"saving scores object")

@@ -1115,3 +1115,25 @@ def get_num_neurons(config):
     total_neurons = num_layer * (config['nums']['self'] + config['nums']['AO'] + config['nums']['I'] + config['nums']['O'])
 
     return total_neurons
+
+def get_params(config):
+
+    params = {}
+
+    for op in ['epsilons', 'percent']:
+    
+        low  =  config[op]['low'] 
+        high =  config[op]['high']  
+        step =  config[op]['step'] 
+        digits = len(str(step).split('.')[-1])
+        size= config[op]['size']
+        mode = config[op]['mode']
+
+        if op == 'epsilons':
+            if config['intervention_type'] == "remove": params[op] = (low - high) * torch.rand(size) + high  # the interval (low, high)
+            if config['intervention_type'] == "weaken": params[op] = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
+            if config['intervention_type'] not in ["remove","weaken"]: params[op] = [0]
+        else:
+            if config['intervention_type'] == "weaken": params[op] = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
+
+    return  params
