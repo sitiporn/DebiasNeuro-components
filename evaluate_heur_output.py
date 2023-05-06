@@ -31,15 +31,51 @@ params, digits = get_params(config)
 
 if config['get_result']: get_result(config, params, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode)
 
-# num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
+num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
-# res = {}
-# scores = {}
+res = {}
+scores = {}
 
-# percents = [round(val, digits)for val in np.arange(low, high, step).tolist()]
-# digits = len(str(step).split('.')[-1])
-# rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
-# total_neurons = get_num_neurons(config)
+rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
+total_neurons = get_num_neurons(config)
+
+for epsilon in (t := tqdm(params['epsilons'])):  
+
+    epsilon_path = f'v{round(epsilon, digits["epsilons"])}'
+
+    t.set_description(f"epsilon : {epsilon} ")
+
+    for group in params['percent']:
+
+        result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+
+        if config['eval']['all_layers']: result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+
+        result_path = os.path.join(os.path.join(eval_path, epsilon_path),  result_path)
+
+        # cur_num_neurons = result_path.split("/")[-1].split('_')[5].split('-')[0]
+        # cur_eps = result_path.split('/')[3].split('v')[-1]
+
+        with open(result_path, 'rb') as handle: 
+
+            current_score = pickle.load(handle)
+
+        cur_score = []
+
+        for type in ['entailed','non-entailed']:
+
+            class_score = []
+
+            for score in ['lexical_overlap', 'subsequence','constituent']:
+
+                class_score.append(current_score[group][type][score])
+
+            cur_score.append(class_score)
+
+        cur_score = torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
+        scores[f"{epsilon}-{group}"] = cur_score
+        
+        breakpoint()
 
 
 # key_rank_scores = list(rank_scores.keys())

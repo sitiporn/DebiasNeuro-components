@@ -378,7 +378,7 @@ def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
         
-def convert_to_text_ans(config, neuron_path):
+def convert_to_text_ans(config, neuron_path, params, digits):
 
     """ changing distributions into text anaswers on hans set"""
 
@@ -387,12 +387,15 @@ def convert_to_text_ans(config, neuron_path):
 
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
-    low  =  config['params']['low'] #.7945 0.785  0.75   
-    high =  config['params']['high']  #.7955 0.795  0.85
-    step =  config['params']['step'] 
+    low  =  config['percent']['low'] 
+    high =  config['percent']['high']  
+    step =  config['percent']['step'] 
+
     digits = len(str(step).split('.')[-1])
-    size= config['params']['size']
-    mode = config['params']['mode']
+    
+    size = config['percent']['size']
+    mode = config['percent']['mode']
+    
     layer = config['layer']
     rank_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
     prediction_path = '../pickles/prediction/' 
@@ -502,8 +505,8 @@ def format_label(label):
 
 def get_result(config, params, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode):
     
-    if config['to_text']: convert_to_text_ans(config, neuron_path)
-
+    if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits)
+    
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
     for epsilon in (t := tqdm(params['epsilons'])):  
@@ -524,8 +527,6 @@ def get_result(config, params, eval_path, prediction_path, neuron_path, top_neur
 
             text_answer_path = os.path.join(os.path.join(prediction_path, epsilon_path),  text_answer_path)
             result_path = os.path.join(os.path.join(eval_path, epsilon_path),  result_path)
-
-            breakpoint()
 
             tables = {}
 
