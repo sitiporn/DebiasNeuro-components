@@ -8,7 +8,7 @@ import numpy as np
 from utils import get_ans
 from data import convert_to_text_ans
 import operator
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from utils import get_num_neurons
 
 def format_label(label):
     if label == "entailment":
@@ -208,30 +208,48 @@ num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not No
 res = {}
 scores = {}
 
-rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
-model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
-
-config['nums']['self'] = model.bert.encoder.layer[0].attention.self.query.out_features * config['attention_components']
-config['nums']['AO'] = model.bert.encoder.layer[0].attention.output.dense.out_features
-config['nums']['I'] = model.bert.encoder.layer[0].intermediate.dense.out_features
-config['nums']['O'] = model.bert.encoder.layer[0].output.dense.out_features
-num_layer = len(model.bert.encoder.layer)
-
-total_neurons = num_layer * (config['nums']['self'] + config['nums']['AO'] + config['nums']['I'] + config['nums']['O'])
 percents = [round(val, digits)for val in np.arange(low, high, step).tolist()]
 digits = len(str(step).split('.')[-1])
+rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
+total_neurons = get_num_neurons(config)
 
 breakpoint()
 
+# Todo: get the best neuron position 
+for epsilon in (t := tqdm(epsilons)):  
 
-# key_rank_scores = list(rank_scores.keys())
-# best_score_key = list(rank_scores.keys())[0]
-# null_score_key = list(rank_scores.keys())[48]
+    epsilon_path = f'v{round(epsilon, digits)}'
 
-# print(f"+++++++++++++ Config +++++++++++++++++++")
-# print(f"Low: {low} , High : {high}, Step : {step}")
-# print(f"optimize intervention scores : {rank_scores[best_score_key]} on weaken rate at {best_score_key.split('-')[0]}, {best_score_key.split('-')[1]} neurons")
-# print(f"Null scores : {rank_scores[null_score_key]} with {null_score_key.split('-')[-1]} neurons")
+    t.set_description(f"epsilon : {epsilon} ")
+
+    for percent in percents:
+
+        result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{percent}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+
+        if config['eval']['all_layers']: result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_all_layers_{percent}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+
+
+        result_path = os.path.join(os.path.join(eval_path, epsilon_path),  result_path)
+
+        # cur_num_neurons = result_path.split("/")[-1].split('_')[5].split('-')[0]
+        # cur_eps = result_path.split('/')[3].split('v')[-1]
+
+        with open(result_path, 'rb') as handle: 
+
+            current_score = pickle.load(handle)
+
+
+        cur_score = []
+
+
+key_rank_scores = list(rank_scores.keys())
+best_score_key = list(rank_scores.keys())[0]
+null_score_key = list(rank_scores.keys())[48]
+
+print(f"+++++++++++++ Config +++++++++++++++++++")
+print(f"Low: {low} , High : {high}, Step : {step}")
+print(f"optimize intervention scores : {rank_scores[best_score_key]} on weaken rate at {best_score_key.split('-')[0]}, {best_score_key.split('-')[1]} neurons")
+print(f"Null scores : {rank_scores[null_score_key]} with {null_score_key.split('-')[-1]} neurons")
 
 # # Todo: grid search on X percents and weaken rates
 

@@ -15,6 +15,7 @@ from collections import Counter
 from torch.utils.data import Dataset, DataLoader
 from collections import Counter
 from intervention import get_mediators
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 def report_gpu(): 
   print(f"++++++++++++++++++++++++++++++")
@@ -1100,3 +1101,17 @@ def compute_acc(raw_distribution_path, label_maps):
         
 
     return acc 
+
+
+def get_num_neurons(config):
+
+    model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
+    
+    config['nums']['self'] = model.bert.encoder.layer[0].attention.self.query.out_features * config['attention_components']
+    config['nums']['AO'] = model.bert.encoder.layer[0].attention.output.dense.out_features
+    config['nums']['I'] = model.bert.encoder.layer[0].intermediate.dense.out_features
+    config['nums']['O'] = model.bert.encoder.layer[0].output.dense.out_features
+    num_layer = len(model.bert.encoder.layer)
+    total_neurons = num_layer * (config['nums']['self'] + config['nums']['AO'] + config['nums']['I'] + config['nums']['O'])
+
+    return total_neurons
