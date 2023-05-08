@@ -5,7 +5,7 @@
   "analysis": False,
   "print_config": True,
   # default
-  "topk": True,
+  "topk": False,
   "distribution": False,
   "embedding_summary": False,
   "getting_counterfactual": False,

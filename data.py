@@ -260,7 +260,7 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
 
         prediction_path = '../pickles/prediction/' 
         
-        prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, digits)}')
+        prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, digits["epsilons"])}')
 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         
