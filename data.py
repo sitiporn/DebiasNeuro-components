@@ -24,6 +24,7 @@ from nn_pruning.patch_coordinator import (
 from utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
 from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans, compute_acc
+from utils import get_num_neurons, get_params
 
 
 class ExperimentDataset(Dataset):
@@ -214,33 +215,23 @@ class Dev(Dataset):
         
         return pair_sentence , label
 
-def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
+def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
 
-    low  =  config['params']['low'] #.7945 0.785  0.75   
-    high =  config['params']['high']  #.7955 0.795  0.85
-    step =  config['params']['step'] 
-    digits = len(str(step).split('.')[-1])
-    size= config['params']['size']
-    mode = config['params']['mode']
     acc = {}
 
     layer = config['layer']
 
     torch.manual_seed(42)
+
+    params, digits = get_params(config)
+    total_neurons = get_num_neurons(config)
+
+    epsilons = params['epsilons']
     
-    if config['intervention_type'] == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
-    if config['intervention_type'] == "weaken": epsilons = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
-    if config['intervention_type'] not in ["remove","weaken"]: epsilons = [0]
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
 
     epsilons = sorted(epsilons)
     mediators  = get_mediators(model)
-
-    print(f"low :{low} , high : {high}")
-    print(f"step : {step}")
-    print(f"digits : {digits}")
-    print(f"size : {size}")
-    print(f"num epsilon : {len(epsilons)}")
 
     dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
@@ -254,6 +245,7 @@ def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
     # get position of top neurons 
     with open(path, 'rb') as handle: top_neuron = pickle.load(handle) 
     
+    # Todo: changing neuron group correspond to percent
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
     cls = get_hidden_representations(config['counterfactual_paths'], 
@@ -281,7 +273,6 @@ def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
                 components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
                 neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[value].items()]
                 layer_ids  = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
-                
             
             else:
                 components = [neuron.split('-')[0] for neuron, v in top_neuron[value].items()]
@@ -358,7 +349,7 @@ def get_predictions(config, do, model, tokenizer, DEVICE, debug = False):
                         golden_answers[mode].append(labels[sample_idx]) 
             
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
-            
+
             with open(raw_distribution_path, 'wb') as handle: 
                 pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -419,6 +410,7 @@ def convert_to_text_ans(config, neuron_path, params, digits):
             raw_distribution_path = f'raw_distribution_{rank_mode}_{config["eval"]["do"]}_all_layers_{neurons}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
             raw_distribution_path = os.path.join(os.path.join(prediction_path, epsilon_path),  raw_distribution_path)
             
+            # bugs: no such file because no intervention yet
             with open(raw_distribution_path, 'rb') as handle: 
                 distributions = pickle.load(handle)
                 golden_answers = pickle.load(handle)
