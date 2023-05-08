@@ -413,12 +413,7 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
     
     layer = config['layer']
     
-    if config['range_percents']: rank_mode =  'percent' 
-    elif config['k']: rank_mode =  'k' 
-    elif config['weaken'] is not None: rank_mode = config['weaken'] 
-    elif config['neurons']: rank_mode = 'neurons' 
-    
-    # key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+    rank_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
     prediction_path = '../pickles/prediction/' 
 
     if config['intervention_type'] == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
