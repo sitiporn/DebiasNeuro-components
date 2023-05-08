@@ -388,6 +388,14 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
             print(f"saving all accuracies into {eval_path} ")
         
 def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
+    
+    """changing distributions into text anaswers on hans set
+    
+    Keyword arguments:
+    raw_distribution_path --  to read distribution 
+    text_answer_path  -- write text into text file
+    
+    """
 
     with open(neuron_path, 'rb') as handle: 
         top_neuron = pickle.load(handle)
