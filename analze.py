@@ -26,6 +26,7 @@ from nn_pruning.patch_coordinator import (
 
 from data import ExperimentDataset
 from intervention import intervene, high_level_intervention
+from utils import get_params, get_num_neurons
 
 class ComputingEmbeddings:
     def __init__(self, label_maps, label_remaps, tokenizer) -> None:
@@ -135,7 +136,11 @@ def get_top_k(config, treatments, debug=False):
     num_top_neurons = config['num_top_neurons']
 
     if k is not None: topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
-    if num_top_neurons is not None: topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()}
+    
+    params, digits = get_params(config)
+    total_neurons = get_num_neurons(config)
+
+    topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()} if num_top_neurons is not None else {'percent': params['percent']}
 
     key = list(topk.keys())[0]
    
@@ -215,6 +220,7 @@ def get_top_k(config, treatments, debug=False):
             print(f"NIE values :")
             print(list(top_neurons[0.01].values())[:20])
 
+        breakpoint()
 
 def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class):
     

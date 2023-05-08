@@ -28,6 +28,7 @@ from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
 from utils import debias_test, get_nie_set_path
 import yaml
+from utils import get_num_neurons, get_params
 
 def main():
 
@@ -63,7 +64,9 @@ def main():
     if config['print_config']: print_config(config)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
-    if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
+    # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
+    if config['topk']: get_top_k(config, treatments=mode) 
+
     if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, DEVICE)
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['debias']: debias_test(config, model, experiment_set, tokenizer, DEVICE)

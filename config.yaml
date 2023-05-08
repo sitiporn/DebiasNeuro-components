@@ -35,7 +35,7 @@
         
   # experiment set 
   "k":  null, 
-  "num_top_neurons": 120, 
+  "num_top_neurons": null, 
   "dev_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
   "exp_json": "multinli_1.0_dev_matched.jsonl",
   "dev_json": {},

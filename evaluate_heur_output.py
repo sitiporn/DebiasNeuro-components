@@ -7,8 +7,7 @@ import torch
 import numpy as np
 from utils import get_ans
 import operator
-from utils import get_num_neurons, get_params
-from data import get_result
+from data import get_result, get_num_neurons, get_params
 
 # ++++++  config ++++++++++++
 
