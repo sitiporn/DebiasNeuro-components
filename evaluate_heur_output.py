@@ -16,7 +16,13 @@ with open("config.yaml", "r") as yamlfile:
     print(config)
 
 # use to read prediction txt files
-top_mode =  'percent' if config['k'] is not None  else 'neurons'
+# there are three modes (percent, k, neurons)
+# percent; custom ranges of percent to search 
+# k; specify percents to search
+# neurons; the range group of neuron from to neurons
+# top_k_mode =  'percent' if config['k'] is not None  else 'neurons' 
+top_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
+
 prediction_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
 
 eval_path = f'../pickles/evaluations/'

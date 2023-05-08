@@ -71,7 +71,6 @@ def main():
     if config['debias']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
     if config['get_prediction']: get_predictions(config, mode[0], model, tokenizer, DEVICE)
-    breakpoint()
 
 if __name__ == "__main__":
     main()
