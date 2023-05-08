@@ -237,16 +237,27 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
 
     key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
-    top_k_mode =  'percent' if config['k'] is not None  else 'neurons' 
+    # there are three modes (percent, k, neurons)
+    # percent; custom ranges of percent to search 
+    # k; specify percents to search
+    # neurons; the range group of neuron from to neurons
+    # top_k_mode =  'percent' if config['k'] is not None  else 'neurons' 
+    top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     
     # from validation(dev matched) set
     path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
-    
+
+    # why top neurons dont chage according to get_top_k
     # get position of top neurons 
     with open(path, 'rb') as handle: top_neuron = pickle.load(handle) 
+    # with open(f'../pickles/top_neurons/top_neuron_percent_High-overlap_all_layers.pickle', 'rb') as handle:
+        # top_neuron = pickle.load(handle)
+        # print(f"loading top neurons from pickles !") 
     
     # Todo: changing neuron group correspond to percent
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
+
+    # breakpoint()
 
     cls = get_hidden_representations(config['counterfactual_paths'], 
                                     config['layers'], 

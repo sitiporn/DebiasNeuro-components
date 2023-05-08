@@ -219,8 +219,12 @@ def get_top_k(config, treatments, debug=False):
             print(list(top_neurons[0.01].keys())[:20])
             print(f"NIE values :")
             print(list(top_neurons[0.01].values())[:20])
+        
+        with open(f'../pickles/top_neurons/top_neuron_{key}_{do}_all_layers.pickle', 'rb') as handle:
+            cur_top_neurons = pickle.load(handle)
+            print(f"loading top neurons from pickles !") 
 
-        breakpoint()
+        # breakpoint()
 
 def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class):
     
