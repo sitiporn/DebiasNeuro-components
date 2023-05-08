@@ -37,6 +37,7 @@
   "k":  null, 
   "num_top_neurons": null, 
   "range_percents": True, 
+  'neurons': True, 
   "dev_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
   "exp_json": "multinli_1.0_dev_matched.jsonl",
   "dev_json": {},

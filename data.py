@@ -237,6 +237,13 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
 
     key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+
+    """
+    if layer == -1:
+        raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
+    else:
+        raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
+    """
     # there are three modes (percent, k, neurons)
     # percent; custom ranges of percent to search 
     # k; specify percents to search
@@ -380,9 +387,7 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
         
-def convert_to_text_ans(config, neuron_path, params, digits):
-
-    """ changing distributions into text anaswers on hans set"""
+def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
 
     with open(neuron_path, 'rb') as handle: 
         top_neuron = pickle.load(handle)
@@ -399,7 +404,13 @@ def convert_to_text_ans(config, neuron_path, params, digits):
     mode = config['percent']['mode']
     
     layer = config['layer']
-    rank_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+    
+    if config['range_percents']: rank_mode =  'percent' 
+    elif config['k']: rank_mode =  'k' 
+    elif config['weaken'] is not None: rank_mode = config['weaken'] 
+    elif config['neurons']: rank_mode = 'neurons' 
+    
+    # key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
     prediction_path = '../pickles/prediction/' 
 
     if config['intervention_type'] == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
@@ -420,7 +431,7 @@ def convert_to_text_ans(config, neuron_path, params, digits):
             # dont touch this 
             raw_distribution_path = f'raw_distribution_{rank_mode}_{config["eval"]["do"]}_all_layers_{neurons}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
             raw_distribution_path = os.path.join(os.path.join(prediction_path, epsilon_path),  raw_distribution_path)
-            
+
             # bugs: no such file because no intervention yet
             with open(raw_distribution_path, 'rb') as handle: 
                 distributions = pickle.load(handle)
@@ -460,7 +471,8 @@ def convert_to_text_ans(config, neuron_path, params, digits):
                             text_answer_path = f'txt_answer_{rank_mode}_{mode}_all_layers_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
                         else:
                             text_answer_path = f'txt_answer_{rank_mode}_{mode}_L{layer}_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
-            
+
+
             text_answer_path  = os.path.join(os.path.join(prediction_path, epsilon_path), text_answer_path)
 
             with open(text_answer_path, "w") as fobj:
@@ -474,6 +486,8 @@ def convert_to_text_ans(config, neuron_path, params, digits):
                     fobj.write(f"ex{sample_id}" + "," + ans +"\n")
 
                 print(f"saving text answer's bert predictions: {text_answer_path}")
+
+        
 
 def print_config(config):
             
@@ -506,9 +520,11 @@ def format_label(label):
     else:
         return "non-entailment"
 
-def get_result(config, params, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode):
+def get_result(config, eval_path, prediction_path, neuron_path, top_neuron, prediction_mode, params, digits):
     
     if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits)
+
+    breakpoint()
     
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 

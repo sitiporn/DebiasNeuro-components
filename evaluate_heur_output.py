@@ -34,7 +34,7 @@ with open(neuron_path, 'rb') as handle:
 
 params, digits = get_params(config)
 
-if config['get_result']: get_result(config, params, eval_path, prediction_path, neuron_path, top_neuron, digits, prediction_mode)
+if config['get_result']: get_result(config, eval_path, prediction_path, neuron_path, top_neuron, prediction_mode, params, digits)
 
 num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
@@ -43,6 +43,7 @@ scores = {}
 
 rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
 total_neurons = get_num_neurons(config)
+
 
 for epsilon in (t := tqdm(params['epsilons'])):  
 
