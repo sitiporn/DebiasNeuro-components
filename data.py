@@ -402,14 +402,14 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
 
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
-    low  =  config['percent']['low'] 
-    high =  config['percent']['high']  
-    step =  config['percent']['step'] 
+    low  =  config['epsilons']['low'] 
+    high =  config['epsilons']['high']  
+    step =  config['epsilons']['step'] 
 
     digits = len(str(step).split('.')[-1])
     
-    size = config['percent']['size']
-    mode = config['percent']['mode']
+    size = config['epsilons']['size']
+    mode = config['epsilons']['mode']
     
     layer = config['layer']
     
@@ -419,6 +419,8 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
     if config['intervention_type'] == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
     if config['intervention_type'] == "weaken": epsilons = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
     if config['intervention_type'] not in ["remove","weaken"]: epsilons = [0]
+
+    # bugs : in epsilons
 
     for epsilon in (t := tqdm(epsilons)):  
 
@@ -526,8 +528,6 @@ def format_label(label):
 def get_result(config, eval_path, prediction_path, neuron_path, top_neuron, prediction_mode, params, digits):
     
     if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits)
-
-    breakpoint()
     
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 

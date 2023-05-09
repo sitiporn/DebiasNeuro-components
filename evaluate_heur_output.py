@@ -81,9 +81,6 @@ for epsilon in (t := tqdm(params['epsilons'])):
         cur_score = torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
         scores[f"{epsilon}-{group}"] = cur_score
         
-        breakpoint()
-
-
 # key_rank_scores = list(rank_scores.keys())
 # best_score_key = list(rank_scores.keys())[0]
 # null_score_key = list(rank_scores.keys())[48]
