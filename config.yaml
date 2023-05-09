@@ -12,7 +12,7 @@
   "traced": False, 
   "debias": False,
   "get_prediction": True,
-  "dev-name": "hans",
+  "dev-name": "mismatched",
   "weaken": null,
   "neuron_group": null,
   
@@ -29,7 +29,7 @@
   
   # compute nie scores
   "num_samples": 300,
-  "label_maps ": {"contradiction": 0 , "entailment" : 1, "neutral": 2 },
+  "label_maps": {"contradiction": 0 , "entailment" : 1, "neutral": 2 },
   "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
         

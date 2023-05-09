@@ -44,7 +44,6 @@ scores = {}
 rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
 total_neurons = get_num_neurons(config)
 
-
 for epsilon in (t := tqdm(params['epsilons'])):  
 
     epsilon_path = f'v{round(epsilon, digits["epsilons"])}'

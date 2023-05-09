@@ -373,7 +373,6 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                 pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving distributions and labels into : {raw_distribution_path}')
 
-            
             if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
 
         eval_path =  f'../pickles/evaluations/'
