@@ -72,23 +72,30 @@ for epsilon in (t := tqdm(params['epsilons'])):
 
             class_score = []
 
-            for score in ['lexical_overlap', 'subsequence','constituent']:
-
-                class_score.append(current_score[group][type][score])
+            for score in ['lexical_overlap', 'subsequence','constituent']: class_score.append(current_score[group][type][score])
 
             cur_score.append(class_score)
 
         cur_score = torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
         scores[f"{epsilon}-{group}"] = cur_score
+
         
-# key_rank_scores = list(rank_scores.keys())
-# best_score_key = list(rank_scores.keys())[0]
+rank_scores = dict(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
+
+key_rank_scores = list(rank_scores.keys())
+best_score_key = list(rank_scores.keys())[0]
 # null_score_key = list(rank_scores.keys())[48]
 
-# print(f"+++++++++++++ Config +++++++++++++++++++")
-# print(f"Low: {low} , High : {high}, Step : {step}")
-# print(f"optimize intervention scores : {rank_scores[best_score_key]} on weaken rate at {best_score_key.split('-')[0]}, {best_score_key.split('-')[1]} neurons")
+print(f"+++++++++++++ Config +++++++++++++++++++")
+print(f"Low: {config['epsilons']['low']} , High : {config['epsilons']['high']}, Step : {config['epsilons']['step']}")
+print(f"weaken rate at {best_score_key.split('-')[0]}")
+print(f"masking neuron rate {float(best_score_key.split('-')[1]) * 100 } percent from entire model")
+print(f"optimize intervention scores on hans : {rank_scores[best_score_key]}")
+print(f"without  intervention scores on hans : {rank_scores['0.0-0.0']}")
+
 # print(f"Null scores : {rank_scores[null_score_key]} with {null_score_key.split('-')[-1]} neurons")
+
+
 
 # # # Todo: grid search on X percents and weaken rates
 
