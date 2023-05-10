@@ -226,8 +226,8 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
     params, digits = get_params(config)
     total_neurons = get_num_neurons(config)
 
-    epsilons = params['epsilons']
-    
+    epsilons = params['epsilons'] if config["weaken"] is None else [ config["weaken"]]
+
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
 
     epsilons = sorted(epsilons)
@@ -262,16 +262,14 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
         # print(f"loading top neurons from pickles !") 
     
     # Todo: changing neuron group correspond to percent
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
-
-    # breakpoint()
-
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
+    top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
+    
     cls = get_hidden_representations(config['counterfactual_paths'], 
                                     config['layers'], 
                                     config['heads'], 
                                     config['is_group_by_class'], 
                                     config['is_averaged_embeddings'])
-
 
     for epsilon in (t := tqdm(epsilons)): 
         
@@ -287,7 +285,6 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
         for value in (n:= tqdm(num_neuron_groups)):
             
             if layer == -1:
-                
                 components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
                 neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[value].items()]
                 layer_ids  = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
@@ -385,6 +382,7 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
         with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
+        breakpoint()
         
 def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
     
@@ -399,7 +397,7 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
     with open(neuron_path, 'rb') as handle: 
         top_neuron = pickle.load(handle)
 
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else (config['masking_rate'] if config['masking_rate'] else list(top_neuron.keys()))
 
     low  =  config['epsilons']['low'] 
     high =  config['epsilons']['high']  
@@ -528,7 +526,8 @@ def get_result(config, eval_path, prediction_path, neuron_path, top_neuron, pred
     
     if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits)
     
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else (config['masking_rate'] if config['masking_rate'] else list(top_neuron.keys()))
+
 
     for epsilon in (t := tqdm(params['epsilons'])):  
 

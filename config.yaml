@@ -13,7 +13,10 @@
   "debias": False,
   "get_prediction": True,
   "dev-name": "mismatched",
-  "weaken": null,
+
+  # if know best params
+  "weaken": 0.7,
+  "masking_rate": 0.05, 
   "neuron_group": null,
   
   "model_name": "../bert-base-uncased-mnli/",
@@ -92,6 +95,7 @@
   # neurons components
   "attention_components": 3,
   "nums": {}
+
 }
 
 #current jobs : 23185

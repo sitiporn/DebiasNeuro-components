@@ -140,7 +140,7 @@ def get_top_k(config, treatments, debug=False):
     params, digits = get_params(config)
     total_neurons = get_num_neurons(config)
 
-    topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()} if num_top_neurons is not None else {'percent': params['percent']}
+    topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()} if num_top_neurons is not None else {'percent': [config['masking_rate']] if config['masking_rate'] else params['percent']}
 
     key = list(topk.keys())[0]
    
