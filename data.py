@@ -262,7 +262,7 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
         # print(f"loading top neurons from pickles !") 
     
     # Todo: changing neuron group correspond to percent
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     
     cls = get_hidden_representations(config['counterfactual_paths'], 
@@ -377,11 +377,20 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
 
         if not os.path.isdir(eval_path): os.mkdir(eval_path) 
 
-        eval_path = os.path.join(eval_path, f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
+        eval_path = os.path.join(eval_path, 
+                                f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
+                                else f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
         
         with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
+
+        if config["masking_rate"] is not None:
+            print(f"all acc : {acc[value]['all']}")
+            print(f"contradiction acc : {acc[value]['contradiction']}")
+            print(f"entailment acc : {acc[value]['entailment']}")
+            print(f"neutral acc : {acc[value]['neutral']}")
+
         breakpoint()
         
 def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
