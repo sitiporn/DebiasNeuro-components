@@ -71,7 +71,47 @@ def main():
     if config['debias']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
     if config['get_prediction']: get_predictions(config, mode[0], model, tokenizer, DEVICE)
+    
+    # Todo: get softmax score for each sample from two techniques intervention and no intervention:  
+    # 5 outputs  for each calss on both mnli and hans
 
+    for dev in ['mismatched', 'hans']:
+        
+        # get raw  distributions of intervention
+        value = config["weaken"]
+        value = config["masking_rate"]
+
+        key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+        layer = config['layer']
+        do = 'High-overlap'
+
+        params, digits = get_params(config)
+        
+        if layer == -1:
+            raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{config["intervention_type"]}_{dev}.pickle'  
+        else:
+            raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{dev}.pickle'
+
+        prediction_path = '../pickles/prediction/' 
+        epsilon_path = f"v{round(params['epsilons'][0], digits['epsilons'])}"
+        
+        raw_distribution_path = os.path.join(os.path.join(prediction_path, epsilon_path),  raw_distribution_path)
+        
+        with open(raw_distribution_path, 'rb') as handle: 
+            
+            distributions = pickle.load(handle)
+            golden_answers = pickle.load(handle)
+
+        print(f" ++++++++  {dev} set ++++++++")
+        
+        for mode in ['Null', 'Intervene']:
+
+            print(f"{mode}")
+            print(distributions[mode][:5])
+
+    breakpoint()
+    
+    
 if __name__ == "__main__":
     main()
 

@@ -232,7 +232,6 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
 
     epsilons = sorted(epsilons)
     mediators  = get_mediators(model)
-
     dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
 
@@ -273,7 +272,6 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
 
     for epsilon in (t := tqdm(epsilons)): 
         
-
         prediction_path = '../pickles/prediction/' 
         
         prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, digits["epsilons"])}')

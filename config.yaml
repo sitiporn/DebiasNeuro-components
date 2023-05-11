@@ -12,12 +12,15 @@
   "traced": False, 
   "debias": False,
   "get_prediction": True,
-  "dev-name": "mismatched",
+  # "get_prediction": False,
+  # "dev-name": "mismatched",
+  "dev-name": "hans",
 
   # if know best params
   "weaken": 0.7,
   "masking_rate": 0.05, 
   "neuron_group": null,
+  "diag": True,
   
   "model_name": "../bert-base-uncased-mnli/",
   "is_group_by_class": False,
