@@ -1138,3 +1138,63 @@ def get_params(config):
             if config['intervention_type'] == "weaken": params[op] = [config['weaken']] if config['weaken'] is not None else [round(val, digits[op])for val in np.arange(low, high, step).tolist()]
 
     return  params, digits
+
+def get_diagnosis(config):
+
+    print(f"{config['label_maps']}")
+    
+    SAMPLE_SIZE = 5
+    
+    for dev in ['mismatched', 'hans']:
+        
+        # get raw  distributions of intervention
+        value = config["masking_rate"]
+
+        key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+        layer = config['layer']
+        do = 'High-overlap'
+
+        params, digits = get_params(config)
+        
+        if layer == -1:
+            raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{config["intervention_type"]}_{dev}.pickle'  
+        else:
+            raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{dev}.pickle'
+
+        prediction_path = '../pickles/prediction/' 
+        epsilon_path = f"v{round(params['epsilons'][0], digits['epsilons'])}"
+        
+        raw_distribution_path = os.path.join(os.path.join(prediction_path, epsilon_path),  raw_distribution_path)
+
+        # if dev == "hans": raw_distribution_path = '../pickles/prediction/v0.7/raw_distribution_0.7_High-overlap_all_layers_0.05-k_weaken_hans.pickle'
+        
+        with open(raw_distribution_path, 'rb') as handle: 
+            
+            distributions = pickle.load(handle)
+            golden_answers = pickle.load(handle)
+
+
+
+        # Todo: get index of current labels
+        print(f" ++++++++  {dev} set, masking rate {value}, weaken rate : {key} ++++++++")
+        # print(f"cur path : {raw_distribution_path}")
+        
+        for mode in ['Null', 'Intervene']:
+
+            print(f">> {mode}")
+        
+            cur_labels = set(golden_answers[mode])
+            
+            dists = {}
+        
+            for idx, label in enumerate(golden_answers[mode]): 
+                
+                if label not in dists.keys(): dists[label] = []
+
+                dists[label].append(distributions[mode][idx])
+        
+            for label in cur_labels:
+                print(f"== {label} == ")
+                print(torch.stack(dists[label])[:5].cpu())
+            
+    # raw_distribution_path : 
