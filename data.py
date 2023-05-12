@@ -262,7 +262,7 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
     
     # Todo: changing neuron group correspond to percent
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
-    top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
+    top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
     
     cls = get_hidden_representations(config['counterfactual_paths'], 
                                     config['layers'], 
@@ -270,6 +270,7 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                                     config['is_group_by_class'], 
                                     config['is_averaged_embeddings'])
 
+    breakpoint()
     for epsilon in (t := tqdm(epsilons)): 
         
         prediction_path = '../pickles/prediction/' 
@@ -383,11 +384,11 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
 
-        if config["masking_rate"] is not None:
-            print(f"all acc : {acc[value]['all']}")
-            print(f"contradiction acc : {acc[value]['contradiction']}")
-            print(f"entailment acc : {acc[value]['entailment']}")
-            print(f"neutral acc : {acc[value]['neutral']}")
+        # if config["masking_rate"] is not None:
+        #     print(f"all acc : {acc[value]['all']}")
+        #     print(f"contradiction acc : {acc[value]['contradiction']}")
+        #     print(f"entailment acc : {acc[value]['entailment']}")
+        #     print(f"neutral acc : {acc[value]['neutral']}")
 
         breakpoint()
         

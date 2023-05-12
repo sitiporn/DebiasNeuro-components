@@ -74,11 +74,14 @@ def main():
     
     # Todo: get softmax score for each sample from two techniques intervention and no intervention:  
     # 5 outputs  for each calss on both mnli and hans
-
+    
+    print(f"{config['label_maps']}")
+    
+    SAMPLES = 5
+    
     for dev in ['mismatched', 'hans']:
         
         # get raw  distributions of intervention
-        value = config["weaken"]
         value = config["masking_rate"]
 
         key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
@@ -96,21 +99,39 @@ def main():
         epsilon_path = f"v{round(params['epsilons'][0], digits['epsilons'])}"
         
         raw_distribution_path = os.path.join(os.path.join(prediction_path, epsilon_path),  raw_distribution_path)
+
+        # if dev == "hans": raw_distribution_path = '../pickles/prediction/v0.7/raw_distribution_0.7_High-overlap_all_layers_0.05-k_weaken_hans.pickle'
         
         with open(raw_distribution_path, 'rb') as handle: 
             
             distributions = pickle.load(handle)
             golden_answers = pickle.load(handle)
 
-        print(f" ++++++++  {dev} set ++++++++")
+
+
+        # Todo: get index of current labels
+        print(f" ++++++++  {dev} set, masking rate {value}, weaken rate : {key} ++++++++")
+        # print(f"cur path : {raw_distribution_path}")
         
         for mode in ['Null', 'Intervene']:
 
-            print(f"{mode}")
-            print(distributions[mode][:5])
+            print(f">> {mode}")
+        
+            cur_labels = set(golden_answers[mode])
+            
+            dists = {}
+           
+            for idx, label in enumerate(golden_answers[mode]): 
+                
+                if label not in dists.keys(): dists[label] = []
 
-    breakpoint()
-    
+                dists[label].append(distributions[mode][idx])
+        
+            for label in cur_labels:
+                print(f"== {label} == ")
+                print(torch.stack(dists[label])[:5].cpu())
+            
+    # raw_distribution_path : 
     
 if __name__ == "__main__":
     main()

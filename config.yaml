@@ -5,14 +5,15 @@
   "analysis": False,
   "print_config": True,
   # default
-  "topk": True,
+  # "topk": True,
+  "topk": False,
   "distribution": False,
   "embedding_summary": False,
   "getting_counterfactual": False,
   "traced": False, 
   "debias": False,
-  "get_prediction": True,
-  # "get_prediction": False,
+  # "get_prediction": True,
+  "get_prediction": False,
   # "dev-name": "mismatched",
   "dev-name": "hans",
 
