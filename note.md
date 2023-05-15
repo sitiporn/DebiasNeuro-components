@@ -71,3 +71,7 @@ what does it mean LOL if NIE still increase
 
 Why NIE of still 
 
+
+## Note
+
+1. when do we use 
