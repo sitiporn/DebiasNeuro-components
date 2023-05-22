@@ -10,36 +10,6 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import yaml
 from data import ExperimentDataset, Dev, get_predictions, print_config
 
-class ReweightDataset:
-
-    def __init__(self, dev_path, encode, DEBUG=False) -> None: 
-        
-        # combine these two set
-        self.encode = encode
-        self.df = pd.read_json(dev_path, lines=True)
-        
-        #Index(['gold_label', 'sentence1', 'sentence2', 'bias_probs'], dtype='object')
-        self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
-        
-        self.inputs = {}
-
-        for  df_col in list(self.df.keys()): 
-            
-            self.inputs[df_col] = self.df[df_col].tolist()
-
-    def __len__(self):
-
-        return self.df.shape[0]
-    
-    def __getitem__(self, idx):
-
-        gold_label = self.inputs['gold_label'][idx]
-        premise = self.inputs['sentence1'][idx]
-        hypo = self.inputs['sentence2'][idx]
-        bias_prob = self.inputs['bias_probs'][idx]
-        weight_score = self.inputs['weight_score'][idx]
-
-        return gold_label, premise, hypo, bias_prob, weight_score
 
 with open("config.yaml", "r") as yamlfile:
     config = yaml.load(yamlfile, Loader=yaml.FullLoader)
@@ -56,7 +26,8 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = model.to(DEVICE)
 
 avg_losses = []
-reweighting_set = ReweightDataset(dev_path = dev_path, encode = tokenizer)
+
+reweighting_set = Dev(config['dev_path'], config['dev_json'])
 reweighting_loader = DataLoader(reweighting_set, batch_size = 32, shuffle = False, num_workers=0)
     
 mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 

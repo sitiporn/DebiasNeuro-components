@@ -372,41 +372,41 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
 
                     breakpoint()
                     
-        #             if mode == "Intervene": 
-        #                 for hook in hooks: hook.remove() 
+                    if mode == "Intervene": 
+                        for hook in hooks: hook.remove() 
 
-        #             for sample_idx in range(cur_dist[mode].shape[0]):
+                    for sample_idx in range(cur_dist[mode].shape[0]):
 
-        #                 distributions[mode].append(cur_dist[mode][sample_idx,:])
-        #                 golden_answers[mode].append(labels[sample_idx]) 
+                        distributions[mode].append(cur_dist[mode][sample_idx,:])
+                        golden_answers[mode].append(labels[sample_idx]) 
                     
-        #     raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
+            raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
 
-        #     with open(raw_distribution_path, 'wb') as handle: 
-        #         pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #         pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #         print(f'saving distributions and labels into : {raw_distribution_path}')
+            with open(raw_distribution_path, 'wb') as handle: 
+                pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving distributions and labels into : {raw_distribution_path}')
 
-        #     if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
+            if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
 
-        # eval_path =  f'../pickles/evaluations/'
-        # eval_path =  os.path.join(eval_path, f'v{round(epsilon, digits["epsilons"])}')
+        eval_path =  f'../pickles/evaluations/'
+        eval_path =  os.path.join(eval_path, f'v{round(epsilon, digits["epsilons"])}')
 
-        # if not os.path.isdir(eval_path): os.mkdir(eval_path) 
+        if not os.path.isdir(eval_path): os.mkdir(eval_path) 
 
-        # eval_path = os.path.join(eval_path, 
-        #                         f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
-        #                         else f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
+        eval_path = os.path.join(eval_path, 
+                                f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
+                                else f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
         
-        # with open(eval_path,'wb') as handle:
-        #     pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #     print(f"saving all accuracies into {eval_path} ")
+        with open(eval_path,'wb') as handle:
+            pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"saving all accuracies into {eval_path} ")
 
-        # # if config["masking_rate"] is not None:
-        # #     print(f"all acc : {acc[value]['all']}")
-        # #     print(f"contradiction acc : {acc[value]['contradiction']}")
-        # #     print(f"entailment acc : {acc[value]['entailment']}")
-        # #     print(f"neutral acc : {acc[value]['neutral']}")
+        # if config["masking_rate"] is not None:
+        #     print(f"all acc : {acc[value]['all']}")
+        #     print(f"contradiction acc : {acc[value]['contradiction']}")
+        #     print(f"entailment acc : {acc[value]['entailment']}")
+        #     print(f"neutral acc : {acc[value]['neutral']}")
 
 def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
     
