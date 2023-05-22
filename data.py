@@ -24,7 +24,7 @@ from nn_pruning.patch_coordinator import (
 from utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
 from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans, compute_acc
-from utils import get_num_neurons, get_params
+from utils import get_num_neurons, get_params, relabel, give_weight
 
 
 class ExperimentDataset(Dataset):
@@ -191,29 +191,39 @@ class Dev(Dataset):
                 json_file, 
                 DEBUG=False) -> None: 
 
+
+        # Todo: generalize dev apth and json file to  mateched
+        self.inputs = {}
+        
+        # dev_path = "../debias_fork_clean/debias_nlu_clean/data/nli/"
+        # dev_path = os.path.join(os.path.join(dev_path, file))
+
+        print(f"current datapath : {data_path}")
+        print(f"current json files : {json_file}")
+
         self.dev_name = list(json_file.keys())[0]
         data_path = os.path.join(data_path, json_file[self.dev_name])
         self.df = pd.read_json(data_path, lines=True)
+
+        if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
         
         if self.dev_name == 'mismatched':
             if '-' in self.df.gold_label.unique(): 
                 self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
+        
+        for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
 
+        # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
+        # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
+        # self.labels = self.df.gold_label.tolist()
 
-        self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
-        self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
-        self.labels = self.df.gold_label.tolist()
-
-    def __len__(self):
-
-        return self.df.shape[0]
+    def __len__(self): return self.df.shape[0]
 
     def __getitem__(self, idx):
         
-        pair_sentence = [self.premises[idx], self.hypos[idx]]
-        label = self.labels[idx] 
-        
-        return pair_sentence , label
+        return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
+
+        # return pair_sentence , label
 
 def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
 
@@ -270,7 +280,6 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                                     config['is_group_by_class'], 
                                     config['is_averaged_embeddings'])
 
-    breakpoint()
     for epsilon in (t := tqdm(epsilons)): 
         
         prediction_path = '../pickles/prediction/' 
@@ -316,11 +325,18 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                 golden_answers[mode] = []
             
             # test hans loader
-            for batch_idx, (sentences, labels) in enumerate(dev_loader):
+            # for batch_idx, (sentences, labels) in enumerate(dev_loader):
+            for batch_idx, (inputs) in enumerate(dev_loader):
 
-                premises, hypos = sentences
+                cur_inputs = {} 
 
-                pair_sentences = [[premise, hypo] for premise, hypo in zip(premises, hypos)]
+                # ['gold_label', 'sentence1', 'sentence2', 'bias_probs', 'weight_score']
+                for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))):
+
+                    cur_inputs[cur_col] = cur_inp
+
+                pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+                
 
                 inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
                     
@@ -353,45 +369,45 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                         
                         # Todo: generalize to distribution if the storage is enough
                         cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
+
+                    breakpoint()
                     
-                    if mode == "Intervene": 
-                        for hook in hooks: hook.remove() 
+        #             if mode == "Intervene": 
+        #                 for hook in hooks: hook.remove() 
 
-                    for sample_idx in range(cur_dist[mode].shape[0]):
+        #             for sample_idx in range(cur_dist[mode].shape[0]):
 
-                        distributions[mode].append(cur_dist[mode][sample_idx,:])
-                        golden_answers[mode].append(labels[sample_idx]) 
+        #                 distributions[mode].append(cur_dist[mode][sample_idx,:])
+        #                 golden_answers[mode].append(labels[sample_idx]) 
                     
-            raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
+        #     raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
 
-            with open(raw_distribution_path, 'wb') as handle: 
-                pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f'saving distributions and labels into : {raw_distribution_path}')
+        #     with open(raw_distribution_path, 'wb') as handle: 
+        #         pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        #         pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        #         print(f'saving distributions and labels into : {raw_distribution_path}')
 
-            if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
+        #     if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
 
-        eval_path =  f'../pickles/evaluations/'
-        eval_path =  os.path.join(eval_path, f'v{round(epsilon, digits["epsilons"])}')
+        # eval_path =  f'../pickles/evaluations/'
+        # eval_path =  os.path.join(eval_path, f'v{round(epsilon, digits["epsilons"])}')
 
-        if not os.path.isdir(eval_path): os.mkdir(eval_path) 
+        # if not os.path.isdir(eval_path): os.mkdir(eval_path) 
 
-        eval_path = os.path.join(eval_path, 
-                                f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
-                                else f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
+        # eval_path = os.path.join(eval_path, 
+        #                         f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
+        #                         else f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
         
-        with open(eval_path,'wb') as handle:
-            pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f"saving all accuracies into {eval_path} ")
+        # with open(eval_path,'wb') as handle:
+        #     pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        #     print(f"saving all accuracies into {eval_path} ")
 
-        # if config["masking_rate"] is not None:
-        #     print(f"all acc : {acc[value]['all']}")
-        #     print(f"contradiction acc : {acc[value]['contradiction']}")
-        #     print(f"entailment acc : {acc[value]['entailment']}")
-        #     print(f"neutral acc : {acc[value]['neutral']}")
+        # # if config["masking_rate"] is not None:
+        # #     print(f"all acc : {acc[value]['all']}")
+        # #     print(f"contradiction acc : {acc[value]['contradiction']}")
+        # #     print(f"entailment acc : {acc[value]['entailment']}")
+        # #     print(f"neutral acc : {acc[value]['neutral']}")
 
-        breakpoint()
-        
 def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
     
     """changing distributions into text anaswers on hans set

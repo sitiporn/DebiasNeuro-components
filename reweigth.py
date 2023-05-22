@@ -10,45 +10,6 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import yaml
 from data import ExperimentDataset, Dev, get_predictions, print_config
 
-
-
-# 3 class {entailment: 0, contrandiction: 1, neatral: 2}
-def relabel(label):
-
-    if label == 'contradiction':
-        return 1
-    elif label == 'neutral':
-        return 2
-    else:
-        return 0
-
-# ps
-def give_weight(label, probs): 
-
-    golden_id = relabel(label)
-
-    probs = probs[golden_id]
-
-    return 1 / probs
-
-with open("config.yaml", "r") as yamlfile:
-    config = yaml.load(yamlfile, Loader=yaml.FullLoader)
-
-dev_path = "../debias_fork_clean/debias_nlu_clean/data/nli/"
-
-file = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
-
-dev_path = os.path.join(os.path.join(dev_path, file))
-
-
-
-tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
-model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = model.to(DEVICE)
-
-avg_losses = []
-
 class ReweightDataset:
 
     def __init__(self, dev_path, encode, DEBUG=False) -> None: 
@@ -80,8 +41,27 @@ class ReweightDataset:
 
         return gold_label, premise, hypo, bias_prob, weight_score
 
+with open("config.yaml", "r") as yamlfile:
+    config = yaml.load(yamlfile, Loader=yaml.FullLoader)
+
+dev_path = "../debias_fork_clean/debias_nlu_clean/data/nli/"
+
+file = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
+
+dev_path = os.path.join(os.path.join(dev_path, file))
+
+tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
+model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+model = model.to(DEVICE)
+
+avg_losses = []
 reweighting_set = ReweightDataset(dev_path = dev_path, encode = tokenizer)
 reweighting_loader = DataLoader(reweighting_set, batch_size = 32, shuffle = False, num_workers=0)
+    
+mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
+
+if config['get_prediction']: get_predictions(config, mode[0], model, tokenizer, DEVICE)
 
 # quantifying by using losses
 # for index, row in df.iterrows():

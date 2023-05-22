@@ -1198,3 +1198,22 @@ def get_diagnosis(config):
                 print(torch.stack(dists[label])[:5].cpu())
             
     # raw_distribution_path : 
+
+# 3 class {entailment: 0, contrandiction: 1, neatral: 2}
+def relabel(label):
+
+    if label == 'contradiction':
+        return 1
+    elif label == 'neutral':
+        return 2
+    else:
+        return 0
+
+# ps
+def give_weight(label, probs): 
+
+    golden_id = relabel(label)
+
+    probs = probs[golden_id]
+
+    return 1 / probs
