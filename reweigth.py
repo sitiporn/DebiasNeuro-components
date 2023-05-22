@@ -27,6 +27,8 @@ model = model.to(DEVICE)
 
 avg_losses = []
 
+if config["dev-name"] == 'reweight': config["dev_json"]['reweight'] = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
+
 reweighting_set = Dev(config['dev_path'], config['dev_json'])
 reweighting_loader = DataLoader(reweighting_set, batch_size = 32, shuffle = False, num_workers=0)
     
