@@ -344,12 +344,13 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                 # cur_inputs['gold_label']
                 # Todo: convert text label into label_ids
                 label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']])
+                scalers = torch.tensor(cur_inputs['weight_score'])
 
                 pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
                     
                 pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
                 label_ids = label_ids.to(DEVICE)
-
+                scalers = scalers.to(DEVICE)
                  
                 # Todo: create custome loss 
                 # test by comparing loss between loss coming out from BERT 
@@ -392,6 +393,12 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                         assert (test_loss - cur_loss[mode]) < 1e-6
 
                         if debug: print(f"test loss : {test_loss},  BERT's loss : {cur_loss[mode]}")
+
+                        print(f"Before reweight : {test_loss}")
+
+                        loss =  scalers * loss
+                        
+                        print(f"After reweight : {torch.mean(loss)}")
 
                     if mode == "Intervene": 
                         for hook in hooks: hook.remove() 
