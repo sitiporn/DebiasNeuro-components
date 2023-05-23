@@ -230,6 +230,7 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
     acc = {}
 
     layer = config['layer']
+    criterion = nn.CrossEntropyLoss(reduction = 'none')
 
     torch.manual_seed(42)
 
@@ -344,13 +345,15 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                 # Todo: convert text label into label_ids
                 label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']])
 
-
                 pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
                     
                 pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
                 label_ids = label_ids.to(DEVICE)
 
-                # breakpoint()
+                 
+                # Todo: create custome loss 
+                # test by comparing loss between loss coming out from BERT 
+                # and our customer loss
 
                 #labels = [label_maps[label] for label in labels]
                 # mediator used to intervene
@@ -383,25 +386,21 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                         cur_dist[mode] = F.softmax(outs.logits , dim=-1)
                         cur_loss[mode] = outs.loss
 
-                        # print(f"current loss : {cur_loss}")
-                    
+                        loss = criterion(outs.logits, label_ids)
+                        test_loss = torch.mean(loss)
+
+                        assert (test_loss - cur_loss[mode]) < 1e-6
+
+                        if debug: print(f"test loss : {test_loss},  BERT's loss : {cur_loss[mode]}")
+
                     if mode == "Intervene": 
                         for hook in hooks: hook.remove() 
 
-                    
-                    # by batch average loss
-                    losses[mode].append(cur_loss[mode].item())
-
-                    # by each sample
-                    for sample_idx in range(cur_dist[mode].shape[0]):
-
-                        # distributions[mode].append(cur_dist[mode][sample_idx,:])
-                        # golden_answers[mode].append(label_ids[sample_idx]) 
-                        distributions[mode].append(cur_dist[mode][sample_idx,:])
-                        golden_answers[mode].append(label_ids[sample_idx]) 
+                    distributions[mode].extend(cur_dist[mode])
+                    golden_answers[mode].extend(label_ids) 
+                    losses[mode].extend(loss)
 
                     breakpoint()
-
                     
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
 
