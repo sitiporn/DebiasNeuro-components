@@ -318,11 +318,13 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                     raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
                 
             distributions = {}
+            losses = {}
             golden_answers = {}
             
             for mode in ["Null", "Intervene"]: 
                 distributions[mode] = []
                 golden_answers[mode] = []
+                losses[mode] = []
             
             # test hans loader
             # for batch_idx, (sentences, labels) in enumerate(dev_loader):
@@ -336,15 +338,24 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                     cur_inputs[cur_col] = cur_inp
 
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
-                
 
-                inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                # ['gold_label', 'sentence1', 'sentence2', 'bias_probs', 'weight_score']
+                # cur_inputs['gold_label']
+                # Todo: convert text label into label_ids
+                label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']])
+
+
+                pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
                     
-                inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+                pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+                label_ids = label_ids.to(DEVICE)
+
+                # breakpoint()
 
                 #labels = [label_maps[label] for label in labels]
                 # mediator used to intervene
                 cur_dist = {}
+                cur_loss = {}
 
                 for mode in ["Null", "Intervene"]:
 
@@ -368,17 +379,29 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                     with torch.no_grad(): 
                         
                         # Todo: generalize to distribution if the storage is enough
-                        cur_dist[mode] = F.softmax(model(**inputs).logits , dim=-1)
+                        outs =  model(**pair_sentences, labels=label_ids)
+                        cur_dist[mode] = F.softmax(outs.logits , dim=-1)
+                        cur_loss[mode] = outs.loss
 
-                    breakpoint()
+                        # print(f"current loss : {cur_loss}")
                     
                     if mode == "Intervene": 
                         for hook in hooks: hook.remove() 
 
+                    
+                    # by batch average loss
+                    losses[mode].append(cur_loss[mode].item())
+
+                    # by each sample
                     for sample_idx in range(cur_dist[mode].shape[0]):
 
+                        # distributions[mode].append(cur_dist[mode][sample_idx,:])
+                        # golden_answers[mode].append(label_ids[sample_idx]) 
                         distributions[mode].append(cur_dist[mode][sample_idx,:])
-                        golden_answers[mode].append(labels[sample_idx]) 
+                        golden_answers[mode].append(label_ids[sample_idx]) 
+
+                    breakpoint()
+
                     
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
 
