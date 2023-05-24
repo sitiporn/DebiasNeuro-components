@@ -336,8 +336,6 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
 
                 label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']])
 
-                # breakpoint()
-                # scalers = torch.tensor(cur_inputs['weight_score'].clone().detach())
                 scalers = cur_inputs['weight_score']
 
                 pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
