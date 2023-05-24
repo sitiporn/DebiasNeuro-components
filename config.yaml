@@ -12,12 +12,12 @@
   "getting_counterfactual": False,
   "traced": False, 
   "debias": False,
-  # "get_prediction": True,
-  "get_prediction": False,
+  "get_prediction": True,
   # "get_prediction": False,
-  # "dev-name": "mismatched",
+  # "get_prediction": False,
+  "dev-name": "mismatched",
   # "dev-name": "hans",
-  "dev-name": "reweight",
+  # "dev-name": "reweight",
 
   # if know best params
   # "weaken": null,
@@ -26,7 +26,8 @@
   "masking_rate": 0.05, 
   # number of neurons to mask
   "neuron_group": null,
-  "diag": False,
+  # "diag": False,
+  "diag": True,
   "rank_losses": False, 
   
   "model_name": "../bert-base-uncased-mnli/",

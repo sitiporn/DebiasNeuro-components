@@ -333,16 +333,14 @@ def get_inferences(config, do,  model, tokenizer, DEVICE, debug = False):
                 for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
 
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
-
-                label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']])
-
-                scalers = cur_inputs['weight_score']
-
                 pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-                    
+                
+                label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']])
+                scalers = cur_inputs['weight_score'] if config["dev-name"] == 'reweight' else 1
+                
                 pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
                 label_ids = label_ids.to(DEVICE)
-                scalers = scalers.to(DEVICE)
+                if config['dev-name'] == 'reweight': scalers = scalers.to(DEVICE)
                  
                 # mediator used to intervene
                 cur_dist = {}

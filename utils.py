@@ -1170,6 +1170,7 @@ def get_diagnosis(config):
         raw_distribution_path = os.path.join(os.path.join(prediction_path, epsilon_path),  raw_distribution_path)
 
         # if dev == "hans": raw_distribution_path = '../pickles/prediction/v0.7/raw_distribution_0.7_High-overlap_all_layers_0.05-k_weaken_hans.pickle'
+        breakpoint()
         
         with open(raw_distribution_path, 'rb') as handle: 
             
