@@ -224,7 +224,7 @@ class Dev(Dataset):
 
         # return pair_sentence , label
 
-def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
+def get_inferences(config, do,  model, tokenizer, DEVICE, debug = False):
 
     acc = {}
 
@@ -707,6 +707,54 @@ def get_result(config, eval_path, prediction_path, neuron_path, top_neuron, pred
             with open(result_path, 'wb') as handle: 
                 pickle.dump(config["evaluations"], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving evaluation predictoins into : {result_path}')
+
+def rank_losses(config, do):  
+    
+    # get weaken rates parameters
+    params, digits = get_params(config)
+    total_neurons = get_num_neurons(config)
+    epsilons = params['epsilons'] if config["weaken"] is None else [ config["weaken"]]
+    epsilons = sorted(epsilons)
+    key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+    layer = config['layer']
+    average_losses = {}
+
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
+
+    if not isinstance(epsilons, list): epsilons = epsilons.tolist()
+
+    for epsilon in epsilons:
+
+        prediction_path = '../pickles/prediction/' 
+        
+        prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, digits["epsilons"])}')
+
+        for value in num_neuron_groups:
+    
+            # dum_path = '../pickles/prediction/v0.5/raw_distribution_neurons_High-overlap_all_layers_0.05-k_weaken_reweight.pickle'
+            
+
+            if layer == -1:
+                raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
+            else:
+                raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
+
+            
+            raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
+
+            with open(raw_distribution_path, 'rb') as handle:
+                # get [CLS] activation 
+                distributions = pickle.load(handle)
+                golden_answers = pickle.load(handle)
+                losses = pickle.load(handle)
+
+            """
+            consider Intervene-ony mode 
+            select the lowest loss  on hans set
+            """
+            average_losses = torch.mean(torch.tensor(losses['Intervene']))
+
+            print(f"curret loss : {average_losses} on weaken rate : {epsilon}")
 
         
 

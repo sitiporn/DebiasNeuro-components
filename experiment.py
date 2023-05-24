@@ -23,7 +23,7 @@ from nn_pruning.patch_coordinator import (
     SparseTrainingArguments,
     ModelPatchingCoordinator,
 )
-from data import ExperimentDataset, Dev, get_predictions, print_config
+from data import ExperimentDataset, Dev, get_inferences, print_config, rank_losses
 from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
 from utils import debias_test, get_nie_set_path
@@ -71,8 +71,11 @@ def main():
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['debias']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
-    if config['get_prediction']: get_predictions(config, mode[0], model, tokenizer, DEVICE)
+    if config['get_prediction']: get_inferences(config, mode[0], model, tokenizer, DEVICE)
     if config["diag"]: get_diagnosis(config)
+    if config['rank_losses']: rank_losses(config=config,do=mode[0])
+
+    # read scaling loss' prediction
     
 if __name__ == "__main__":
     main()
