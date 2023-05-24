@@ -1140,6 +1140,7 @@ def get_params(config):
     return  params, digits
 
 def get_diagnosis(config):
+    """ This function is used to find upper bound of our methods"""
 
     print(f"{config['label_maps']}")
     

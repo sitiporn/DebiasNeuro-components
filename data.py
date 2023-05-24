@@ -210,6 +210,7 @@ class Dev(Dataset):
         if self.dev_name == 'mismatched':
             if '-' in self.df.gold_label.unique(): 
                 self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
+
         
         for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
 
@@ -292,7 +293,7 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
         t.set_description(f"epsilon : {epsilon} , prediction path : {prediction_path}")
         
         for value in (n:= tqdm(num_neuron_groups)):
-            
+
             if layer == -1:
                 components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
                 neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[value].items()]
@@ -327,22 +328,14 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                 golden_answers[mode] = []
                 losses[mode] = []
             
-            # test hans loader
-            # for batch_idx, (sentences, labels) in enumerate(dev_loader):
             for batch_idx, (inputs) in enumerate(dev_loader):
 
                 cur_inputs = {} 
 
-                # ['gold_label', 'sentence1', 'sentence2', 'bias_probs', 'weight_score']
-                for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))):
-
-                    cur_inputs[cur_col] = cur_inp
+                for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
 
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
 
-                # ['gold_label', 'sentence1', 'sentence2', 'bias_probs', 'weight_score']
-                # cur_inputs['gold_label']
-                # Todo: convert text label into label_ids
                 label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']])
                 scalers = torch.tensor(cur_inputs['weight_score'])
 
@@ -352,11 +345,6 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                 label_ids = label_ids.to(DEVICE)
                 scalers = scalers.to(DEVICE)
                  
-                # Todo: create custome loss 
-                # test by comparing loss between loss coming out from BERT 
-                # and our customer loss
-
-                #labels = [label_maps[label] for label in labels]
                 # mediator used to intervene
                 cur_dist = {}
                 cur_loss = {}
@@ -394,11 +382,11 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
 
                         if debug: print(f"test loss : {test_loss},  BERT's loss : {cur_loss[mode]}")
 
-                        print(f"Before reweight : {test_loss}")
+                        if debug: print(f"Before reweight : {test_loss}")
 
                         loss =  scalers * loss
                         
-                        print(f"After reweight : {torch.mean(loss)}")
+                        if debug: print(f"After reweight : {torch.mean(loss)}")
 
                     if mode == "Intervene": 
                         for hook in hooks: hook.remove() 
@@ -407,13 +395,12 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                     golden_answers[mode].extend(label_ids) 
                     losses[mode].extend(loss)
 
-                    breakpoint()
-                    
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
 
             with open(raw_distribution_path, 'wb') as handle: 
                 pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving distributions and labels into : {raw_distribution_path}')
 
             if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])

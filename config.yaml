@@ -19,10 +19,12 @@
   "dev-name": "reweight",
 
   # if know best params
-  "weaken": 0.7,
+  "weaken": null,
+  # percent of neurons to mask
   "masking_rate": 0.05, 
+  # number of neurons to mask
   "neuron_group": null,
-  "diag": True,
+  "diag": False,
   
   "model_name": "../bert-base-uncased-mnli/",
   "is_group_by_class": False,
