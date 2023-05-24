@@ -1093,7 +1093,9 @@ def compute_acc(raw_distribution_path, label_maps):
             prediction = int(torch.argmax(dist))
 
             acc['all'].append(label_remaps[prediction] == label)
-            acc[label].append(label_remaps[prediction] == label) 
+            
+            # acc[label_remaps[label]].append(label_remaps[prediction] == label) 
+            acc[label_remaps[int(label)]].append(label_remaps[prediction] == label)
 
     
     # compute acc
