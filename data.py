@@ -206,11 +206,9 @@ class Dev(Dataset):
         self.df = pd.read_json(data_path, lines=True)
 
         if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
-        
-        if self.dev_name == 'mismatched':
-            if '-' in self.df.gold_label.unique(): 
-                self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
 
+        if '-' in self.df.gold_label.unique(): 
+            self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
         
         for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
 
@@ -337,7 +335,10 @@ def get_predictions(config, do,  model, tokenizer, DEVICE, debug = False):
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
 
                 label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']])
-                scalers = torch.tensor(cur_inputs['weight_score'])
+
+                # breakpoint()
+                # scalers = torch.tensor(cur_inputs['weight_score'].clone().detach())
+                scalers = cur_inputs['weight_score']
 
                 pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
                     
