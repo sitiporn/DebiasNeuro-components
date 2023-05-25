@@ -58,10 +58,14 @@ for epsilon in (t := tqdm(params['epsilons'])):
 
         if config['eval']['all_layers']: result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
 
-        result_path = os.path.join(os.path.join(eval_path, epsilon_path),  result_path)
+        # result_path = os.path.join(os.path.join(eval_path, epsilon_path),  result_path)
+        result_path = '../pickles/evaluations/v0.9/result_0.9_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt' 
 
         # cur_num_neurons = result_path.split("/")[-1].split('_')[5].split('-')[0]
         # cur_eps = result_path.split('/')[3].split('v')[-1]
+        # ../pickles/evaluations/v0.9/result_0.9_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+        # result_path : '../pickles/evaluations/v0.9/result_0.9_Intervene_all_layers_0.9-k_High-overlap_weaken_hans.txt'
+        # breakpoint()
 
         with open(result_path, 'rb') as handle: 
 
@@ -92,7 +96,7 @@ print(f"Low: {config['epsilons']['low']} , High : {config['epsilons']['high']}, 
 print(f"weaken rate at {best_score_key.split('-')[0]}")
 print(f"masking neuron rate {float(best_score_key.split('-')[1]) * 100 } percent from entire model")
 print(f"optimize intervention scores on hans : {rank_scores[best_score_key]}")
-print(f"without  intervention scores on hans : {rank_scores['0.0-0.0']}")
+# print(f"without  intervention scores on hans : {rank_scores['0.0-0.0']}")
 
 # print(f"Null scores : {rank_scores[null_score_key]} with {null_score_key.split('-')[-1]} neurons")
 

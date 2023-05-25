@@ -1,0 +1,16 @@
+{'layer': -1, 'treatment': True, 'analysis': False, 'print_config': True, 'topk': False, 'distribution': False, 'embedding_summary': False, 'getting_counterfactual': False, 'traced': False, 'debias': False, 'get_prediction': True, 'dev-name': 'hans', 'weaken': 0.9, 'masking_rate': 0.05, 'neuron_group': None, 'diag': True, 'rank_losses': False, 'model_name': '../bert-base-uncased-mnli/', 'is_group_by_class': False, 'is_averaged_embeddings': True, 'intervention_type': 'weaken', 'upper_bound': 95, 'lower_bound': 5, 'seed': 42, 'collect_representation': True, 'DEBUG': True, 'debug': False, 'num_samples': 300, 'label_maps': {'contradiction': 0, 'entailment': 1, 'neutral': 2}, 'layers': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 'heads': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 'k': None, 'num_top_neurons': None, 'range_percents': True, 'neurons': True, 'dev_path': '../debias_fork_clean/debias_nlu_clean/data/nli/', 'exp_json': 'multinli_1.0_dev_matched.jsonl', 'dev_json': {}, 'counterfactual_paths': [], 'NIE_paths': [], 'is_NIE_exist': [], 'is_counterfactual_exist': [], 'percent': {'low': 0.0, 'high': 0.1, 'step': 0.01, 'size': 50, 'mode': '0o666', 'acc': {}}, 'epsilons': {'low': 0, 'high': 1, 'step': 0.1, 'size': 50, 'mode': '0o666', 'acc': {}}, 'single_neuron': False, 'eval': {'do': 'High-overlap', 'layer': 1, 'debug': False, 'all_layers': True, 'intervention_mode': 'Intervene'}, 'prediction_path': '../pickles/prediction/', 'evaluations': {}, 'to_text': True, 'get_result': True, 'save_rank': True, 'attention_components': 3, 'nums': {}}
+saving text answer's bert predictions: ../pickles/prediction/v0.9/txt_answer_0.9_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9596
+subsequence: 0.995
+constituent: 0.9848
+Heuristic  non-entailed results:
+lexical_overlap: 0.3596
+subsequence: 0.0964
+constituent: 0.2916
+saving evaluation predictoins into : ../pickles/evaluations/v0.9/result_0.9_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
++++++++++++++ Config +++++++++++++++++++
+Low: 0 , High : 1, Step : 0.1
+weaken rate at 0.9
+masking neuron rate 5.0 percent from entire model
+optimize intervention scores on hans : 0.6144999861717224

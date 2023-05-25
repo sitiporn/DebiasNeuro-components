@@ -1132,7 +1132,10 @@ def get_params(config):
             if config['intervention_type'] == "weaken": params[op] = [config['weaken']] if config['weaken'] is not None else [round(val, digits[op])for val in np.arange(low, high, step).tolist()]
             if config['intervention_type'] not in ["remove","weaken"]: params[op] = [0]
         else:
-            if config['intervention_type'] == "weaken": params[op] = [config['weaken']] if config['weaken'] is not None else [round(val, digits[op])for val in np.arange(low, high, step).tolist()]
+            # if config['intervention_type'] == "weaken": params[op] = [config['weaken']] if config['weaken'] is not None else [round(val, digits[op])for val in np.arange(low, high, step).tolist()]
+            # Todo: generalize this statement 
+            if config['intervention_type'] == "weaken": params[op] = [config['masking_rate']] 
+
 
     return  params, digits
 
