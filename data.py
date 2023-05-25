@@ -210,6 +210,10 @@ class Dev(Dataset):
         if '-' in self.df.gold_label.unique(): 
             self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
         
+        if self.dev_name == 'hans': 
+            self.df['sentence1'] = self.df.premise 
+            self.df['sentence2'] = self.df.hypothesis
+        
         for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
 
         # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
