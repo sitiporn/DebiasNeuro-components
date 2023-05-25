@@ -1092,17 +1092,12 @@ def compute_acc(raw_distribution_path, label_maps):
 
             prediction = int(torch.argmax(dist))
 
-            acc['all'].append(label_remaps[prediction] == label)
+            acc['all'].append(prediction == int(label))
             
             # acc[label_remaps[label]].append(label_remaps[prediction] == label) 
-            acc[label_remaps[int(label)]].append(label_remaps[prediction] == label)
+            acc[label_remaps[int(label)]].append(prediction == int(label))
 
-    
-    # compute acc
-    acc = { k: sum(acc[k]) / len(acc[k]) for k in list(acc.keys()) }
-        
-
-    return acc 
+    return { k: sum(acc[k]) / len(acc[k]) for k in list(acc.keys()) }
 
 
 def get_num_neurons(config):
@@ -1170,14 +1165,11 @@ def get_diagnosis(config):
         raw_distribution_path = os.path.join(os.path.join(prediction_path, epsilon_path),  raw_distribution_path)
 
         # if dev == "hans": raw_distribution_path = '../pickles/prediction/v0.7/raw_distribution_0.7_High-overlap_all_layers_0.05-k_weaken_hans.pickle'
-        breakpoint()
-        
         with open(raw_distribution_path, 'rb') as handle: 
             
             distributions = pickle.load(handle)
             golden_answers = pickle.load(handle)
-
-
+            losses = pickle.load(handle)
 
         # Todo: get index of current labels
         print(f" ++++++++  {dev} set, masking rate {value}, weaken rate : {key} ++++++++")
