@@ -424,8 +424,13 @@ def get_inferences(config, do,  model, tokenizer, DEVICE, debug = False):
         with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
+        
+        if config['weaken'] is not None and config['masking_rate'] is not None:
 
-        breakpoint()
+            print(f"overall acc : {acc[config['masking_rate']]['all']}")
+            print(f"contradiction acc : {acc[config['masking_rate']]['contradiction']}")
+            print(f"entailment acc : {acc[config['masking_rate']]['entailment']}")
+            print(f"neutral acc : {acc[config['masking_rate']]['neutral']}")
 
         # 
         # ../pickles/evaluations/v0.9/0.9_0.05_High-overlap_weaken_mismatched.pickle 
