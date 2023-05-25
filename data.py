@@ -374,30 +374,33 @@ def get_inferences(config, do,  model, tokenizer, DEVICE, debug = False):
                     with torch.no_grad(): 
                         
                         # Todo: generalize to distribution if the storage is enough
-                        outs =  model(**pair_sentences, labels= label_ids)
+                        outs =  model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
 
                         cur_dist[mode] = F.softmax(outs.logits , dim=-1)
                         cur_loss[mode] = outs.loss
 
-                        loss = criterion(outs.logits, label_ids)
-                        test_loss = torch.mean(loss)
+                        if config['dev-name'] != 'hans':
 
-                        assert (test_loss - cur_loss[mode]) < 1e-6
+                            loss = criterion(outs.logits, label_ids)
+                            test_loss = torch.mean(loss)
 
-                        if debug: print(f"test loss : {test_loss},  BERT's loss : {cur_loss[mode]}")
+                            assert (test_loss - cur_loss[mode]) < 1e-6
 
-                        if debug: print(f"Before reweight : {test_loss}")
+                            if debug: print(f"test loss : {test_loss},  BERT's loss : {cur_loss[mode]}")
 
-                        loss =  scalers * loss
-                        
-                        if debug: print(f"After reweight : {torch.mean(loss)}")
+                            if debug: print(f"Before reweight : {test_loss}")
+
+                            loss =  scalers * loss
+                            
+                            if debug: print(f"After reweight : {torch.mean(loss)}")
 
                     if mode == "Intervene": 
                         for hook in hooks: hook.remove() 
 
                     distributions[mode].extend(cur_dist[mode])
-                    golden_answers[mode].extend(label_ids) 
-                    losses[mode].extend(loss)
+                    golden_answers[mode].extend(label_ids if label_ids is not None else cur_inputs['gold_label']) 
+                    
+                    if config['dev-name'] != 'hans': losses[mode].extend(loss) 
 
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
 
