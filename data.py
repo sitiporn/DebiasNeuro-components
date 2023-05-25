@@ -449,7 +449,7 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
     with open(neuron_path, 'rb') as handle: 
         top_neuron = pickle.load(handle)
 
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else (config['masking_rate'] if config['masking_rate'] else list(top_neuron.keys()))
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
 
     low  =  config['epsilons']['low'] 
     high =  config['epsilons']['high']  
@@ -475,7 +475,7 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
 
         # read pickle file used to interpret as text answers later
         epsilon_path = f'v{round(epsilon, digits)}'
-       
+
         for neurons in (n:= tqdm(num_neuron_groups)):
 
             # why top neuron doesnt show result
@@ -578,7 +578,7 @@ def get_result(config, eval_path, prediction_path, neuron_path, top_neuron, pred
     
     if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits)
     
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else (config['masking_rate'] if config['masking_rate'] else list(top_neuron.keys()))
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
 
 
     for epsilon in (t := tqdm(params['epsilons'])):  

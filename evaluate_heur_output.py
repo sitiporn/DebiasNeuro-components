@@ -38,6 +38,8 @@ if config['get_result']: get_result(config, eval_path, prediction_path, neuron_p
 
 num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
+# ../pickles/prediction/v0.9/raw_distribution_0.9_High-overlap_all_layers_0.05-k_weaken_hans.pickle
+
 res = {}
 scores = {}
 
