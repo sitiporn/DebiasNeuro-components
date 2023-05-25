@@ -338,12 +338,14 @@ def get_inferences(config, do,  model, tokenizer, DEVICE, debug = False):
 
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
                 pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-                
-                label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']])
-                scalers = cur_inputs['weight_score'] if config["dev-name"] == 'reweight' else 1
-                
                 pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
-                label_ids = label_ids.to(DEVICE)
+
+                # ignore label_ids when running experiment on hans
+                label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if config['dev-name'] != 'hans' else None
+                scalers = cur_inputs['weight_score'] if config["dev-name"] == 'reweight' else 1
+
+                # ignore label_ids when running experiment on hans
+                if label_ids is not None: label_ids = label_ids.to(DEVICE)
                 if config['dev-name'] == 'reweight': scalers = scalers.to(DEVICE)
                  
                 # mediator used to intervene
@@ -372,7 +374,8 @@ def get_inferences(config, do,  model, tokenizer, DEVICE, debug = False):
                     with torch.no_grad(): 
                         
                         # Todo: generalize to distribution if the storage is enough
-                        outs =  model(**pair_sentences, labels=label_ids)
+                        outs =  model(**pair_sentences, labels= label_ids)
+
                         cur_dist[mode] = F.softmax(outs.logits , dim=-1)
                         cur_loss[mode] = outs.loss
 
