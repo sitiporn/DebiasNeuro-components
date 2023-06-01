@@ -69,7 +69,7 @@ def main():
     if config['topk']: get_top_k(config, treatments=mode) 
     if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, DEVICE)
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
-    if config['debias']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
+    if config['debias_test']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
     if config['get_prediction']: get_inferences(config, mode[0], model, tokenizer, DEVICE)
     if config["diag"]: get_diagnosis(config)

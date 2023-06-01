@@ -11,9 +11,8 @@
   "embedding_summary": False,
   "getting_counterfactual": False,
   "traced": False, 
-  "debias": False,
+  "debias_test": False,
   "get_prediction": True,
-  # "get_prediction": False,
   # "get_prediction": False,
   "dev-name": "mismatched",
   # "dev-name": "hans",
@@ -21,14 +20,16 @@
 
   # if know best params
   # "weaken": null,
-  "weaken": 0.9,
+  "weaken": 0.97,
+  # "weaken": 0.9,
   # percent of neurons to mask
   "masking_rate": 0.05, 
   # number of neurons to mask
   "neuron_group": null,
-  # "diag": False,
-  "diag": True,
-  "rank_losses": False, 
+  "diag": False,
+  # "diag": True,
+  # "rank_losses": False, 
+  "rank_losses": True, 
   
   "model_name": "../bert-base-uncased-mnli/",
   "is_group_by_class": False,
@@ -75,9 +76,12 @@
 
   # range 0 to 1, step = 0.1
   "epsilons": {
-    "low": 0, 
-    "high": 1,
-    "step": 0.1,
+    "low": 0.81, 
+    "high": 0.98,
+    "step": 0.01,
+    # "low": 0, 
+    # "high": 1,
+    # "step": 0.1,
     "size": 50,
     "mode": 0o666,
     "acc": {}

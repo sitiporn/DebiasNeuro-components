@@ -727,6 +727,7 @@ def get_result(config, eval_path, prediction_path, neuron_path, top_neuron, pred
                 print(f'saving evaluation predictoins into : {result_path}')
 
 def rank_losses(config, do):  
+
     
     # get weaken rates parameters
     params, digits = get_params(config)
@@ -759,6 +760,8 @@ def rank_losses(config, do):
 
             
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
+
+            # Bug fix: when setting specific weaken rate
 
             with open(raw_distribution_path, 'rb') as handle:
                 # get [CLS] activation 
