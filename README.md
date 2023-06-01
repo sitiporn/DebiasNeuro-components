@@ -11,8 +11,10 @@
 -  [x] vary the number of neurons from topk from entire layers experiment on (MNLI-mismatched)
 -  [x] vary value of neuron's representation experiment on (MNLI-mismatched)
 -  [x] vary value 0.1, 0.2 -> 1 after that divide it down until get best val 
--  [ ] adjust sharpness value (mitigate paper)
--  [ ] using bias model to reweigth once performing grid search
+-  [x] adjust sharpness value (mitigate paper)
+-  [x] using bias model to reweigth once performing grid search
+-  [ ] traning main model with reweighted loss  on canidate parameters 
+-  [ ] performing EDA on MNNLI-matched set
 
 ## Result
 
