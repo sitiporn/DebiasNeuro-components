@@ -12,11 +12,13 @@
   "getting_counterfactual": False,
   "traced": False, 
   "debias_test": False,
-  "get_prediction": True,
-  # "get_prediction": False,
-  "dev-name": "mismatched",
+  "partition_params": True,
+  # "get_prediction": True,
+  "get_prediction": False,
+  # "dev-name": "mismatched",
   # "dev-name": "hans",
   # "dev-name": "reweight",
+  "dev-name": "matched",
 
   # if know best params
   # "weaken": null,
@@ -28,8 +30,8 @@
   "neuron_group": null,
   "diag": False,
   # "diag": True,
-  # "rank_losses": False, 
-  "rank_losses": True, 
+  "rank_losses": False, 
+  # "rank_losses": True, 
   
   "model_name": "../bert-base-uncased-mnli/",
   "is_group_by_class": False,

@@ -728,7 +728,6 @@ def get_result(config, eval_path, prediction_path, neuron_path, top_neuron, pred
 
 def rank_losses(config, do):  
 
-    
     # get weaken rates parameters
     params, digits = get_params(config)
     total_neurons = get_num_neurons(config)
@@ -777,18 +776,132 @@ def rank_losses(config, do):
 
             print(f"curret loss : {average_losses} on weaken rate : {epsilon}")
 
+def partition_params(config, model, do, debug=True):
+
+    mediators  = get_mediators(model)
+    dev_set = Dev(config['dev_path'], config['dev_json'])
+    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+
+    layer = config['layer']
+    
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
+    top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
+    
+    path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
+    
+    with open(path, 'rb') as handle: top_neuron = pickle.load(handle) 
+
+    cls = get_hidden_representations(config['counterfactual_paths'], 
+                                    config['layers'], 
+                                    config['heads'], 
+                                    config['is_group_by_class'], 
+                                    config['is_averaged_embeddings'])
+
+
+    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+    component_mappings = {}
+    
+    for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
+
+
+    # select masking_rate : 0.05
+    for value in (n:= tqdm(num_neuron_groups)):
+
+        restore_components = {'weight': {}, 'bias': {}}
+        partiion_param = []
+        
+        for name, param in model.state_dict().items():
+            
+            cur_name = name.split('.')
+
+            # get position 
+            if 'encoder' in cur_name:
+
+                layer_id = None
+                component = None
+                neuron_id = None
+                
+                if 'self' in cur_name:  
+                    component = component_mappings[cur_name[-2]]  # to get Q, K, V
+                elif 'attention' in cur_name and ' output' in cur_name: 
+                    component = component_mappings['attention.output']  
+                else:
+                    component = component_mappings[cur_name[-3]]
+                
+                layer_id = int(cur_name[3])
+
+                # # L-11-I-1210 : 
+                for neuron_id in range(param.shape[0]):
+
+                    cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
+
+                    # preparing to restore weight that are not in partition gradients
+                    # if f'L-{layer_id}-{component}-{neuron_id}' not in list(top_neuron[value].keys()):
+                    #     restore_components[cur_name[-1]][cur_combine] = param[neuron_id]
+                    
+                    if cur_combine in list(top_neuron[value].keys()):
+                        
+                        restore_components[cur_name[-1]][cur_combine] = param[neuron_id]
+                        
+                        ind = list(top_neuron[value].keys()).index(cur_combine)
+                        print(cur_combine, f'{cur_name[-1]}')
+                        # print(f'get index : {ind}')
+                        # print(f"get top neurons by index : {list(top_neuron[value].keys())[ind]} ")
+                        # breakpoint()
+                        
+                        restore_components[cur_name[-1]][cur_combine] = param[neuron_id]
+        breakpoint()
+
+
+                    
+            
+        #     restore_components['weight'][f'L-{cur_layer_id}-{cur_component}-{neuron_id}']
+        
+        # save the rest of weight outside of partition weights
+        # restore_components[name] = 
+        # top_neuron[value]
+            
+        
+        # with torch.no_grad():
+
+        # parameters use to 
+        # for layer_id, component, neuron_id in zip(layer_ids, components, neuron_ids):
+
+        #     # print(f"layer : {layer_id}, {component}, {neuron_id}")
+        #     # layer : 1, O, 308
+
+        #     cur_module = mediators[component](int(layer_id)).dense if 'dense' in dir(mediators[component](int(layer_id))) else mediators[component](int(layer_id))
+            
+        #     w = cur_module.weight
+        #     b = cur_module.bias
+
+        #     for k, v in {"weight": w, 'bias': b}.items(): 
+                
+        #         restore_components[k][f'{layer_id}-{component}-{neuron_id}'] = v
+
+        #         if debug: print(f'{layer_id}-{component}-{neuron_id}, {k} : {v.shape}')
+
+
+        
+        # with open(f'pickles/restore_weight/restore_component.pickle', 'wb') as handle:
+        #     pickle.dump(restore_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        #     print(f"saving weight to ")
+
+        # Todo: 
+        # set all params required_grad -> True
+        # save all neurons that are not belong to partition neurons
+        # optimize as a whole model 
+        # restore all weights that are not belong to partition neurons (to move parameters only for those partition weight)
+        
         
 
         
 
 
+            
 
 
 
-    
 
+            
 
-     
-
-
-    
