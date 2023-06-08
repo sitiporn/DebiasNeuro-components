@@ -798,16 +798,25 @@ def partition_params(config, model, do, debug=True):
                                     config['is_averaged_embeddings'])
 
 
-    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     component_mappings = {}
+    freeze_components = {}
+    train_components = {}
+    total_components = {}
+    
+    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
     # select masking_rate : 0.05
     for value in (n:= tqdm(num_neuron_groups)):
 
-        freeze_components = {'weight': {}, 'bias': {}}
-        train_components = {'weight': {}, 'bias': {}}
+        # encoder parameters
+        freeze_components[value] = {'weight': {}, 'bias': {}}
+        train_components[value] = {'weight': {}, 'bias': {}}
+        total_components[value] = {'weight': {}, 'bias': {}}
+
+        # the rest parameters outside of encoder
+        other_params  = {'weight': {}, 'bias': {}}
         
         partiion_param = []
         
@@ -835,6 +844,8 @@ def partition_params(config, model, do, debug=True):
                 for neuron_id in range(param.shape[0]):
 
                     cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
+                    
+                    total_components[cur_name[-1]][cur_combine] = param[neuron_id]
 
                     # preparing to restore weight that are not in partition gradients
                     if cur_combine not in list(top_neuron[value].keys()):
@@ -844,42 +855,29 @@ def partition_params(config, model, do, debug=True):
                     else:
 
                         train_components[cur_name[-1]][cur_combine] = param[neuron_id]
-                        
+            else:
+
+                # freeze whole tensor 
+                if 'position_ids' in cur_name: continue
+                if 'embeddings' in cur_name:
+                    other_params[cur_name[-1]][cur_name[-2]] = param 
+                elif 'pooler' in cur_name:
+                    other_params[cur_name[-1]]['pooler.dense'] = param 
+                elif 'classifier' in cur_name:
+                    other_params[cur_name[-1]][cur_name[0]] = param 
 
         assert len(train_components['weight'])  == len(list(top_neuron[value].keys()))
         assert len(train_components['bias'])  == len(list(top_neuron[value].keys())) 
+        assert len(total_components['weight'])  == len(train_components['weight']) + len(freeze_components['weight'])
+    
+    # with open(f'pickles/restore_weight/restore_component.pickle', 'wb') as handle:
+    #     pickle.dump(restore_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #     print(f"saving weight to ")
+
         # restore_components['weight'][f'L-{cur_layer_id}-{cur_component}-{neuron_id}']
-        breakpoint()
-        
-        # save the rest of weight outside of partition weights
-        # restore_components[name] = 
-        # top_neuron[value]
-            
         
         # with torch.no_grad():
-
-        # parameters use to 
-        # for layer_id, component, neuron_id in zip(layer_ids, components, neuron_ids):
-
-        #     # print(f"layer : {layer_id}, {component}, {neuron_id}")
-        #     # layer : 1, O, 308
-
-        #     cur_module = mediators[component](int(layer_id)).dense if 'dense' in dir(mediators[component](int(layer_id))) else mediators[component](int(layer_id))
-            
-        #     w = cur_module.weight
-        #     b = cur_module.bias
-
-        #     for k, v in {"weight": w, 'bias': b}.items(): 
-                
-        #         restore_components[k][f'{layer_id}-{component}-{neuron_id}'] = v
-
-        #         if debug: print(f'{layer_id}-{component}-{neuron_id}, {k} : {v.shape}')
-
-
         
-        # with open(f'pickles/restore_weight/restore_component.pickle', 'wb') as handle:
-        #     pickle.dump(restore_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #     print(f"saving weight to ")
 
         # Todo: 
         # set all params required_grad -> True
