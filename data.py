@@ -803,7 +803,6 @@ def partition_params(config, model, do, debug=True):
     
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
-
     # select masking_rate : 0.05
     for value in (n:= tqdm(num_neuron_groups)):
 
@@ -819,21 +818,23 @@ def partition_params(config, model, do, debug=True):
 
                 layer_id = None
                 component = None
-                neuron_id = None
+                # neuron_id = None
                 
                 if 'self' in cur_name:  
                     component = component_mappings[cur_name[-2]]  # to get Q, K, V
-                elif 'attention' in cur_name and ' output' in cur_name: 
+                elif 'attention' in cur_name and 'output' in cur_name: 
                     component = component_mappings['attention.output']  
                 else:
                     component = component_mappings[cur_name[-3]]
                 
                 layer_id = int(cur_name[3])
 
+
                 # # L-11-I-1210 : 
                 for neuron_id in range(param.shape[0]):
 
                     cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
+
 
                     # preparing to restore weight that are not in partition gradients
                     # if f'L-{layer_id}-{component}-{neuron_id}' not in list(top_neuron[value].keys()):
@@ -844,17 +845,15 @@ def partition_params(config, model, do, debug=True):
                         restore_components[cur_name[-1]][cur_combine] = param[neuron_id]
                         
                         ind = list(top_neuron[value].keys()).index(cur_combine)
-                        print(cur_combine, f'{cur_name[-1]}')
+                        # print(cur_combine, f'{cur_name[-1]}')
                         # print(f'get index : {ind}')
                         # print(f"get top neurons by index : {list(top_neuron[value].keys())[ind]} ")
-                        # breakpoint()
                         
                         restore_components[cur_name[-1]][cur_combine] = param[neuron_id]
+
+        assert len(restore_components['weight'])  == len(list(top_neuron[value].keys()))
+        assert len(restore_components['bias'])  == len(list(top_neuron[value].keys())) 
         breakpoint()
-
-
-                    
-            
         #     restore_components['weight'][f'L-{cur_layer_id}-{cur_component}-{neuron_id}']
         
         # save the rest of weight outside of partition weights
