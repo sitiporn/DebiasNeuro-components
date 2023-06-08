@@ -806,7 +806,9 @@ def partition_params(config, model, do, debug=True):
     # select masking_rate : 0.05
     for value in (n:= tqdm(num_neuron_groups)):
 
-        restore_components = {'weight': {}, 'bias': {}}
+        freeze_components = {'weight': {}, 'bias': {}}
+        train_components = {'weight': {}, 'bias': {}}
+        
         partiion_param = []
         
         for name, param in model.state_dict().items():
@@ -829,32 +831,25 @@ def partition_params(config, model, do, debug=True):
                 
                 layer_id = int(cur_name[3])
 
-
                 # # L-11-I-1210 : 
                 for neuron_id in range(param.shape[0]):
 
                     cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
 
-
                     # preparing to restore weight that are not in partition gradients
-                    # if f'L-{layer_id}-{component}-{neuron_id}' not in list(top_neuron[value].keys()):
-                    #     restore_components[cur_name[-1]][cur_combine] = param[neuron_id]
-                    
-                    if cur_combine in list(top_neuron[value].keys()):
+                    if cur_combine not in list(top_neuron[value].keys()):
                         
-                        restore_components[cur_name[-1]][cur_combine] = param[neuron_id]
-                        
-                        ind = list(top_neuron[value].keys()).index(cur_combine)
-                        # print(cur_combine, f'{cur_name[-1]}')
-                        # print(f'get index : {ind}')
-                        # print(f"get top neurons by index : {list(top_neuron[value].keys())[ind]} ")
-                        
-                        restore_components[cur_name[-1]][cur_combine] = param[neuron_id]
+                        freeze_components[cur_name[-1]][cur_combine] = param[neuron_id]
 
-        assert len(restore_components['weight'])  == len(list(top_neuron[value].keys()))
-        assert len(restore_components['bias'])  == len(list(top_neuron[value].keys())) 
+                    else:
+
+                        train_components[cur_name[-1]][cur_combine] = param[neuron_id]
+                        
+
+        assert len(train_components['weight'])  == len(list(top_neuron[value].keys()))
+        assert len(train_components['bias'])  == len(list(top_neuron[value].keys())) 
+        # restore_components['weight'][f'L-{cur_layer_id}-{cur_component}-{neuron_id}']
         breakpoint()
-        #     restore_components['weight'][f'L-{cur_layer_id}-{cur_component}-{neuron_id}']
         
         # save the rest of weight outside of partition weights
         # restore_components[name] = 
