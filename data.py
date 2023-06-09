@@ -802,30 +802,34 @@ def partition_params(config, model, do, debug=True):
     freeze_components = {}
     train_components = {}
     total_components = {}
-    other_params = {}
     
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
+    # unfreeze all parameters
+    for param in model.parameters(): param.requires_grad = True
+    
     # select masking_rate : 0.05
     for value in (n:= tqdm(num_neuron_groups)):
 
-        # encoder parameters
+        # encoder parameter collectors
         freeze_components[value] = {'weight': {}, 'bias': {}}
         train_components[value] = {'weight': {}, 'bias': {}}
         total_components[value] = {'weight': {}, 'bias': {}}
 
         # the rest parameters outside of encoder
-        other_params[value]  = {'weight': {}, 'bias': {}}
         
         partiion_param = []
         
-        for name, param in model.state_dict().items():
+            # breakpoint()
+        
+        for name, param in model.named_parameters():
+        # for name, param in model.state_dict().items():
             
             cur_name = name.split('.')
 
-            # get position 
+            #  To load and save model's parameters
             if 'encoder' in cur_name:
 
                 layer_id = None
@@ -842,34 +846,28 @@ def partition_params(config, model, do, debug=True):
                 layer_id = int(cur_name[3])
 
                 # # L-11-I-1210 : 
-                for neuron_id in range(param.shape[0]):
+                for neuron_id in range(param.data.shape[0]):
 
                     cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
                     
-                    total_components[value][cur_name[-1]][cur_combine] = param[neuron_id]
+                    total_components[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
 
                     # preparing to restore weight that are not in partition gradients
                     if cur_combine not in list(top_neuron[value].keys()):
                         
-                        freeze_components[value][cur_name[-1]][cur_combine] = param[neuron_id]
+                        freeze_components[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
 
                     else:
 
-                        train_components[value][cur_name[-1]][cur_combine] = param[neuron_id]
+                        train_components[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
             else:
-
                 # freeze whole tensor 
-                if 'position_ids' in cur_name: continue
-                if 'embeddings' in cur_name:
-                    other_params[value][cur_name[-1]][cur_name[-2]] = param 
-                elif 'pooler' in cur_name:
-                    other_params[value][cur_name[-1]]['pooler.dense'] = param 
-                elif 'classifier' in cur_name:
-                    other_params[value][cur_name[-1]][cur_name[0]] = param 
-
+                param.requires_grad = False
+                
         assert len(train_components[value]['weight'])  == len(list(top_neuron[value].keys()))
         assert len(train_components[value]['bias'])  == len(list(top_neuron[value].keys())) 
         assert len(total_components[value]['weight'])  == len(train_components[value]['weight']) + len(freeze_components[value]['weight'])
+        
     
     # with open(f'pickles/restore_weight/restore_component.pickle', 'wb') as handle:
     #     pickle.dump(restore_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
