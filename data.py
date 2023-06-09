@@ -777,64 +777,50 @@ def rank_losses(config, do):
             print(f"curret loss : {average_losses} on weaken rate : {epsilon}")
 
 def partition_params(config, model, do, debug=True):
-
-    mediators  = get_mediators(model)
-    dev_set = Dev(config['dev_path'], config['dev_json'])
-    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-
-    layer = config['layer']
     
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
-    top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    
-    path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
-    
-    with open(path, 'rb') as handle: top_neuron = pickle.load(handle) 
-
-    cls = get_hidden_representations(config['counterfactual_paths'], 
-                                    config['layers'], 
-                                    config['heads'], 
-                                    config['is_group_by_class'], 
-                                    config['is_averaged_embeddings'])
-
-
     component_mappings = {}
     freeze_components = {}
     train_components = {}
     total_components = {}
     
+    mediators  = get_mediators(model)
+    dev_set = Dev(config['dev_path'], config['dev_json'])
+    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+    layer = config['layer']
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
+    top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
+    path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     
+    with open(path, 'rb') as handle: 
+        top_neuron = pickle.load(handle) 
+    
+    cls = get_hidden_representations(config['counterfactual_paths'], 
+                                    config['layers'], 
+                                    config['heads'], 
+                                    config['is_group_by_class'], 
+                                    config['is_averaged_embeddings'])
+    
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
-
+    
     # unfreeze all parameters
     for param in model.parameters(): param.requires_grad = True
     
     # select masking_rate : 0.05
     for value in (n:= tqdm(num_neuron_groups)):
-
         # encoder parameter collectors
         freeze_components[value] = {'weight': {}, 'bias': {}}
         train_components[value] = {'weight': {}, 'bias': {}}
         total_components[value] = {'weight': {}, 'bias': {}}
-
-        # the rest parameters outside of encoder
-        
-        partiion_param = []
-        
-            # breakpoint()
         
         for name, param in model.named_parameters():
         # for name, param in model.state_dict().items():
-            
             cur_name = name.split('.')
 
             #  To load and save model's parameters
             if 'encoder' in cur_name:
-
-                layer_id = None
                 component = None
-                # neuron_id = None
+                layer_id = int(cur_name[3])
                 
                 if 'self' in cur_name:  
                     component = component_mappings[cur_name[-2]]  # to get Q, K, V
@@ -842,23 +828,16 @@ def partition_params(config, model, do, debug=True):
                     component = component_mappings['attention.output']  
                 else:
                     component = component_mappings[cur_name[-3]]
-                
-                layer_id = int(cur_name[3])
 
-                # # L-11-I-1210 : 
                 for neuron_id in range(param.data.shape[0]):
 
                     cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
-                    
                     total_components[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
 
                     # preparing to restore weight that are not in partition gradients
                     if cur_combine not in list(top_neuron[value].keys()):
-                        
                         freeze_components[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
-
                     else:
-
                         train_components[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
             else:
                 # freeze whole tensor 
@@ -873,15 +852,17 @@ def partition_params(config, model, do, debug=True):
                 assert param.requires_grad == True, f' Error : {name}'
             else: 
                 assert param.requires_grad == False, f' Error : {name}'
-        
-    
-    # with open(f'pickles/restore_weight/restore_component.pickle', 'wb') as handle:
-    #     pickle.dump(restore_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    #     print(f"saving weight to ")
 
-        # restore_components['weight'][f'L-{cur_layer_id}-{cur_component}-{neuron_id}']
-        
-        # with torch.no_grad():
+    with open(f'../pickles/restore_weight/restore_components.pickle', 'wb') as handle:
+        pickle.dump(train_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # pickle.dump(component_mappings, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # pickle.dump(freeze_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # pickle.dump(total_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"saving all component into pickle files")
+    
+    # def restore_weight():
+
+    #     with torch.no_grad():
         
 
         # Todo: 
@@ -893,6 +874,7 @@ def partition_params(config, model, do, debug=True):
         
 
         
+
 
 
             
