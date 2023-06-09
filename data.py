@@ -867,6 +867,12 @@ def partition_params(config, model, do, debug=True):
         assert len(train_components[value]['weight'])  == len(list(top_neuron[value].keys()))
         assert len(train_components[value]['bias'])  == len(list(top_neuron[value].keys())) 
         assert len(total_components[value]['weight'])  == len(train_components[value]['weight']) + len(freeze_components[value]['weight'])
+
+        for name, param in model.named_parameters(): 
+            if 'encoder' in name.split('.'): 
+                assert param.requires_grad == True, f' Error : {name}'
+            else: 
+                assert param.requires_grad == False, f' Error : {name}'
         
     
     # with open(f'pickles/restore_weight/restore_component.pickle', 'wb') as handle:
