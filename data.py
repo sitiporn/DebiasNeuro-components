@@ -802,6 +802,7 @@ def partition_params(config, model, do, debug=True):
     freeze_components = {}
     train_components = {}
     total_components = {}
+    other_params = {}
     
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     
@@ -816,7 +817,7 @@ def partition_params(config, model, do, debug=True):
         total_components[value] = {'weight': {}, 'bias': {}}
 
         # the rest parameters outside of encoder
-        other_params  = {'weight': {}, 'bias': {}}
+        other_params[value]  = {'weight': {}, 'bias': {}}
         
         partiion_param = []
         
@@ -845,30 +846,30 @@ def partition_params(config, model, do, debug=True):
 
                     cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
                     
-                    total_components[cur_name[-1]][cur_combine] = param[neuron_id]
+                    total_components[value][cur_name[-1]][cur_combine] = param[neuron_id]
 
                     # preparing to restore weight that are not in partition gradients
                     if cur_combine not in list(top_neuron[value].keys()):
                         
-                        freeze_components[cur_name[-1]][cur_combine] = param[neuron_id]
+                        freeze_components[value][cur_name[-1]][cur_combine] = param[neuron_id]
 
                     else:
 
-                        train_components[cur_name[-1]][cur_combine] = param[neuron_id]
+                        train_components[value][cur_name[-1]][cur_combine] = param[neuron_id]
             else:
 
                 # freeze whole tensor 
                 if 'position_ids' in cur_name: continue
                 if 'embeddings' in cur_name:
-                    other_params[cur_name[-1]][cur_name[-2]] = param 
+                    other_params[value][cur_name[-1]][cur_name[-2]] = param 
                 elif 'pooler' in cur_name:
-                    other_params[cur_name[-1]]['pooler.dense'] = param 
+                    other_params[value][cur_name[-1]]['pooler.dense'] = param 
                 elif 'classifier' in cur_name:
-                    other_params[cur_name[-1]][cur_name[0]] = param 
+                    other_params[value][cur_name[-1]][cur_name[0]] = param 
 
-        assert len(train_components['weight'])  == len(list(top_neuron[value].keys()))
-        assert len(train_components['bias'])  == len(list(top_neuron[value].keys())) 
-        assert len(total_components['weight'])  == len(train_components['weight']) + len(freeze_components['weight'])
+        assert len(train_components[value]['weight'])  == len(list(top_neuron[value].keys()))
+        assert len(train_components[value]['bias'])  == len(list(top_neuron[value].keys())) 
+        assert len(total_components[value]['weight'])  == len(train_components[value]['weight']) + len(freeze_components[value]['weight'])
     
     # with open(f'pickles/restore_weight/restore_component.pickle', 'wb') as handle:
     #     pickle.dump(restore_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
