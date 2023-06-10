@@ -13,6 +13,7 @@
 -  [x] vary value 0.1, 0.2 -> 1 after that divide it down until get best val 
 -  [x] adjust sharpness value (mitigate paper)
 -  [x] using bias model to reweigth once performing grid search
+-  [x] save train and untrain components used to train partition 
 -  [ ] traning main model with reweighted loss  on canidate parameters 
 -  [ ] performing EDA on MNNLI-matched set
 
