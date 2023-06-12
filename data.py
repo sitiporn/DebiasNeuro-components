@@ -847,19 +847,33 @@ def partition_params(config, model, do, debug=True):
         assert len(train_params[value]['bias'])  == len(list(top_neuron[value].keys())) 
         assert len(total_params[value]['weight'])  == len(train_params[value]['weight']) + len(freeze_params[value]['weight'])
 
-    with open(f'../pickles/restore_weight/layer{layer}_components.pickle', 'wb') as handle:
-        pickle.dump(train_params, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"saving layer {layer} components into pickle files")
-    
 
+        for name, param in model.named_parameters(): 
+            if 'encoder' in name.split('.'): 
+                assert param.requires_grad == True, f' Error : {name}'
+            else: 
+                assert param.requires_grad == False, f' Error : {name}'
 
+        # Todo: rolling out memory
+        layer_param = [] 
+        
+        for layer in range(model.config.num_hidden_layers): layer_param.append(EncoderParams(layer_id=layer))
+        
+        for pos in list(freeze_params[value]['weight'].keys()):
+            layer_param[int(pos.split('-')[1])].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
 
+        restore_path = f'../pickles/restore_weight/'
 
+        for layer in range(len(layer_param)): 
 
+            cur_restore_path = os.path.join(restore_path, f'v-{value}')
             
+            if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
 
+            cur_restore_path = os.path.join(cur_restore_path,f'layer{layer}_components.pickle')
+        
+            with open(cur_restore_path, 'wb') as handle:
+                pickle.dump(layer_param[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f"saving layer {layer}'s components into pickle files")
 
-
-
-            
 
