@@ -814,9 +814,7 @@ def partition_params(config, model, do, debug=True):
         total_params[value] = {'weight': {}, 'bias': {}}
         
         for name, param in model.named_parameters():
-        # for name, param in model.state_dict().items():
             cur_name = name.split('.')
-
             #  To load and save model's parameters
             if 'encoder' in cur_name:
                 component = None
@@ -876,4 +874,70 @@ def partition_params(config, model, do, debug=True):
                 pickle.dump(layer_param[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving layer {layer}'s components into pickle files")
 
+def restore_weight(model, DEBUG = False):
+    
+    value = 0.05
+    component_mappings = {}
+    restore_path = f'../pickles/restore_weight/'
+    restore_path = os.path.join(restore_path, f'v-{value}')
+    mediators  = get_mediators(model)
+    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+    
+    for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
+    #  walking in 
+    for name, param in model.named_parameters(): 
+        splited_name = name.split('.')
+        if 'encoder' not in splited_name: continue
+
+        layer_id = splited_name[splited_name.index('layer') + 1]
+        
+        if 'self' in splited_name:  
+            component = component_mappings[splited_name[-2]]  # to get Q, K, V
+        elif 'attention' in splited_name and 'output' in splited_name: 
+            component = component_mappings['attention.output']  
+        else:
+            component = component_mappings[splited_name[-3]]
+        
+        freeze_param_name = splited_name[-1]
+
+        cur_restore_path = os.path.join(restore_path,f'layer{layer_id}_components.pickle')
+        
+        with open(cur_restore_path, 'rb') as handle:
+            layer_params = pickle.load(handle)
+
+        for neuron_id in range(param.shape[0]):
+            cur_comb = f'{component}-{neuron_id}' 
+            # restore weight after performing optimize freeze param
+            if  cur_comb in list(layer_params.params[freeze_param_name].keys()):
+
+                if DEBUG: print(f'Before assign params : {param[neuron_id,:]}')
+                # modifying to restore original weight back 
+                with torch.no_grad():
+                
+                    if freeze_param_name == 'weight':
+                        param[neuron_id,:] = layer_params.params[freeze_param_name][cur_comb]
+                    elif freeze_param_name == 'bias':
+                        param[neuron_id] = layer_params.params[freeze_param_name][cur_comb]
+                    
+                    if DEBUG : print(f'After assign params : {param[neuron_id,:]}')
+
+                    # layer_params.params
+                    # weight shape: [hidden_dim]
+                    # bias shape: []
+
+                    layer_param_shape = layer_params.params[freeze_param_name][cur_comb].shape
+                    print(f'param shape {freeze_param_name} : {param.shape}, layer_param shape : {layer_param_shape}') 
+
+    # # Todo: 
+    # # set all params required_grad -> True
+    # # save all neurons that are not belong to partition neurons
+    # # optimize as a whole model 
+    # # restore all weights that are not belong to partition neurons (to move parameters only for those partition weight)
+
+    # return model
+
+# model = restore_weight(model)
+
+    
+    
