@@ -14,7 +14,7 @@
 -  [x] adjust sharpness value (mitigate paper)
 -  [x] using bias model to reweigth once performing grid search
 -  [x] save train and untrain components used to train partition 
--  [ ] roll out variable save into pickles
+-  [x] roll out variable save into pickles
 -  [ ] traning main model with reweighted loss  on canidate parameters 
 -  [ ] performing EDA on MNNLI-matched set
 
