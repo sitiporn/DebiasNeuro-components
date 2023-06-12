@@ -21,7 +21,7 @@ from nn_pruning.patch_coordinator import (
     ModelPatchingCoordinator,
 )
 
-from utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
+from utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations, EncoderParams
 from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans, compute_acc
 from utils import get_num_neurons, get_params, relabel, give_weight
@@ -779,9 +779,9 @@ def rank_losses(config, do):
 def partition_params(config, model, do, debug=True):
     
     component_mappings = {}
-    freeze_components = {}
-    train_components = {}
-    total_components = {}
+    freeze_params = {}
+    train_params = {}
+    total_params = {}
     
     mediators  = get_mediators(model)
     dev_set = Dev(config['dev_path'], config['dev_json'])
@@ -809,9 +809,9 @@ def partition_params(config, model, do, debug=True):
     # select masking_rate : 0.05
     for value in (n:= tqdm(num_neuron_groups)):
         # encoder parameter collectors
-        freeze_components[value] = {'weight': {}, 'bias': {}}
-        train_components[value] = {'weight': {}, 'bias': {}}
-        total_components[value] = {'weight': {}, 'bias': {}}
+        freeze_params[value] = {'weight': {}, 'bias': {}}
+        train_params[value] = {'weight': {}, 'bias': {}}
+        total_params[value] = {'weight': {}, 'bias': {}}
         
         for name, param in model.named_parameters():
         # for name, param in model.state_dict().items():
@@ -832,48 +832,27 @@ def partition_params(config, model, do, debug=True):
                 for neuron_id in range(param.data.shape[0]):
 
                     cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
-                    total_components[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+                    total_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
 
                     # preparing to restore weight that are not in partition gradients
                     if cur_combine not in list(top_neuron[value].keys()):
-                        freeze_components[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+                        freeze_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
                     else:
-                        train_components[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+                        train_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
             else:
                 # freeze whole tensor 
                 param.requires_grad = False
                 
-        assert len(train_components[value]['weight'])  == len(list(top_neuron[value].keys()))
-        assert len(train_components[value]['bias'])  == len(list(top_neuron[value].keys())) 
-        assert len(total_components[value]['weight'])  == len(train_components[value]['weight']) + len(freeze_components[value]['weight'])
+        assert len(train_params[value]['weight'])  == len(list(top_neuron[value].keys()))
+        assert len(train_params[value]['bias'])  == len(list(top_neuron[value].keys())) 
+        assert len(total_params[value]['weight'])  == len(train_params[value]['weight']) + len(freeze_params[value]['weight'])
 
-        for name, param in model.named_parameters(): 
-            if 'encoder' in name.split('.'): 
-                assert param.requires_grad == True, f' Error : {name}'
-            else: 
-                assert param.requires_grad == False, f' Error : {name}'
-
-    with open(f'../pickles/restore_weight/restore_components.pickle', 'wb') as handle:
-        pickle.dump(train_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # pickle.dump(component_mappings, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # pickle.dump(freeze_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # pickle.dump(total_components, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"saving all component into pickle files")
+    with open(f'../pickles/restore_weight/layer{layer}_components.pickle', 'wb') as handle:
+        pickle.dump(train_params, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"saving layer {layer} components into pickle files")
     
-    # def restore_weight():
 
-    #     with torch.no_grad():
-        
 
-        # Todo: 
-        # set all params required_grad -> True
-        # save all neurons that are not belong to partition neurons
-        # optimize as a whole model 
-        # restore all weights that are not belong to partition neurons (to move parameters only for those partition weight)
-        
-        
-
-        
 
 
 
