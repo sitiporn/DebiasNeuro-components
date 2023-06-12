@@ -1216,3 +1216,16 @@ def give_weight(label, probs):
     probs = probs[golden_id]
 
     return 1 / probs
+
+class EncoderParams:
+    def __init__(self, layer_id):
+        self.layer_id  = layer_id
+        self.params = {'weight': {}, 'bias': {}}
+
+    def append_pos(self, pos, value):
+
+        component = pos.split('-')[2]
+        neuron_id = pos.split('-')[3]
+
+        for child in list(self.params.keys()): self.params[child][f'{component}-{neuron_id}'] = value[child]
+    
