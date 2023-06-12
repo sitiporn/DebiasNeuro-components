@@ -1223,9 +1223,8 @@ class EncoderParams:
         self.params = {'weight': {}, 'bias': {}}
 
     def append_pos(self, pos, value):
-
         component = pos.split('-')[2]
         neuron_id = pos.split('-')[3]
 
-        for child in list(self.params.keys()): self.params[child][f'{component}-{neuron_id}'] = value[child]
-    
+        for child in list(self.params.keys()): 
+            self.params[child][f'{component}-{neuron_id}'] = value[child].cpu()
