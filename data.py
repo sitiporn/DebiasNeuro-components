@@ -887,11 +887,13 @@ def restore_weight(model, DEBUG = False):
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
     #  walking in 
-    for name, param in model.named_parameters(): 
+
+    for name, param in (t := tqdm(model.named_parameters())): 
         splited_name = name.split('.')
-        
         if 'encoder' not in splited_name: continue
         if 'LayerNorm' in splited_name: continue
+        
+        t.set_description(f"{name}")
 
         layer_id = splited_name[splited_name.index('layer') + 1]
 
@@ -920,7 +922,6 @@ def restore_weight(model, DEBUG = False):
                 with torch.no_grad():
                 
                     if freeze_param_name == 'weight':
-                        if len(param.shape) == 1: breakpoint()
                         param[neuron_id,:] = layer_params.params[freeze_param_name][cur_comb]
                     elif freeze_param_name == 'bias':
                         param[neuron_id] = layer_params.params[freeze_param_name][cur_comb]
@@ -932,16 +933,16 @@ def restore_weight(model, DEBUG = False):
                     # bias shape: []
 
                     layer_param_shape = layer_params.params[freeze_param_name][cur_comb].shape
-                    print(f'param shape {freeze_param_name} : {param.shape}, layer_param shape : {layer_param_shape}') 
+                    if DEBUG: print(f'param shape {freeze_param_name} : {param.shape}, layer_param shape : {layer_param_shape}') 
 
-    # # Todo: 
-    # # set all params required_grad -> True
-    # # save all neurons that are not belong to partition neurons
-    # # optimize as a whole model 
-    # # restore all weights that are not belong to partition neurons (to move parameters only for those partition weight)
-    # return model
+    return model
 
-# model = restore_weight(model)
+
+# Todo: 
+#  set all params required_grad -> True
+#  save all neurons that are not belong to partition neurons
+#  optimize as a whole model 
+#  restore all weights that are not belong to partition neurons (to move parameters only for those partition weight)
 
     
     

@@ -76,7 +76,7 @@ def main():
     if config['rank_losses']: rank_losses(config=config,do=mode[0])
     # Todo: partitioning parameters use to train
     if config['partition_params']: partition_params(config, model, do=mode[0])
-    restore_weight(model)
+    model = restore_weight(model)
 
     # Todo: train main model to debias
     
