@@ -15,7 +15,7 @@
 -  [x] using bias model to reweigth once performing grid search
 -  [x] save train and untrain components used to train partition 
 -  [x] roll out variable save into pickles
--  [ ] recheck intervention position inside model
+-  [x] recheck intervention position inside model
 -  [ ] traning main model with reweighted loss  on canidate parameters 
 -  [ ] performing EDA on MNNLI-matched set
 
