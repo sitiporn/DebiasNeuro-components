@@ -816,7 +816,7 @@ def partition_params(config, model, do, debug=True):
         for name, param in model.named_parameters():
             cur_name = name.split('.')
             #  To load and save model's parameters
-            if 'encoder' in cur_name:
+            if 'encoder' in cur_name and 'LayerNorm' not in cur_name:
                 component = None
                 layer_id = int(cur_name[3])
                 
@@ -839,6 +839,7 @@ def partition_params(config, model, do, debug=True):
                         train_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
             else:
                 # freeze whole tensor 
+                print(name)
                 param.requires_grad = False
                 
         assert len(train_params[value]['weight'])  == len(list(top_neuron[value].keys()))
@@ -847,7 +848,7 @@ def partition_params(config, model, do, debug=True):
 
 
         for name, param in model.named_parameters(): 
-            if 'encoder' in name.split('.'): 
+            if 'encoder' in name.split('.') and 'LayerNorm' not in name.split('.'): 
                 assert param.requires_grad == True, f' Error : {name}'
             else: 
                 assert param.requires_grad == False, f' Error : {name}'
@@ -888,9 +889,12 @@ def restore_weight(model, DEBUG = False):
     #  walking in 
     for name, param in model.named_parameters(): 
         splited_name = name.split('.')
+        
         if 'encoder' not in splited_name: continue
+        if 'LayerNorm' in splited_name: continue
 
         layer_id = splited_name[splited_name.index('layer') + 1]
+
         
         if 'self' in splited_name:  
             component = component_mappings[splited_name[-2]]  # to get Q, K, V
@@ -916,6 +920,7 @@ def restore_weight(model, DEBUG = False):
                 with torch.no_grad():
                 
                     if freeze_param_name == 'weight':
+                        if len(param.shape) == 1: breakpoint()
                         param[neuron_id,:] = layer_params.params[freeze_param_name][cur_comb]
                     elif freeze_param_name == 'bias':
                         param[neuron_id] = layer_params.params[freeze_param_name][cur_comb]
@@ -934,7 +939,6 @@ def restore_weight(model, DEBUG = False):
     # # save all neurons that are not belong to partition neurons
     # # optimize as a whole model 
     # # restore all weights that are not belong to partition neurons (to move parameters only for those partition weight)
-
     # return model
 
 # model = restore_weight(model)
