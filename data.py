@@ -25,6 +25,8 @@ from utils import get_overlap_thresholds, group_by_treatment, get_hidden_represe
 from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans, compute_acc
 from utils import get_num_neurons, get_params, relabel, give_weight
+from torch.optim import Adam
+
 
 
 class ExperimentDataset(Dataset):
@@ -874,6 +876,7 @@ def partition_params(config, model, do, debug=True):
             with open(cur_restore_path, 'wb') as handle:
                 pickle.dump(layer_param[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving layer {layer}'s components into pickle files")
+    return model
 
 def restore_weight(model, DEBUG = False):
     
@@ -922,7 +925,11 @@ def restore_weight(model, DEBUG = False):
                 with torch.no_grad():
                 
                     if freeze_param_name == 'weight':
+                        print(f'before : {param[neuron_id,:3]}')
                         param[neuron_id,:] = layer_params.params[freeze_param_name][cur_comb]
+                        print(f'After : {param[neuron_id,:3]}')
+                        print(f'original weight : {layer_params.params[freeze_param_name][cur_comb][:3]}')
+                        breakpoint()
                     elif freeze_param_name == 'bias':
                         param[neuron_id] = layer_params.params[freeze_param_name][cur_comb]
                     
@@ -938,11 +945,63 @@ def restore_weight(model, DEBUG = False):
     return model
 
 
-# Todo: 
-#  set all params required_grad -> True
-#  save all neurons that are not belong to partition neurons
-#  optimize as a whole model 
-#  restore all weights that are not belong to partition neurons (to move parameters only for those partition weight)
+def partition_param_train(model, tokenizer, config, do, DEVICE):
 
+    print(f'Before training main model : {model.bert.encoder.layer[0].attention.self.query.weight[:3,:3]}')
+
+    learning_rate = 1e-5
+    # model = partition_params(config, model, do)
+    optimizer = Adam(model.parameters(), lr= learning_rate)
+    dev_set = Dev(config['dev_path'], config['dev_json'])
+    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+
+    # Todo: 
+    #  set all params required_grad -> True
+    #  save all neurons that are not belong to partition neurons
+    #  optimize as a whole model 
+    #  restore all weights that are not belong to partition neurons (to move parameters only for those partition weight)
+
+    for batch_idx, (inputs) in enumerate(dev_loader):
+
+        model.train()
+
+        cur_inputs = {} 
+
+        for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
+
+        # get the inputs 
+        pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+        pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+        pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+
+        # ignore label_ids when running experiment on hans
+        label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if config['dev-name'] != 'hans' else None
+        scalers = cur_inputs['weight_score'] if config["dev-name"] == 'reweight' else 1
+
+        # ignore label_ids when running experiment on hans
+        if label_ids is not None: label_ids = label_ids.to(DEVICE)
+        if config['dev-name'] == 'reweight': scalers = scalers.to(DEVICE)
+        
+        # zero the parameter gradients
+        optimizer.zero_grad()
+
+        # forward + backward + optimize
+        # Todo: generalize to distribution if the storage is enough
+        outs =  model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
+        loss = outs.loss
+        
+        loss.backward()
+        optimizer.step()                
+
+        # why model doesnot train
+        
+        
+        # model = restore_weight(model)
     
-    
+    print(f'After training main model : {model.bert.encoder.layer[0].attention.self.query.weight[:3,:3]}')
+        
+
+
+
+
+
