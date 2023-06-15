@@ -16,7 +16,8 @@
 -  [x] save train and untrain components used to train partition 
 -  [x] roll out variable save into pickles
 -  [x] recheck intervention position inside model
--  [ ] traning main model with reweighted loss  on canidate parameters 
+-  [ ] recheck reweight set up using MNLI-matched-dev ?
+-  [ ] traning main model with reweighted loss on canidate parameters and plot losses
 -  [ ] performing EDA on MNNLI-matched set
 
 ## Result
