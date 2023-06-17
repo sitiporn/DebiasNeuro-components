@@ -206,7 +206,7 @@ class Dev(Dataset):
         self.dev_name = list(json_file.keys())[0]
         data_path = os.path.join(data_path, json_file[self.dev_name])
         self.df = pd.read_json(data_path, lines=True)
-
+            
         if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
 
         if '-' in self.df.gold_label.unique(): 
@@ -929,7 +929,6 @@ def restore_weight(model, DEBUG = False):
                         param[neuron_id,:] = layer_params.params[freeze_param_name][cur_comb]
                         print(f'After : {param[neuron_id,:3]}')
                         print(f'original weight : {layer_params.params[freeze_param_name][cur_comb][:3]}')
-                        breakpoint()
                     elif freeze_param_name == 'bias':
                         param[neuron_id] = layer_params.params[freeze_param_name][cur_comb]
                     
@@ -945,60 +944,80 @@ def restore_weight(model, DEBUG = False):
     return model
 
 
-def partition_param_train(model, tokenizer, config, do, DEVICE):
+def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=True):
 
-    print(f'Before training main model : {model.bert.encoder.layer[0].attention.self.query.weight[:3,:3]}')
-
+    epochs = 1
     learning_rate = 1e-5
-    # model = partition_params(config, model, do)
+    model = partition_params(config, model, do)
+
+    if DEBUG: 
+        for name, param in model.named_parameters(): 
+            if param.requires_grad == False: 
+                print(f'freeze params state : {name}')
+    
+    criterion = nn.CrossEntropyLoss(reduction = 'none') 
     optimizer = Adam(model.parameters(), lr= learning_rate)
     dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-
-    # Todo: 
-    #  set all params required_grad -> True
-    #  save all neurons that are not belong to partition neurons
-    #  optimize as a whole model 
-    #  restore all weights that are not belong to partition neurons (to move parameters only for those partition weight)
-
-    for batch_idx, (inputs) in enumerate(dev_loader):
-
-        model.train()
-
-        cur_inputs = {} 
-
-        for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
-
-        # get the inputs 
-        pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
-        pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-        pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
-
-        # ignore label_ids when running experiment on hans
-        label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if config['dev-name'] != 'hans' else None
-        scalers = cur_inputs['weight_score'] if config["dev-name"] == 'reweight' else 1
-
-        # ignore label_ids when running experiment on hans
-        if label_ids is not None: label_ids = label_ids.to(DEVICE)
-        if config['dev-name'] == 'reweight': scalers = scalers.to(DEVICE)
-        
-        # zero the parameter gradients
-        optimizer.zero_grad()
-
-        # forward + backward + optimize
-        # Todo: generalize to distribution if the storage is enough
-        outs =  model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
-        loss = outs.loss
-        
-        loss.backward()
-        optimizer.step()                
-
-        # why model doesnot train
-        
-        
-        # model = restore_weight(model)
     
-    print(f'After training main model : {model.bert.encoder.layer[0].attention.self.query.weight[:3,:3]}')
+    if DEBUG: 
+        print(f'Before optimize model {model.bert.pooler.dense.weight[:3, :3]}')
+    
+    # Todo:
+    # 1. Rescale loss
+    # 2. collect loss for each step
+    # 3. plot losses 
+    
+    for epoch in range(epochs):
+        for batch_idx, (inputs) in enumerate(dev_loader):
+            
+            model.train()
+            cur_inputs = {} 
+
+            for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
+
+            # get the inputs 
+            pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+            pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+            pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+
+            # ignore label_ids when running experiment on hans
+            label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if config['dev-name'] != 'hans' else None
+            scalers = cur_inputs['weight_score'] if config["dev-name"] == 'reweight' else 1
+
+            # ignore label_ids when running experiment on hans
+            if label_ids is not None: label_ids = label_ids.to(DEVICE)
+            if config['dev-name'] == 'reweight': scalers = scalers.to(DEVICE)
+            
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            # Todo: generalize to distribution if the storage is enough
+            outs =  model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
+
+            loss = criterion(outs.logits, label_ids)
+            test_loss = torch.mean(loss)
+
+            assert abs(outs.loss - test_loss) < 1e-6
+
+            # loss = scalers *  outs.loss
+            print(f'computed loss : {test_loss}')
+            print(f'model loss : {outs.loss}')
+
+            loss = scalers * loss 
+
+            loss.backward()
+            optimizer.step()                
+
+            print(f'{model.bert.pooler.dense.weight[:3, :3]}')
+
+    if DEBUG: 
+        print(f'After optimize model {model.bert.pooler.dense.weight[:3, :3]}')
+        print(f'pooler requires grad {model.bert.pooler.dense.weight.requires_grad}')
+
+            
+
         
 
 

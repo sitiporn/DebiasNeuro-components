@@ -18,8 +18,9 @@
   "get_prediction": False,
   # "dev-name": "mismatched",
   # "dev-name": "hans",
-  # "dev-name": "reweight",
-  "dev-name": "matched",
+  # this set uses matched dataset
+  "dev-name": "reweight",
+  # "dev-name": "matched",
 
   # if know best params
   # "weaken": null,
