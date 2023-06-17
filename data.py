@@ -1005,7 +1005,10 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=True):
             print(f'computed loss : {test_loss}')
             print(f'model loss : {outs.loss}')
 
+            assert scalers.shape == loss.shape
+
             loss = scalers * loss 
+            loss = torch.mean(loss)
 
             loss.backward()
             optimizer.step()                
