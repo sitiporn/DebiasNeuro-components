@@ -1020,7 +1020,6 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
                 print(f'[{epoch + 1}, {batch_idx + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
 
-            # torch.save(model.state_dict(), SAVE_MODEL_PATH)
 
     if DEBUG: 
         print(f'After optimize model {model.bert.pooler.dense.weight[:3, :3]}')
@@ -1030,8 +1029,11 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
         pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving losses into pickle files')
     
-    
+    torch.save(model.state_dict(), SAVE_MODEL_PATH)
+    print(f'save model into {SAVE_MODEL_PATH}')
 
+
+    
             
 
         
