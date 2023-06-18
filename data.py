@@ -944,10 +944,11 @@ def restore_weight(model, DEBUG = False):
     return model
 
 
-def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=True):
+def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
 
-    epochs = 1
+    epochs = 15
     learning_rate = 1e-5
+    SAVE_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
     model = partition_params(config, model, do)
 
     if DEBUG: 
@@ -963,12 +964,15 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=True):
     if DEBUG: 
         print(f'Before optimize model {model.bert.pooler.dense.weight[:3, :3]}')
     
-    # Todo:
-    # 1. Rescale loss
+    # todo:
     # 2. collect loss for each step
     # 3. plot losses 
+
+    losses = []
+    accuracies = []
     
     for epoch in range(epochs):
+        running_loss = 0.0
         for batch_idx, (inputs) in enumerate(dev_loader):
             
             model.train()
@@ -1000,24 +1004,33 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=True):
             test_loss = torch.mean(loss)
 
             assert abs(outs.loss - test_loss) < 1e-6
-
-            # loss = scalers *  outs.loss
-            print(f'computed loss : {test_loss}')
-            print(f'model loss : {outs.loss}')
-
             assert scalers.shape == loss.shape
-
-            loss = scalers * loss 
-            loss = torch.mean(loss)
-
+            
+            loss = torch.mean(scalers * loss )
             loss.backward()
             optimizer.step()                
 
-            print(f'{model.bert.pooler.dense.weight[:3, :3]}')
+            if DEBUG: print(f'{model.bert.pooler.dense.weight[:3, :3]}')
+
+            # print statistics
+            running_loss += loss.item()
+            losses.append(loss.item())
+            
+            if batch_idx % 100 == 99:    # print every 2000 mini-batches
+                print(f'[{epoch + 1}, {batch_idx + 1:5d}] loss: {running_loss / 2000:.3f}')
+                running_loss = 0.0
+
+            # torch.save(model.state_dict(), SAVE_MODEL_PATH)
 
     if DEBUG: 
         print(f'After optimize model {model.bert.pooler.dense.weight[:3, :3]}')
         print(f'pooler requires grad {model.bert.pooler.dense.weight.requires_grad}')
+
+    with open(f'../pickles/losses/{config["dev-name"]}.pickle', 'wb') as handle: 
+        pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f'saving losses into pickle files')
+    
+    
 
             
 
