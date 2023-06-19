@@ -1032,3 +1032,65 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     torch.save(model.state_dict(), SAVE_MODEL_PATH)
     print(f'save model into {SAVE_MODEL_PATH}')
 
+
+def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
+    
+    SAVE_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
+    IN_DISTRIBUTION_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
+    CHALLENGE_JSONL = 'heuristics_evaluation_set.jsonl' 
+    RES_PATH = f'../pickles/performances/without_condition_infernce.pickle'
+
+    model.load_state_dict(torch.load(SAVE_MODEL_PATH))
+    dev_set = Dev(config['dev_path'] , IN_DISTRIBUTION_JSONL)
+    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+
+    distributions = {}
+    losses = {}
+
+    for cur_json in [IN_DISTRIBUTION_JSONL, CHALLENGE_JSONL]:
+
+        distributions[cur_json] = []
+        losses[cur_json] = []
+    
+        for batch_idx, (inputs) in enumerate(dev_loader):
+            
+            model.eval()
+            cur_inputs = {} 
+            
+            for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
+
+            # get the inputs 
+            pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+            pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+            pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+
+            # ignore label_ids when running experiment on hans
+            label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if config['dev-name'] != 'hans' else None
+            # ignore label_ids when running experiment on hans
+            if label_ids is not None: label_ids = label_ids.to(DEVICE)
+
+            with torch.no_grad(): 
+                # Todo: generalize to distribution if the storage is enough
+                outs =  model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
+                distributions[cur_json].append(F.softmax(outs.logits , dim=-1)) 
+                losses[cur_json].append(outs.loss)
+
+            # print(f"overall acc : {acc[config['masking_rate']]['all']}")
+            # print(f"contradiction acc : {acc[config['masking_rate']]['contradiction']}")
+            # print(f"entailment acc : {acc[config['masking_rate']]['entailment']}")
+            # print(f"neutral acc : {acc[config['masking_rate']]['neutral']}")
+    
+    # write result into pickle files
+    with open(RES_PATH, 'wb') as handle: 
+        pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f'saving without condition distribution into : {RES_PATH}')
+    
+    breakpoint()
+
+
+
+
+
+
+
