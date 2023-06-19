@@ -192,19 +192,14 @@ class Dev(Dataset):
                 data_path, 
                 json_file, 
                 DEBUG=False) -> None: 
-
-
+        
         # Todo: generalize dev apth and json file to  mateched
         self.inputs = {}
-        
         # dev_path = "../debias_fork_clean/debias_nlu_clean/data/nli/"
         # dev_path = os.path.join(os.path.join(dev_path, file))
-
-        print(f"current datapath : {data_path}")
-        print(f"current json files : {json_file}")
-
-        self.dev_name = list(json_file.keys())[0]
-        data_path = os.path.join(data_path, json_file[self.dev_name])
+        self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
+        
+        data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
         self.df = pd.read_json(data_path, lines=True)
             
         if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
@@ -212,7 +207,7 @@ class Dev(Dataset):
         if '-' in self.df.gold_label.unique(): 
             self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
         
-        if self.dev_name == 'hans': 
+        if self.dev_name == 'hans' or self.dev_name == 'heuristics_set': 
             self.df['sentence1'] = self.df.premise 
             self.df['sentence2'] = self.df.hypothesis
         
@@ -1035,27 +1030,31 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
 
 def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
     
+    distributions = {}
+    losses = {}
+    golden_answers = {}
+    
     SAVE_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
     IN_DISTRIBUTION_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
     CHALLENGE_JSONL = 'heuristics_evaluation_set.jsonl' 
-    RES_PATH = f'../pickles/performances/without_condition_infernce.pickle'
-
+    RES_PATH = f'../pickles/performances/'
+    
     model.load_state_dict(torch.load(SAVE_MODEL_PATH))
-    dev_set = Dev(config['dev_path'] , IN_DISTRIBUTION_JSONL)
-    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-
-    distributions = {}
-    losses = {}
 
     for cur_json in [IN_DISTRIBUTION_JSONL, CHALLENGE_JSONL]:
-
-        distributions[cur_json] = []
-        losses[cur_json] = []
-    
-        for batch_idx, (inputs) in enumerate(dev_loader):
+        
+        distributions[cur_json.split("_")[0]] = []
+        losses[cur_json.split("_")[0]] = []
+        golden_answers[cur_json.split("_")[0]] = []
+        
+        dev_set = Dev(config['dev_path'] , cur_json)
+        dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+        
+        for batch_idx, (inputs) in enumerate( t := tqdm(dev_loader)):
             
             model.eval()
             cur_inputs = {} 
+            t.set_description(f'{cur_json.split("_")[0]} batch_idx {batch_idx}/{len(dev_loader)}')
             
             for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
 
@@ -1065,28 +1064,23 @@ def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
             pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
 
             # ignore label_ids when running experiment on hans
-            label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if config['dev-name'] != 'hans' else None
+            label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if  'heuristics' not in cur_json  else None
             # ignore label_ids when running experiment on hans
             if label_ids is not None: label_ids = label_ids.to(DEVICE)
 
             with torch.no_grad(): 
                 # Todo: generalize to distribution if the storage is enough
-                outs =  model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
-                distributions[cur_json].append(F.softmax(outs.logits , dim=-1)) 
-                losses[cur_json].append(outs.loss)
-
-            # print(f"overall acc : {acc[config['masking_rate']]['all']}")
-            # print(f"contradiction acc : {acc[config['masking_rate']]['contradiction']}")
-            # print(f"entailment acc : {acc[config['masking_rate']]['entailment']}")
-            # print(f"neutral acc : {acc[config['masking_rate']]['neutral']}")
-    
-    # write result into pickle files
-    with open(RES_PATH, 'wb') as handle: 
-        pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f'saving without condition distribution into : {RES_PATH}')
-    
-    breakpoint()
+                outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
+                distributions[cur_json.split("_")[0]].extend(F.softmax(outs.logits.cpu() , dim=-1))
+                golden_answers[cur_json.split("_")[0]].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
+        
+        cur_path = os.path.join(RES_PATH, f'{cur_json.split("_")[0]}.pickle')
+        with open(cur_path, 'wb') as handle: 
+            pickle.dump(distributions[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(golden_answers[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f'saving without condition distribution into : {cur_path}')
+        
 
 
 
