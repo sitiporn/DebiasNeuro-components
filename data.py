@@ -1094,11 +1094,9 @@ def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
         elif config['get_hans_result'] and 'heuristics'in cur_json: 
             get_hans_result(cur_raw_distribution_path, config)
 
-def convert_text_to_answer_base(config, raw_distribution_path): #, text_answer_path):
+def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path):
 
     text_answers = []
-    text_answer_path =  '/'.join(raw_distribution_path.split('/')[:-1])
-    text_answer_path =  os.path.join(text_answer_path, f'hans_text_answers')
     
     with open(raw_distribution_path, 'rb') as handle: 
         distributions = pickle.load(handle)
@@ -1106,7 +1104,7 @@ def convert_text_to_answer_base(config, raw_distribution_path): #, text_answer_p
 
     # # convert answers_ids to text answers
     for sample_id in range(len(distributions['heuristics'])):
-        text_prediction = get_ans(torch.argmax(distributions[sample_id], dim=-1))
+        text_prediction = get_ans(torch.argmax(distributions['heuristics'][sample_id], dim=-1))
         text_answers.append(text_prediction)
 
     # # write into text files
@@ -1120,12 +1118,13 @@ def convert_text_to_answer_base(config, raw_distribution_path): #, text_answer_p
         print(f"saving text answer's bert predictions: {text_answer_path}")
 
 def get_hans_result(raw_distribution_path, config):
+    '../pickles/performances/hans_text_answers.txt'
 
-    if config['to_text']: convert_text_to_answer_base(config, raw_distribution_path)
-
+    group = 0 # num of neuron to intervene 0 mean no intervention
     performance_path =  '/'.join(raw_distribution_path.split('/')[:-1])
     text_answer_path =  os.path.join(performance_path, f'hans_text_answers.txt')
     score_path =  os.path.join(performance_path, f'hans_scores.txt')
+    if config['to_text']: convert_text_to_answer_base(config, raw_distribution_path, text_answer_path)
 
     # path to read inferences of model
     # os.path.join(os.path.join(prediction_path, epsilon_path),  text_answer_path)
