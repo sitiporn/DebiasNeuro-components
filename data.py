@@ -576,7 +576,7 @@ def format_label(label):
     else:
         return "non-entailment"
 
-def get_result(config, eval_path, prediction_path, neuron_path, top_neuron, prediction_mode, params, digits):
+def get_condition_inference_hans_result(config, eval_path, prediction_path, neuron_path, top_neuron, prediction_mode, params, digits):
     
     if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits)
     

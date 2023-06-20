@@ -7,7 +7,7 @@ import torch
 import numpy as np
 from utils import get_ans
 import operator
-from data import get_result, get_num_neurons, get_params
+from data import get_condition_inference_hans_resul, get_num_neurons, get_params
 
 # ++++++  config ++++++++++++
 
@@ -34,7 +34,7 @@ with open(neuron_path, 'rb') as handle:
 
 params, digits = get_params(config)
 
-if config['get_result']: get_result(config, eval_path, prediction_path, neuron_path, top_neuron, prediction_mode, params, digits)
+if config['get_result']: get_condition_inference_hans_resul(config, eval_path, prediction_path, neuron_path, top_neuron, prediction_mode, params, digits)
 
 num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else list(top_neuron.keys())
 
