@@ -1035,14 +1035,14 @@ def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
     golden_answers = {}
     
     SAVE_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
-    IN_DISTRIBUTION_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
-    CHALLENGE_JSONL = 'heuristics_evaluation_set.jsonl' 
-    RES_PATH = f'../pickles/performances/'
+    IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
+    CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
+    RESULT_PATH = f'../pickles/performances/'
     
     model.load_state_dict(torch.load(SAVE_MODEL_PATH))
 
-    # for cur_json in [IN_DISTRIBUTION_JSONL, CHALLENGE_JSONL]:
-    for cur_json in [CHALLENGE_JSONL]:
+    # for cur_json in [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]:
+    for cur_json in [CHALLENGE_SET_JSONL]:
         
         distributions[cur_json.split("_")[0]] = []
         losses[cur_json.split("_")[0]] = []
@@ -1076,7 +1076,7 @@ def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
                 golden_answers[cur_json.split("_")[0]].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
 
         
-        cur_raw_distribution_path = os.path.join(RES_PATH, f'{cur_json.split("_")[0]}.pickle')
+        cur_raw_distribution_path = os.path.join(RESULT_PATH, f'{cur_json.split("_")[0]}.pickle')
         
         with open(cur_raw_distribution_path, 'wb') as handle: 
             pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -1246,6 +1246,29 @@ def get_hans_result(raw_distribution_path, config):
     with open(score_path, 'wb') as handle: 
         pickle.dump(config["evaluations"], handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving evaluation predictoins into : {score_path}')
+
+    avg_score = get_avg_score(score_path)
+    print(f'average score : {avg_score}')
+
+
+def get_avg_score(score_path):
+
+    with open(score_path, 'rb') as handle: 
+
+        current_score = pickle.load(handle)
+
+    cur_score = []
+
+    for type in ['entailed','non-entailed']:
+
+        class_score = []
+
+        for score in ['lexical_overlap', 'subsequence','constituent']: class_score.append(current_score[type][score])
+
+        cur_score.append(class_score)
+
+    return torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
+
 
 
 
