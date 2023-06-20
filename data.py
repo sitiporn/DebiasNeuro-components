@@ -1073,13 +1073,24 @@ def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
                 outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
                 distributions[cur_json.split("_")[0]].extend(F.softmax(outs.logits.cpu() , dim=-1))
                 golden_answers[cur_json.split("_")[0]].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
+
         
         cur_path = os.path.join(RES_PATH, f'{cur_json.split("_")[0]}.pickle')
+        
         with open(cur_path, 'wb') as handle: 
-            pickle.dump(distributions[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
-            pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
-            pickle.dump(golden_answers[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            # pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f'saving without condition distribution into : {cur_path}')
+        
+        if 'heuristics' not in cur_json: 
+            acc = compute_acc(cur_path, config["label_maps"])
+            print(f"overall acc : {acc['all']}")
+            print(f"contradiction acc : {acc['contradiction']}")
+            print(f"entailment acc : {acc['entailment']}")
+            print(f"neutral acc : {acc['neutral']}")
+
+
         
 
 

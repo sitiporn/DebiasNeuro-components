@@ -1083,7 +1083,6 @@ def compute_acc(raw_distribution_path, label_maps):
         
         distributions = pickle.load(handle)
         golden_answers = pickle.load(handle)
-        
         print(f'loading distributions and labels from : {raw_distribution_path}')
 
     for mode in distributions.keys():
