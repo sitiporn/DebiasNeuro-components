@@ -109,7 +109,8 @@
   "evaluations":  {},
   "to_text": True,
   # "get_result": False,
-  "get_result": True,
+  "get_condition_hans_result": False,
+  "get_hans_result": True,
   "save_rank": True,
 
   # neurons components

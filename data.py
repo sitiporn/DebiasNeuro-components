@@ -1041,7 +1041,8 @@ def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
     
     model.load_state_dict(torch.load(SAVE_MODEL_PATH))
 
-    for cur_json in [IN_DISTRIBUTION_JSONL, CHALLENGE_JSONL]:
+    # for cur_json in [IN_DISTRIBUTION_JSONL, CHALLENGE_JSONL]:
+    for cur_json in [CHALLENGE_JSONL]:
         
         distributions[cur_json.split("_")[0]] = []
         losses[cur_json.split("_")[0]] = []
@@ -1075,24 +1076,48 @@ def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
                 golden_answers[cur_json.split("_")[0]].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
 
         
-        cur_path = os.path.join(RES_PATH, f'{cur_json.split("_")[0]}.pickle')
+        cur_raw_distribution_path = os.path.join(RES_PATH, f'{cur_json.split("_")[0]}.pickle')
         
-        with open(cur_path, 'wb') as handle: 
+        with open(cur_raw_distribution_path, 'wb') as handle: 
             pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
             # pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f'saving without condition distribution into : {cur_path}')
+            print(f'saving without condition distribution into : {cur_raw_distribution_path}')
         
         if 'heuristics' not in cur_json: 
-            acc = compute_acc(cur_path, config["label_maps"])
+            acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
             print(f"overall acc : {acc['all']}")
             print(f"contradiction acc : {acc['contradiction']}")
             print(f"entailment acc : {acc['entailment']}")
             print(f"neutral acc : {acc['neutral']}")
 
+        elif config['get_hans_result'] and 'heuristics'in cur_json: 
+            get_hans_result(cur_raw_distribution_path, config)
 
+def convert_text_to_answer_base(config, raw_distribution_path): #, text_answer_path):
+
+    text_answers = []
+    text_answer_path =  '/'.join(raw_distribution_path.split('/')[:-1])
+    text_answer_path =  os.path.join(text_answer_path, f'hans_text_answers')
+    
+    with open(raw_distribution_path, 'rb') as handle: 
+        distributions = pickle.load(handle)
+        golden_answers = pickle.load(handle)
+
+    # # convert answers_ids to text answers
+    for sample_id in range(len(distributions['heuristics'])):
+        text_prediction = get_ans(torch.argmax(distributions[sample_id], dim=-1))
+        text_answers.append(text_prediction)
+
+    # # write into text files
+    with open(text_answer_path, "w") as fobj:
+        headers = ['pairID', 'gold_label']
+        fobj.write(f'{headers[0]}' + "," + f'{headers[1]}' +"\n")
         
+        for sample_id, ans in enumerate(text_answers):
+            fobj.write(f"ex{sample_id}" + "," + ans +"\n")
 
+        print(f"saving text answer's bert predictions: {text_answer_path}")
 
 
 
