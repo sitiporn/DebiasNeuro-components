@@ -1118,9 +1118,6 @@ def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path)
         print(f"saving text answer's bert predictions: {text_answer_path}")
 
 def get_hans_result(raw_distribution_path, config):
-    '../pickles/performances/hans_text_answers.txt'
-
-    group = 0 # num of neuron to intervene 0 mean no intervention
     performance_path =  '/'.join(raw_distribution_path.split('/')[:-1])
     text_answer_path =  os.path.join(performance_path, f'hans_text_answers.txt')
     score_path =  os.path.join(performance_path, f'hans_scores.txt')
@@ -1231,10 +1228,8 @@ def get_hans_result(raw_distribution_path, config):
     tables['incorrect'] = { 'entailed': heuristic_ent_incorrect_count_dict,  'non-entailed': heuristic_nonent_incorrect_count_dict}
 
     for cur_class in ['entailed','non-entailed']:
-
         print(f"Heuristic  {cur_class} results:")
-
-        if cur_class not in config["evaluations"][group].keys():  config["evaluations"][group][cur_class] = {}
+        if cur_class not in config["evaluations"].keys():  config["evaluations"][cur_class] = {}
 
         for heuristic in heuristic_list:
 
@@ -1245,7 +1240,7 @@ def get_hans_result(raw_distribution_path, config):
             percent = correct * 1.0 / total
             print(heuristic + ": " + str(percent))
 
-            config["evaluations"][group][cur_class][heuristic] = percent
+            config["evaluations"][cur_class][heuristic] = percent
 
     
     with open(score_path, 'wb') as handle: 
