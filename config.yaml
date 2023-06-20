@@ -14,8 +14,8 @@
   "debias_test": False,
   # "partition_params": True,
   "partition_params": False,
-  # "get_prediction": True,
-  "get_prediction": False,
+  "get_condition_inferences": False,
+  "get_inference_based": True,
   # "dev-name": "mismatched",
   # "dev-name": "hans",
   # this set uses matched dataset

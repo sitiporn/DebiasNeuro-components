@@ -1028,7 +1028,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     print(f'save model into {SAVE_MODEL_PATH}')
 
 
-def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
+def get_inference_based(model, config, tokenizer, DEVICE):
     
     distributions = {}
     losses = {}
@@ -1039,10 +1039,9 @@ def get_wo_condition_inferences(model, config, tokenizer, DEVICE):
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
     
-    model.load_state_dict(torch.load(SAVE_MODEL_PATH))
+    # model.load_state_dict(torch.load(SAVE_MODEL_PATH))
 
-    # for cur_json in [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]:
-    for cur_json in [CHALLENGE_SET_JSONL]:
+    for cur_json in [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]:
         
         distributions[cur_json.split("_")[0]] = []
         losses[cur_json.split("_")[0]] = []
