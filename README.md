@@ -18,9 +18,9 @@
 -  [x] recheck intervention position inside model
 -  [x] recheck reweight set up using MNLI-matched-dev ?
 -  [x] traning main model with reweighted loss on canidate parameters and plot losses
--  [ ] write test to check parameters candidate-only weights to optimize
--  [ ] performing EDA on MNNLI-matched set to select both a1 and a2 samples
--  [ ] write control gradient direction used to train main model
+-  [ ] write tester to check parameters which are candidate-only weights to optimize
+-  [ ] perform EDA on MNNLI-matched set to select both a1 and a2 samples
+-  [ ] write gradient direction control used to train main model
 
 ## Result
 
