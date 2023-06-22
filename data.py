@@ -1039,7 +1039,7 @@ def get_inference_based(model, config, tokenizer, DEVICE):
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
     
-    # model.load_state_dict(torch.load(SAVE_MODEL_PATH))
+    model.load_state_dict(torch.load(SAVE_MODEL_PATH))
 
     for cur_json in [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]:
         
@@ -1268,10 +1268,73 @@ def get_avg_score(score_path):
 
     return torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
 
+def trace_optimized_params(model, config, DEVICE):
 
+    LOAD_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
+    model.load_state_dict(torch.load(LOAD_MODEL_PATH))
+    # original model
+    original_model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
+    original_model = original_model.to(DEVICE)
 
+    value = 0.05 # the percentage of candidate neurons
+    component_mappings = {}
+    restore_path = f'../pickles/restore_weight/'
+    restore_path = os.path.join(restore_path, f'v-{value}')
+    mediators  = get_mediators(model)
+    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+    for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
+    for key in model.state_dict():
+        
+        optimized_param = model.state_dict().get(key)
+        non_optimized_param = original_model.state_dict().get(key)
+        
+        if torch.all( abs(optimized_param - non_optimized_param) > 1e-8):
+            # print(abs(optimized_param - non_optimized_param) < 1e-8)
+            print(key, optimized_param.size())
+        else: 
+            pass
+            # there is not differences
 
+    
 
+    
+    """
+    # Todo
+    # get all candiate params
+    # loop all parameters
+    for name, param in model.named_parameters():
+        cur_name = name.split('.')
+        #  checking specific neurons
+        if 'encoder' in cur_name and 'LayerNorm' not in cur_name:
+            # component = None
+            # layer_id = int(cur_name[3])
+            
+            # if 'self' in cur_name:  
+            #     component = component_mappings[cur_name[-2]]  # to get Q, K, V
+            # elif 'attention' in cur_name and 'output' in cur_name: 
+            #     component = component_mappings['attention.output']  
+            # else:
+            #     component = component_mappings[cur_name[-3]]
+
+            # for neuron_id in range(param.data.shape[0]):
+
+            #     cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
+            #     total_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+
+            #     # preparing to restore weight that are not in partition gradients
+            #     if cur_combine not in list(top_neuron[value].keys()):
+            #         freeze_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+            #     else:
+            #         train_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+            pass
+        else:
+            # checking whether the whole tensor doesnt change
+            print(f"current parameters : {name}")
+            for k,v in model.state_dict().items():
+                print(k, v.shape)
+    """
+
+    
 
 

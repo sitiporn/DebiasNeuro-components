@@ -16,6 +16,7 @@
   "partition_params": False,
   "get_condition_inferences": False,
   "get_inference_based": True,
+  "traced_params": True,
   # "dev-name": "mismatched",
   # "dev-name": "hans",
   # this set uses matched dataset

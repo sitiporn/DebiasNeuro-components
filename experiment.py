@@ -23,7 +23,7 @@ from nn_pruning.patch_coordinator import (
     SparseTrainingArguments,
     ModelPatchingCoordinator,
 )
-from data import ExperimentDataset, Dev, get_condition_inferences, get_inference_based, print_config
+from data import ExperimentDataset, Dev, get_condition_inferences, get_inference_based, print_config, trace_optimized_params
 from data import rank_losses, partition_params, restore_weight, partition_param_train
 from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
@@ -75,8 +75,10 @@ def main():
     if config["diag"]: get_diagnosis(config)
     if config['rank_losses']: rank_losses(config=config,do=mode[0])
     if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0],DEVICE)
-    if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
-    if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE)
+    # if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
+    # if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE)
+    trace_optimized_params(model, config, DEVICE)
+    
 
     # Todo: train main model to debias
     
