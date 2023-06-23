@@ -1217,6 +1217,7 @@ def give_weight(label, probs):
     return 1 / probs
 
 class EncoderParams:
+    """ A class used to store freeze of specific parameters inside Encoder of model"""
     def __init__(self, layer_id):
         self.layer_id  = layer_id
         self.params = {'weight': {}, 'bias': {}}
