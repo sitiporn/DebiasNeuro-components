@@ -774,6 +774,7 @@ def rank_losses(config, do):
             print(f"curret loss : {average_losses} on weaken rate : {epsilon}")
 
 def partition_params(config, model, do, debug=True):
+    """parition candidate parameters used to train main model """
     
     component_mappings = {}
     freeze_params = {}
@@ -789,9 +790,10 @@ def partition_params(config, model, do, debug=True):
     path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     
+    # candidate neurons existed bias 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
-    
+
     cls = get_hidden_representations(config['counterfactual_paths'], 
                                     config['layers'], 
                                     config['heads'], 
@@ -807,8 +809,8 @@ def partition_params(config, model, do, debug=True):
     for value in (n:= tqdm(num_neuron_groups)):
         # encoder parameter collectors
         freeze_params[value] = {'weight': {}, 'bias': {}}
-        train_params[value] = {'weight': {}, 'bias': {}}
-        total_params[value] = {'weight': {}, 'bias': {}}
+        train_params[value]  = {'weight': {}, 'bias': {}}
+        total_params[value]  = {'weight': {}, 'bias': {}}
         
         for name, param in model.named_parameters():
             cur_name = name.split('.')
@@ -843,7 +845,6 @@ def partition_params(config, model, do, debug=True):
         assert len(train_params[value]['bias'])  == len(list(top_neuron[value].keys())) 
         assert len(total_params[value]['weight'])  == len(train_params[value]['weight']) + len(freeze_params[value]['weight'])
 
-
         for name, param in model.named_parameters(): 
             if 'encoder' in name.split('.') and 'LayerNorm' not in name.split('.'): 
                 assert param.requires_grad == True, f' Error : {name}'
@@ -854,10 +855,9 @@ def partition_params(config, model, do, debug=True):
         layer_param = [] 
         
         for layer in range(model.config.num_hidden_layers): layer_param.append(EncoderParams(layer_id=layer))
-        
         for pos in list(freeze_params[value]['weight'].keys()):
             layer_param[int(pos.split('-')[1])].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
-
+        
         restore_path = f'../pickles/restore_weight/'
 
         for layer in range(len(layer_param)): 
@@ -885,16 +885,13 @@ def restore_weight(model, DEBUG = False):
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
     #  walking in 
-
     for name, param in (t := tqdm(model.named_parameters())): 
         splited_name = name.split('.')
         if 'encoder' not in splited_name: continue
         if 'LayerNorm' in splited_name: continue
-        
         t.set_description(f"{name}")
 
         layer_id = splited_name[splited_name.index('layer') + 1]
-
         
         if 'self' in splited_name:  
             component = component_mappings[splited_name[-2]]  # to get Q, K, V
@@ -905,7 +902,7 @@ def restore_weight(model, DEBUG = False):
         
         freeze_param_name = splited_name[-1]
 
-        cur_restore_path = os.path.join(restore_path,f'layer{layer_id}_components.pickle')
+        cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
         
         with open(cur_restore_path, 'rb') as handle:
             layer_params = pickle.load(handle)
@@ -932,7 +929,6 @@ def restore_weight(model, DEBUG = False):
                     # layer_params.params
                     # weight shape: [hidden_dim]
                     # bias shape: []
-
                     layer_param_shape = layer_params.params[freeze_param_name][cur_comb].shape
                     if DEBUG: print(f'param shape {freeze_param_name} : {param.shape}, layer_param shape : {layer_param_shape}') 
 
@@ -1015,7 +1011,6 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
                 print(f'[{epoch + 1}, {batch_idx + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
 
-
     if DEBUG: 
         print(f'After optimize model {model.bert.pooler.dense.weight[:3, :3]}')
         print(f'pooler requires grad {model.bert.pooler.dense.weight.requires_grad}')
@@ -1074,7 +1069,6 @@ def get_inference_based(model, config, tokenizer, DEVICE):
                 distributions[cur_json.split("_")[0]].extend(F.softmax(outs.logits.cpu() , dim=-1))
                 golden_answers[cur_json.split("_")[0]].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
 
-        
         cur_raw_distribution_path = os.path.join(RESULT_PATH, f'{cur_json.split("_")[0]}.pickle')
         
         with open(cur_raw_distribution_path, 'wb') as handle: 
@@ -1268,7 +1262,7 @@ def get_avg_score(score_path):
 
     return torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
 
-def trace_optimized_params(model, config, DEVICE, DEBUG=True):
+def trace_optimized_params(model, config, DEVICE, DEBUG=False):
 
     value = 0.05 # the percentage of candidate neurons
     component_mappings = {}
@@ -1277,6 +1271,7 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=True):
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     LOAD_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
+    NUM_PARAM_TYPES = 2
     
     # original model
     original_model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
@@ -1285,14 +1280,53 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=True):
     model.load_state_dict(torch.load(LOAD_MODEL_PATH))
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
-    for key in model.state_dict():
+    count_freeze_param = 0
+    count_optimized_param = 0
+
+    for key in (t := tqdm(model.state_dict())):
         optimized_param = model.state_dict().get(key)
         non_optimized_param = original_model.state_dict().get(key)
         # whole tensor exact
         if torch.all( abs( model.state_dict().get(key) - original_model.state_dict().get(key) ) < 1e-8 ):
             if DEBUG: print(key, optimized_param.size())
         else: 
-            # Todo: compare specific value in tensor between
-            pass
-        
+            # Todo: compare specific parameters in tensor from optimized model and restore weight table
+            # get candidate component name
+            splited_name  = key.split('.')
+            layer_id = splited_name[splited_name.index('layer') + 1]
+            
+            if 'self' in splited_name:  
+                component = component_mappings[splited_name[-2]]  # to get Q, K, V
+            elif 'attention' in splited_name and 'output' in splited_name: 
+                component = component_mappings['attention.output']  
+            else:
+                component = component_mappings[splited_name[-3]]
 
+            param_name = splited_name[-1]
+            cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
+            
+            with open(cur_restore_path, 'rb') as handle:
+                layer_params = pickle.load(handle)
+            
+            for neuron_id in range(optimized_param.shape[0]):
+                cur_neuron = f'{component}-{neuron_id}'
+                # currrent neuron is in  freeze parameters
+                if cur_neuron in list(layer_params.params[param_name].keys()):
+                    # frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
+                    frozen_param = non_optimized_param[neuron_id]
+                    # why  optimized parameters dont close to freeze parameter  
+                    # if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
+                    #     count_optimized_param += 1
+                    # else:
+                    #     # print(f'{layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
+                    count_optimized_param += 1
+                else:
+                    count_freeze_param += 1
+
+                    # optimized_param ~ W : (feature_out, feature_in), B: (out_features,)
+                    # Todo : get the exact number of parameters to keep
+    
+    print(f'total optimized parameters inside an Encoder :{count_optimized_param / NUM_PARAM_TYPES}')
+    print(f'total freeze parameters inside an Encoder :{count_freeze_param / NUM_PARAM_TYPES }') 
+
+            
