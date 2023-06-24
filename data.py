@@ -841,9 +841,12 @@ def partition_params(config, model, do, debug=True):
                 print(name)
                 param.requires_grad = False
                 
-        assert len(train_params[value]['weight'])  == len(list(top_neuron[value].keys()))
-        assert len(train_params[value]['bias'])  == len(list(top_neuron[value].keys())) 
-        assert len(total_params[value]['weight'])  == len(train_params[value]['weight']) + len(freeze_params[value]['weight'])
+        for child in ['weight', 'bias']:
+            assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
+            assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
+            print(f'# {child} train parameters:  {len(train_params[value][child])} ')
+            print(f'# {child} freeze parameters: {len(freeze_params[value][child])} ')
+            print(f'# {child} total oparameters: {len(train_params[value][child]) + len(freeze_params[value][child])} ')
 
         for name, param in model.named_parameters(): 
             if 'encoder' in name.split('.') and 'LayerNorm' not in name.split('.'): 
