@@ -1217,7 +1217,7 @@ def give_weight(label, probs):
     return 1 / probs
 
 class EncoderParams:
-    """ A class used to store specific optimized parameters inside Encoder of model"""
+    """ A class used to restore specific parameters needed to be frozen inside Encoder of model"""
     def __init__(self, layer_id, num_train_params, num_freeze_params):
         self.layer_id  = layer_id
         self.params = {'weight': {}, 'bias': {}}
