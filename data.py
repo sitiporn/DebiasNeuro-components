@@ -857,9 +857,12 @@ def partition_params(config, model, do, debug=True):
         # Todo: rolling out memory
         layer_param = [] 
         
-        for layer in range(model.config.num_hidden_layers): layer_param.append(EncoderParams(layer_id=layer))
+        for layer_id in range(model.config.num_hidden_layers): 
+            layer_param.append(EncoderParams(layer_id, len(train_params[value]['weight']), len(freeze_params[value]['weight']) ))
+        
         for pos in list(freeze_params[value]['weight'].keys()):
             layer_param[int(pos.split('-')[1])].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
+        breakpoint()
         
         restore_path = f'../pickles/restore_weight/'
 

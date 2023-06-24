@@ -1218,9 +1218,12 @@ def give_weight(label, probs):
 
 class EncoderParams:
     """ A class used to store specific optimized parameters inside Encoder of model"""
-    def __init__(self, layer_id):
+    def __init__(self, layer_id, num_train_params, num_freeze_params):
         self.layer_id  = layer_id
         self.params = {'weight': {}, 'bias': {}}
+        self.num_train_params = num_train_params
+        self.num_freeze_params = num_freeze_params
+        self.total_params = self.num_train_params + self.num_freeze_params
 
     def append_pos(self, pos, value):
         component = pos.split('-')[2]
