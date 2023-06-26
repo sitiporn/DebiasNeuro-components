@@ -24,7 +24,7 @@ from nn_pruning.patch_coordinator import (
     ModelPatchingCoordinator,
 )
 from data import ExperimentDataset, Dev, get_condition_inferences, get_inference_based, print_config, trace_optimized_params
-from data import rank_losses, partition_params, restore_weight, partition_param_train
+from data import rank_losses, initial_partition_params, restore_original_weight, partition_param_train
 from intervention import intervene, high_level_intervention
 from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
 from utils import debias_test, get_nie_set_path

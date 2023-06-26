@@ -153,7 +153,10 @@ mitigation paper
 Jun 26
 ---
 
-1. reduce the number of epochs -> depend how much do models continue to reduce loss
+1. reduce the number of epochs 
+    L depend how much do models continue to reduce loss
+    L recheck in paper how mucm do model use to optimize on validation set  
+
 2. reduce time of linear search
 
 

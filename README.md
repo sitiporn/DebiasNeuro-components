@@ -18,11 +18,20 @@
 -  [x] recheck intervention position inside model
 -  [x] recheck reweight set up using MNLI-matched-dev ?
 -  [x] traning main model with reweighted loss on canidate parameters and plot losses
+-  [ ] uncomment load intitial partition parameters
 -  [ ] write tester to check parameters which are candidate-only weights to optimize
 -  [ ] perform EDA on MNNLI-matched set to select both a1 and a2 samples
 -  [ ] write gradient direction control used to train main model
 
-## Result
+## Problems
+1. training main model is too long 
+    - running on server is not enough (2 days roughly) it's terminated already
+## Solutions
+1. reducing the number of epochs
+    - checking on papers
+    - checking loss 
+
+2. optimize linear search of candidate parameters
 
 ## General Tackles
 1. modifying embedding space to do counterfactual inference

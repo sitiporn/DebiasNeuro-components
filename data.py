@@ -774,7 +774,7 @@ def rank_losses(config, do):
             print(f"curret loss : {average_losses} on weaken rate : {epsilon}")
 
 def initial_partition_params(config, model, do, debug=True):
-    """parition candidate parameters used to train main model """
+    """partition candidate parameters used to train main model """
     
     component_mappings = {}
     freeze_params = {}
@@ -913,11 +913,13 @@ def restore_original_weight(model, DEBUG = False):
         with open(cur_restore_path, 'rb') as handle:
             layer_params = pickle.load(handle)
 
+        # Todo: vectorize accessing model parameters 
         for neuron_id in range(param.shape[0]):
             cur_comb = f'{component}-{neuron_id}' 
+            
+            breakpoint()
             # restore weight after performing optimize freeze param
             if  cur_comb in list(layer_params.params[freeze_param_name].keys()):
-
                 # if DEBUG: print(f'Before assign params : {param[neuron_id,:]}')
                 # modifying to restore original weight back 
                 with torch.no_grad():
@@ -947,7 +949,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     epochs = 15
     learning_rate = 1e-5
     SAVE_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
-    model = initial_partition_params(config, model, do)
+    # model = initial_partition_params(config, model, do)
 
     if DEBUG: 
         for name, param in model.named_parameters(): 
