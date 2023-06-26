@@ -773,7 +773,7 @@ def rank_losses(config, do):
 
             print(f"curret loss : {average_losses} on weaken rate : {epsilon}")
 
-def partition_params(config, model, do, debug=True):
+def initial_partition_params(config, model, do, debug=True):
     """parition candidate parameters used to train main model """
     
     component_mappings = {}
@@ -879,7 +879,7 @@ def partition_params(config, model, do, debug=True):
                 print(f"saving layer {layer}'s components into pickle files")
     return model
 
-def restore_weight(model, DEBUG = False):
+def restore_original_weight(model, DEBUG = False):
     
     value = 0.05
     component_mappings = {}
@@ -947,7 +947,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     epochs = 15
     learning_rate = 1e-5
     SAVE_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
-    model = partition_params(config, model, do)
+    model = initial_partition_params(config, model, do)
 
     if DEBUG: 
         for name, param in model.named_parameters(): 
@@ -973,7 +973,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
         running_loss = 0.0
         for batch_idx, (inputs) in  enumerate(b:= tqdm(dev_loader)):
 
-            model = restore_weight(model, DEBUG=False)
+            model = restore_original_weight(model, DEBUG=False)
             
             model.train()
             cur_inputs = {} 

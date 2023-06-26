@@ -150,3 +150,10 @@ mitigation paper
         bias model outoput: high confident correlate with bias 
             - the answers are correct; high weight  for that samples
             - the answers are incorrect; low weight for that samples
+Jun 26
+---
+
+1. reduce the number of epochs -> depend how much do models continue to reduce loss
+2. reduce time of linear search
+
+

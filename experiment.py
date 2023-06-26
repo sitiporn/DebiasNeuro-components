@@ -77,7 +77,7 @@ def main():
     if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0],DEVICE)
     # if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
     # if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE)
-    trace_optimized_params(model, config, DEVICE)
+    # trace_optimized_params(model, config, DEVICE)
     
 
     # Todo: train main model to debias
