@@ -860,9 +860,9 @@ def partition_params(config, model, do, debug=True):
         for layer_id in range(model.config.num_hidden_layers): 
             layer_param.append(EncoderParams(layer_id, len(train_params[value]['weight']), len(freeze_params[value]['weight']) ))
         
+        # collect parameters needed to be frozen while perform optmize step
         for pos in list(freeze_params[value]['weight'].keys()):
             layer_param[int(pos.split('-')[1])].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
-        breakpoint()
         
         restore_path = f'../pickles/restore_weight/'
 
@@ -891,11 +891,11 @@ def restore_weight(model, DEBUG = False):
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
     #  walking in 
-    for name, param in (t := tqdm(model.named_parameters())): 
+    for name, param in model.named_parameters(): 
         splited_name = name.split('.')
         if 'encoder' not in splited_name: continue
         if 'LayerNorm' in splited_name: continue
-        t.set_description(f"{name}")
+        # t.set_description(f"{name}")
 
         layer_id = splited_name[splited_name.index('layer') + 1]
         
@@ -918,25 +918,26 @@ def restore_weight(model, DEBUG = False):
             # restore weight after performing optimize freeze param
             if  cur_comb in list(layer_params.params[freeze_param_name].keys()):
 
-                if DEBUG: print(f'Before assign params : {param[neuron_id,:]}')
+                # if DEBUG: print(f'Before assign params : {param[neuron_id,:]}')
                 # modifying to restore original weight back 
                 with torch.no_grad():
                 
                     if freeze_param_name == 'weight':
-                        print(f'before : {param[neuron_id,:3]}')
+                        if DEBUG: print(f'before : {param[neuron_id,:3]}')
                         param[neuron_id,:] = layer_params.params[freeze_param_name][cur_comb]
-                        print(f'After : {param[neuron_id,:3]}')
-                        print(f'original weight : {layer_params.params[freeze_param_name][cur_comb][:3]}')
+                        if DEBUG:
+                            print(f'After : {param[neuron_id,:3]}')
+                            print(f'original weight : {layer_params.params[freeze_param_name][cur_comb][:3]}')
                     elif freeze_param_name == 'bias':
                         param[neuron_id] = layer_params.params[freeze_param_name][cur_comb]
                     
-                    if DEBUG : print(f'After assign params : {param[neuron_id,:]}')
+                    # if DEBUG : print(f'After assign params : {param[neuron_id,:]}')
 
                     # layer_params.params
                     # weight shape: [hidden_dim]
                     # bias shape: []
                     layer_param_shape = layer_params.params[freeze_param_name][cur_comb].shape
-                    if DEBUG: print(f'param shape {freeze_param_name} : {param.shape}, layer_param shape : {layer_param_shape}') 
+                    # if DEBUG: print(f'param shape {freeze_param_name} : {param.shape}, layer_param shape : {layer_param_shape}') 
 
     return model
 
@@ -968,9 +969,11 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     losses = []
     accuracies = []
     
-    for epoch in range(epochs):
+    for epoch in (e:= tqdm(range(epochs))):
         running_loss = 0.0
-        for batch_idx, (inputs) in enumerate(dev_loader):
+        for batch_idx, (inputs) in  enumerate(b:= tqdm(dev_loader)):
+
+            model = restore_weight(model, DEBUG=False)
             
             model.train()
             cur_inputs = {} 
