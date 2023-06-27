@@ -1229,5 +1229,6 @@ class EncoderParams:
         component = pos.split('-')[2]
         neuron_id = pos.split('-')[3]
 
+        # Todo: refactor group by component 
         for child in list(self.params.keys()): 
             self.params[child][f'{component}-{neuron_id}'] = value[child].cpu()

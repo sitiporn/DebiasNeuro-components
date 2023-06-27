@@ -917,7 +917,6 @@ def restore_original_weight(model, DEBUG = False):
         for neuron_id in range(param.shape[0]):
             cur_comb = f'{component}-{neuron_id}' 
             
-            breakpoint()
             # restore weight after performing optimize freeze param
             if  cur_comb in list(layer_params.params[freeze_param_name].keys()):
                 # if DEBUG: print(f'Before assign params : {param[neuron_id,:]}')
@@ -946,10 +945,11 @@ def restore_original_weight(model, DEBUG = False):
 
 def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
 
-    epochs = 15
-    learning_rate = 1e-5
-    SAVE_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
-    # model = initial_partition_params(config, model, do)
+    epochs = 3
+    learning_rate = 2e-5
+    model = initial_partition_params(config, model, do)
+
+    print(f'Epochs : {epochs}, with learning rate at : {learning_rate}')
 
     if DEBUG: 
         for name, param in model.named_parameters(): 
@@ -1022,6 +1022,10 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
                 print(f'[{epoch + 1}, {batch_idx + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
 
+        SAVE_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{epoch}.pth'
+        torch.save(model.state_dict(), SAVE_MODEL_PATH)
+        print(f'save model into {SAVE_MODEL_PATH}')
+    
     if DEBUG: 
         print(f'After optimize model {model.bert.pooler.dense.weight[:3, :3]}')
         print(f'pooler requires grad {model.bert.pooler.dense.weight.requires_grad}')
@@ -1030,8 +1034,6 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
         pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving losses into pickle files')
     
-    torch.save(model.state_dict(), SAVE_MODEL_PATH)
-    print(f'save model into {SAVE_MODEL_PATH}')
 
 
 def get_inference_based(model, config, tokenizer, DEVICE):
