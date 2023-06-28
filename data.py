@@ -882,6 +882,7 @@ def initial_partition_params(config, model, do, debug=True):
 def restore_original_weight(model, DEBUG = False):
     
     value = 0.05
+    count_freeze_params = 0
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
@@ -922,7 +923,8 @@ def restore_original_weight(model, DEBUG = False):
                 # if DEBUG: print(f'Before assign params : {param[neuron_id,:]}')
                 # modifying to restore original weight back 
                 with torch.no_grad():
-                
+                    count_freeze_params += 1
+                    
                     if freeze_param_name == 'weight':
                         if DEBUG: print(f'before : {param[neuron_id,:3]}')
                         param[neuron_id,:] = layer_params.params[freeze_param_name][cur_comb]
@@ -939,6 +941,9 @@ def restore_original_weight(model, DEBUG = False):
                     # bias shape: []
                     layer_param_shape = layer_params.params[freeze_param_name][cur_comb].shape
                     # if DEBUG: print(f'param shape {freeze_param_name} : {param.shape}, layer_param shape : {layer_param_shape}') 
+    # 78797.0
+    print(f'Total count freeze params : {count_freeze_params} ')
+    breakpoint()
 
     return model
 
@@ -1273,6 +1278,21 @@ def get_avg_score(score_path):
 
     return torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
 
+def get_specific_component(splited_name, component_mappings):
+
+    
+    layer_id = splited_name[splited_name.index('layer') + 1]
+    
+    if 'self' in splited_name:  
+        component = component_mappings[splited_name[-2]]  # to get Q, K, V
+    elif 'attention' in splited_name and 'output' in splited_name: 
+        component = component_mappings['attention.output']  
+    else:
+        component = component_mappings[splited_name[-3]]
+    
+    return layer_id, component
+
+
 def trace_optimized_params(model, config, DEVICE, DEBUG=False):
 
     value = 0.05 # the percentage of candidate neurons
@@ -1286,38 +1306,35 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=False):
     restore_path = os.path.join(restore_path, f'v-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+    for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
+    
     # LOAD_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
     
     LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     NUM_PARAM_TYPES = 2
-    # optimized model
-    model.load_state_dict(torch.load(LOAD_MODEL_PATH))
+    
+    # load optimized model
+    # model.load_state_dict(torch.load(LOAD_MODEL_PATH))
     
     # original model
     original_model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
     original_model = original_model.to(DEVICE)
     print(f'sucessful loading model from {LOAD_MODEL_PATH}')
-    for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
 
     for key in (t := tqdm(model.state_dict())):
         optimized_param = model.state_dict().get(key)
         non_optimized_param = original_model.state_dict().get(key)
+        
         # whole tensor exact
         if torch.all( abs( model.state_dict().get(key) - original_model.state_dict().get(key) ) < 1e-8 ):
             if DEBUG: print(key, optimized_param.size())
+        # specific value tensor checking 
         else: 
             # Todo: compare specific parameters in tensor from optimized model and restore weight table
             # get candidate component name
             splited_name  = key.split('.')
-            layer_id = splited_name[splited_name.index('layer') + 1]
-            
-            if 'self' in splited_name:  
-                component = component_mappings[splited_name[-2]]  # to get Q, K, V
-            elif 'attention' in splited_name and 'output' in splited_name: 
-                component = component_mappings['attention.output']  
-            else:
-                component = component_mappings[splited_name[-3]]
+            layer_id, component = get_specific_component(splited_name, component_mappings)
 
             param_name = splited_name[-1]
             cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
@@ -1331,8 +1348,8 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=False):
                 # frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
                 # frozen_param = non_optimized_param[neuron_id]
                 if cur_neuron in list(layer_params.params[param_name].keys()):
-                    frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
-                    # frozen_param = non_optimized_param[neuron_id]
+                    # frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
+                    frozen_param = non_optimized_param[neuron_id]
                     count_expected_freeze_param += 1
                     # why  optimized parameters dont close to freeze parameter  
                     if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
@@ -1353,18 +1370,25 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=False):
     print(f'Count the real unfrozen value {count_real_unfreeze_param/ NUM_PARAM_TYPES}')
     print(f'Count the expected freeze {count_expected_freeze_param / NUM_PARAM_TYPES }')
     print(f'Count the optimized parameters : {count_optimized_param / NUM_PARAM_TYPES}')
+    
     """
     epoch : 0
-    Count the real frozen value 328.0
+    Count the real frozen value 328.0  
     Count the real unfrozen value 78469.0
+    
     Count the expected freeze 78797.0
     Count the optimized parameters : 4147.0
 
     epoch : 3
-    Count the real frozen value 344.5
+    Count the real frozen value 344.5 
     Count the real unfrozen value 78452.5
+    
     Count the expected freeze 78797.0
     Count the optimized parameters : 4147.0
+
+    there is something wrong with module restore weight 
+      1. it's not equal to
+
     """
 
             
