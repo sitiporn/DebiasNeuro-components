@@ -898,14 +898,7 @@ def restore_original_weight(model, DEBUG = False):
         if 'LayerNorm' in splited_name: continue
         # t.set_description(f"{name}")
 
-        layer_id = splited_name[splited_name.index('layer') + 1]
-        
-        if 'self' in splited_name:  
-            component = component_mappings[splited_name[-2]]  # to get Q, K, V
-        elif 'attention' in splited_name and 'output' in splited_name: 
-            component = component_mappings['attention.output']  
-        else:
-            component = component_mappings[splited_name[-3]]
+        layer_id, component = get_speicific_component = splited_name[splited_name.index('layer') + 1]
         
         freeze_param_name = splited_name[-1]
 
@@ -923,11 +916,11 @@ def restore_original_weight(model, DEBUG = False):
                 # if DEBUG: print(f'Before assign params : {param[neuron_id,:]}')
                 # modifying to restore original weight back 
                 with torch.no_grad():
-                    count_freeze_params += 1
                     
                     if freeze_param_name == 'weight':
                         if DEBUG: print(f'before : {param[neuron_id,:3]}')
                         param[neuron_id,:] = layer_params.params[freeze_param_name][cur_comb]
+                        count_freeze_params += 1
                         if DEBUG:
                             print(f'After : {param[neuron_id,:3]}')
                             print(f'original weight : {layer_params.params[freeze_param_name][cur_comb][:3]}')
@@ -943,7 +936,6 @@ def restore_original_weight(model, DEBUG = False):
                     # if DEBUG: print(f'param shape {freeze_param_name} : {param.shape}, layer_param shape : {layer_param_shape}') 
     # 78797.0
     print(f'Total count freeze params : {count_freeze_params} ')
-    breakpoint()
 
     return model
 
@@ -1301,6 +1293,7 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=False):
     count_real_unfreeze_param = 0
     count_expected_freeze_param = 0
     count_optimized_param = 0
+    debug_count = 0
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
@@ -1308,13 +1301,13 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=False):
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     
-    # LOAD_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
+    LOAD_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
     
-    LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
+    # LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     NUM_PARAM_TYPES = 2
     
     # load optimized model
-    # model.load_state_dict(torch.load(LOAD_MODEL_PATH))
+    model.load_state_dict(torch.load(LOAD_MODEL_PATH))
     
     # original model
     original_model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
@@ -1331,12 +1324,9 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=False):
             if DEBUG: print(key, optimized_param.size())
         # specific value tensor checking 
         else: 
-            # Todo: compare specific parameters in tensor from optimized model and restore weight table
-            # get candidate component name
             splited_name  = key.split('.')
-            layer_id, component = get_specific_component(splited_name, component_mappings)
-
             param_name = splited_name[-1]
+            layer_id, component = get_specific_component(splited_name, component_mappings)
             cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
             
             with open(cur_restore_path, 'rb') as handle:
@@ -1344,12 +1334,14 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=False):
             
             for neuron_id in range(optimized_param.shape[0]):
                 cur_neuron = f'{component}-{neuron_id}'
-                # currrent neuron is in  freeze parameters
                 # frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
-                # frozen_param = non_optimized_param[neuron_id]
+                frozen_param = non_optimized_param[neuron_id]
+                
+                # Todo: fix bugs in restore weight
+                if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
+                    debug_count += 1
+                
                 if cur_neuron in list(layer_params.params[param_name].keys()):
-                    # frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
-                    frozen_param = non_optimized_param[neuron_id]
                     count_expected_freeze_param += 1
                     # why  optimized parameters dont close to freeze parameter  
                     if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
@@ -1370,24 +1362,39 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=False):
     print(f'Count the real unfrozen value {count_real_unfreeze_param/ NUM_PARAM_TYPES}')
     print(f'Count the expected freeze {count_expected_freeze_param / NUM_PARAM_TYPES }')
     print(f'Count the optimized parameters : {count_optimized_param / NUM_PARAM_TYPES}')
+    print(f'Debug freeze count : {debug_count / NUM_PARAM_TYPES}')
     
     """
     epoch : 0
     Count the real frozen value 328.0  
     Count the real unfrozen value 78469.0
-    
     Count the expected freeze 78797.0
     Count the optimized parameters : 4147.0
 
     epoch : 3
     Count the real frozen value 344.5 
     Count the real unfrozen value 78452.5
-    
     Count the expected freeze 78797.0
     Count the optimized parameters : 4147.0
 
-    there is something wrong with module restore weight 
-      1. it's not equal to
+    *** the more we train the more model seem to keep parameters 
+        decompose: 1) keep without freezing  2) keep with freezing
+
+        so keep without freezing + keep with freezing >= keep with freezing
+
+    ---
+    Count the real frozen value 0.5
+    Count the real unfrozen value 78796.5
+    Count the expected freeze 78797.0
+    Count the optimized parameters : 4147.0
+    Debug freeze count : 0.5
+    
+    *** model forget to restore weight -> very low freeze number of parameters 
+
+
+    the definition of restore weight 
+     1. freeze all weight parameters
+     2. over time of training parameters should be kept 
 
     """
 
