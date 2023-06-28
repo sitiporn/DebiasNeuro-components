@@ -1034,20 +1034,18 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
         pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving losses into pickle files')
     
-
-
 def get_inference_based(model, config, tokenizer, DEVICE):
-    
     distributions = {}
     losses = {}
     golden_answers = {}
     
-    SAVE_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
+    trained_epoch = 2
+    LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
     
-    model.load_state_dict(torch.load(SAVE_MODEL_PATH))
+    model.load_state_dict(torch.load(LOAD_MODEL_PATH))
 
     for cur_json in [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]:
         
@@ -1278,23 +1276,29 @@ def get_avg_score(score_path):
 def trace_optimized_params(model, config, DEVICE, DEBUG=False):
 
     value = 0.05 # the percentage of candidate neurons
+    trained_epoch = 2
+    count_real_freeze_param = 0
+    count_real_unfreeze_param = 0
+    count_expected_freeze_param = 0
+    count_optimized_param = 0
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
-    LOAD_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
+    # LOAD_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
+    
+    LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     NUM_PARAM_TYPES = 2
+    # optimized model
+    model.load_state_dict(torch.load(LOAD_MODEL_PATH))
     
     # original model
     original_model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
     original_model = original_model.to(DEVICE)
-    # optimized model
-    model.load_state_dict(torch.load(LOAD_MODEL_PATH))
+    print(f'sucessful loading model from {LOAD_MODEL_PATH}')
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
-    count_freeze_param = 0
-    count_optimized_param = 0
 
     for key in (t := tqdm(model.state_dict())):
         optimized_param = model.state_dict().get(key)
@@ -1324,22 +1328,43 @@ def trace_optimized_params(model, config, DEVICE, DEBUG=False):
             for neuron_id in range(optimized_param.shape[0]):
                 cur_neuron = f'{component}-{neuron_id}'
                 # currrent neuron is in  freeze parameters
+                # frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
+                # frozen_param = non_optimized_param[neuron_id]
                 if cur_neuron in list(layer_params.params[param_name].keys()):
-                    # frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
-                    frozen_param = non_optimized_param[neuron_id]
+                    frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
+                    # frozen_param = non_optimized_param[neuron_id]
+                    count_expected_freeze_param += 1
                     # why  optimized parameters dont close to freeze parameter  
-                    # if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
-                    #     count_optimized_param += 1
-                    # else:
-                    #     # print(f'{layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
-                    count_optimized_param += 1
+                    if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
+                        count_real_freeze_param += 1
+                        print(f'Count real frozen value :{count_real_freeze_param} {layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
+                    else:
+                        # print(f'{layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
+                        count_real_unfreeze_param += 1
                 else:
-                    count_freeze_param += 1
+                    count_optimized_param += 1
 
                     # optimized_param ~ W : (feature_out, feature_in), B: (out_features,)
                     # Todo : get the exact number of parameters to keep
     
-    print(f'total optimized parameters inside an Encoder :{count_optimized_param / NUM_PARAM_TYPES}')
-    print(f'total freeze parameters inside an Encoder :{count_freeze_param / NUM_PARAM_TYPES }') 
+    # print(f'total optimized parameters inside an Encoder :{count_optimized_param / NUM_PARAM_TYPES}')
+    # print(f'total freeze parameters inside an Encoder :{count_freeze_param / NUM_PARAM_TYPES }') 
+    print(f'Count the real frozen value {count_real_freeze_param / NUM_PARAM_TYPES}')
+    print(f'Count the real unfrozen value {count_real_unfreeze_param/ NUM_PARAM_TYPES}')
+    print(f'Count the expected freeze {count_expected_freeze_param / NUM_PARAM_TYPES }')
+    print(f'Count the optimized parameters : {count_optimized_param / NUM_PARAM_TYPES}')
+    """
+    epoch : 0
+    Count the real frozen value 328.0
+    Count the real unfrozen value 78469.0
+    Count the expected freeze 78797.0
+    Count the optimized parameters : 4147.0
+
+    epoch : 3
+    Count the real frozen value 344.5
+    Count the real unfrozen value 78452.5
+    Count the expected freeze 78797.0
+    Count the optimized parameters : 4147.0
+    """
 
             
