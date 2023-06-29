@@ -10,7 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
 from utils import collect_output_components , report_gpu, trace_counterfactual
-from utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths
+from utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths, test_restore_weight
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -74,10 +74,11 @@ def main():
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
     if config["diag"]: get_diagnosis(config)
     if config['rank_losses']: rank_losses(config=config,do=mode[0])
+    test_restore_weight(model, config, DEVICE)
     # if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0],DEVICE)
-    if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
-    if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE)
-    if config['traced_params']: trace_optimized_params(model, config, DEVICE)
+    # if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
+    # if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE)
+    # if config['traced_params']: trace_optimized_params(model, config, DEVICE)
     
 
     # Todo: train main model to debias

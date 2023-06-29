@@ -16,6 +16,7 @@ from torch.utils.data import Dataset, DataLoader
 from collections import Counter
 from intervention import get_mediators
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from data import restore_original_weight
 
 def report_gpu(): 
   print(f"++++++++++++++++++++++++++++++")
@@ -1232,3 +1233,154 @@ class EncoderParams:
         # Todo: refactor group by component 
         for child in list(self.params.keys()): 
             self.params[child][f'{component}-{neuron_id}'] = value[child].cpu()
+
+def test_restore_weight(model, config, DEVICE):
+# change weight >> act like optimized model's parameters
+    for name, param in model.named_parameters(): 
+        cur_name = name.split('.')
+        if 'encoder' in cur_name and 'LayerNorm' not in cur_name:
+            for neuron_id in range(param.shape[0]):
+                with torch.no_grad():
+                    param[neuron_id] = torch.randn(param[neuron_id].shape)
+                    
+    # restore weight
+    model = restore_original_weight(model, DEBUG=False)
+    # checker
+    trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False)
+
+def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True , DEBUG=False):
+
+    value = 0.05 # the percentage of candidate neurons
+    trained_epoch = 2
+    count_real_freeze_param = 0
+    count_real_unfreeze_param = 0
+    count_expected_freeze_param = 0
+    count_optimized_param = 0
+    debug_count = 0
+    count_frozen_whole_encoder_params = 0 
+    component_mappings = {}
+    restore_path = f'../pickles/restore_weight/'
+    restore_path = os.path.join(restore_path, f'v-{value}')
+    mediators  = get_mediators(model)
+    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+    for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
+    
+    # LOAD_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
+    
+    LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
+    NUM_PARAM_TYPES = 2
+    
+    # load optimized model
+    if is_load_optimized_model: 
+        print(f'Loading optimized model from {LOAD_MODEL_PATH}')
+        model.load_state_dict(torch.load(LOAD_MODEL_PATH))
+    else:
+        print(f'Using original model')
+    
+    # original model
+    original_model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
+    original_model = original_model.to(DEVICE)
+    # print(f'sucessful loading model from {LOAD_MODEL_PATH}')
+
+
+    for key in (t := tqdm(model.state_dict())):
+        optimized_param = model.state_dict().get(key)
+        non_optimized_param = original_model.state_dict().get(key)
+        
+        # whole tensor exact
+        if torch.all( abs( model.state_dict().get(key) - original_model.state_dict().get(key) ) < 1e-8 ):
+            if DEBUG: print(key, optimized_param.size())
+            print(key)
+            # if 'encoder' in key and 'LayerNorm' not in key:
+            #     print(f'Count real frozen Whole tensor :{count_real_freeze_param} {layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
+            #     count_frozen_whole_encoder_params +=1
+        # specific value tensor checking 
+        else: 
+            splited_name  = key.split('.')
+            param_name = splited_name[-1]
+            layer_id, component = get_specific_component(splited_name, component_mappings)
+            cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
+            
+            with open(cur_restore_path, 'rb') as handle:
+                layer_params = pickle.load(handle)
+            
+            for neuron_id in range(optimized_param.shape[0]):
+                cur_neuron = f'{component}-{neuron_id}'
+                # frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
+                frozen_param = non_optimized_param[neuron_id]
+                
+                # Todo: fix bugs in restore weight
+                if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
+                    debug_count += 1
+                
+                if cur_neuron in list(layer_params.params[param_name].keys()):
+                    count_expected_freeze_param += 1
+                    # why  optimized parameters dont close to freeze parameter  
+                    if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
+                        count_real_freeze_param += 1
+                        # print(f'Count real frozen value :{count_real_freeze_param} {layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
+                    else:
+                        # print(f'{layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
+                        count_real_unfreeze_param += 1
+                else:
+                    count_optimized_param += 1
+
+                    # optimized_param ~ W : (feature_out, feature_in), B: (out_features,)
+                    # Todo : get the exact number of parameters to keep
+    
+    # print(f'total optimized parameters inside an Encoder :{count_optimized_param / NUM_PARAM_TYPES}')
+    # print(f'total freeze parameters inside an Encoder :{count_freeze_param / NUM_PARAM_TYPES }') 
+    print(f'Count the real frozen value {count_real_freeze_param / NUM_PARAM_TYPES}')
+    print(f'Count the real unfrozen value {count_real_unfreeze_param/ NUM_PARAM_TYPES}')
+    print(f'Count the expected freeze {count_expected_freeze_param / NUM_PARAM_TYPES }')
+    print(f'Count the optimized parameters : {count_optimized_param / NUM_PARAM_TYPES}')
+    print(f'Debug freeze count : {debug_count / NUM_PARAM_TYPES}')
+    print(f"count whole tensor's encoder frozen {count_frozen_whole_encoder_params}")
+    
+    """
+    epoch : 0
+    Count the real frozen value 328.0  
+    Count the real unfrozen value 78469.0
+    Count the expected freeze 78797.0
+    Count the optimized parameters : 4147.0
+
+    epoch : 3
+    Count the real frozen value 344.5 
+    Count the real unfrozen value 78452.5
+    Count the expected freeze 78797.0
+    Count the optimized parameters : 4147.0
+
+    without changing weight and restore 
+    Count the real frozen value 0.0
+    Count the real unfrozen value 78797.0
+    Count the expected freeze 78797.0
+    Count the optimized parameters : 4147.0
+    Debug freeze count : 0.0
+
+    # with changing weight and restore
+    Count the real frozen value 76493.0
+    Count the real unfrozen value 0.0
+    Count the expected freeze 76493.0
+    Count the optimized parameters : 4147.0
+    Debug freeze count : 76493.0
+
+    *** the more we train the more model seem to keep parameters 
+        decompose: 1) keep without freezing  2) keep with freezing
+
+        so keep without freezing + keep with freezing >= keep with freezing
+
+    ---
+    Count the real frozen value 0.5
+    Count the real unfrozen value 78796.5
+    Count the expected freeze 78797.0
+    Count the optimized parameters : 4147.0
+    Debug freeze count : 0.5
+    
+    *** model forget to restore weight -> very low freeze number of parameters 
+
+
+    the definition of restore weight 
+     1. freeze all weight parameters
+     2. over time of training parameters should be kept 
+
+    """
