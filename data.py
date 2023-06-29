@@ -916,9 +916,6 @@ def restore_original_weight(model, DEBUG = False):
                     param[neuron_id] = layer_params.params[freeze_param_name][cur_comb]
                     count_freeze_params += 1
                     
-    # 78797.0
-    print(f'Total count freeze params : {count_freeze_params} ')
-
     return model
 
 def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
@@ -953,10 +950,6 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
         running_loss = 0.0
         for batch_idx, (inputs) in  enumerate(b:= tqdm(dev_loader)):
 
-            model = restore_original_weight(model, DEBUG=False)
-
-            # trace_optimized_params(model, config, DEVICE)
-            
             model.train()
             cur_inputs = {} 
 
@@ -991,6 +984,9 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
             loss = torch.mean(scalers * loss )
             loss.backward()
             optimizer.step()                
+            
+            model = restore_original_weight(model, DEBUG=False)
+            # trace_optimized_params(model, config, DEVICE)
 
             if DEBUG: print(f'{model.bert.pooler.dense.weight[:3, :3]}')
 
@@ -1269,7 +1265,7 @@ def get_specific_component(splited_name, component_mappings):
     return layer_id, component
 
 
-def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True , DEBUG=False):
+def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False , DEBUG=False):
 
     value = 0.05 # the percentage of candidate neurons
     trained_epoch = 2
@@ -1303,7 +1299,6 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True ,
     original_model = original_model.to(DEVICE)
     # print(f'sucessful loading model from {LOAD_MODEL_PATH}')
 
-
     for key in (t := tqdm(model.state_dict())):
         optimized_param = model.state_dict().get(key)
         non_optimized_param = original_model.state_dict().get(key)
@@ -1311,7 +1306,7 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True ,
         # whole tensor exact
         if torch.all( abs( model.state_dict().get(key) - original_model.state_dict().get(key) ) < 1e-8 ):
             if DEBUG: print(key, optimized_param.size())
-            print(key)
+            # print(f'Exact whole : {key}')
             # if 'encoder' in key and 'LayerNorm' not in key:
             #     print(f'Count real frozen Whole tensor :{count_real_freeze_param} {layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
             #     count_frozen_whole_encoder_params +=1
@@ -1333,6 +1328,9 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True ,
                 # Todo: fix bugs in restore weight
                 if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
                     debug_count += 1
+                else:
+                    # print(f'Not Exact : {key}')
+                    pass
                 
                 if cur_neuron in list(layer_params.params[param_name].keys()):
                     count_expected_freeze_param += 1
