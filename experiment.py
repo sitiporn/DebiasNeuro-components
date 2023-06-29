@@ -10,7 +10,8 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
 from utils import collect_output_components , report_gpu, trace_counterfactual
-from utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths, test_restore_weight
+from utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths
+from data import test_restore_weight
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -30,6 +31,7 @@ from analze import cma_analysis, compute_embedding_set, get_distribution, get_to
 from utils import debias_test, get_nie_set_path
 import yaml
 from utils import get_num_neurons, get_params, get_diagnosis
+
 
 def main():
 
