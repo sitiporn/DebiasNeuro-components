@@ -1010,6 +1010,21 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     with open(f'../pickles/losses/{config["dev-name"]}.pickle', 'wb') as handle: 
         pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving losses into pickle files')
+
+def get_analysis(config):
+    RESULT_PATH = f'../pickles/performances/'
+    name_set = list(config['dev_json'])[0] 
+    raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
+    key = 'reweight'
+
+    with open(raw_distribution_path, 'rb') as handle:
+        distributions  = pickle.load(handle)
+        golden_answers = pickle.load(handle)
+        print(f"loading file pickle {raw_distribution_path} !")        
+
+    distributions = torch.stack(distributions[key], dim=0)
+    avg_dist = torch.mean(distributions, dim=0)
+    print(f'average distribution of each class : {avg_dist}')
     
 def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is_optimized_set = False):
     distributions = {}
