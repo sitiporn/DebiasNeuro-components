@@ -1015,12 +1015,13 @@ def get_inference_based(model, config, tokenizer, DEVICE):
     losses = {}
     golden_answers = {}
     
-    trained_epoch = 2
+    trained_epoch = 1
     LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
     
+    print(f'Loading model from {LOAD_MODEL_PATH}')
     model.load_state_dict(torch.load(LOAD_MODEL_PATH))
 
     for cur_json in [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]:
@@ -1268,7 +1269,7 @@ def get_specific_component(splited_name, component_mappings):
 def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False , DEBUG=False):
 
     value = 0.05 # the percentage of candidate neurons
-    trained_epoch = 2
+    trained_epoch = 0
     count_real_freeze_param = 0
     count_real_unfreeze_param = 0
     count_expected_freeze_param = 0
