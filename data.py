@@ -1011,7 +1011,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
         pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving losses into pickle files')
     
-def get_inference_based(model, config, tokenizer, DEVICE, is_load_model):
+def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True):
     distributions = {}
     losses = {}
     golden_answers = {}
