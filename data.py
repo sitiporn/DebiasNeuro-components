@@ -1011,16 +1011,18 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
         pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving losses into pickle files')
     
-def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True):
+def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is_optimized_set = False):
     distributions = {}
     losses = {}
     golden_answers = {}
     
     trained_epoch = 1
     LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
+    OPTIMIZED_SET_JSONL = config['dev_json']
     IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
+    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
     
     if is_load_model:
         model.load_state_dict(torch.load(LOAD_MODEL_PATH))
@@ -1028,11 +1030,13 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True):
     else:
         print(f'Using original model')
 
-    for cur_json in [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]:
-        
-        distributions[cur_json.split("_")[0]] = []
-        losses[cur_json.split("_")[0]] = []
-        golden_answers[cur_json.split("_")[0]] = []
+    for cur_json in json_sets:
+
+        name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+
+        distributions[name_set] = []
+        losses[name_set] = []
+        golden_answers[name_set] = []
         
         dev_set = Dev(config['dev_path'] , cur_json)
         dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
@@ -1041,7 +1045,7 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True):
             
             model.eval()
             cur_inputs = {} 
-            t.set_description(f'{cur_json.split("_")[0]} batch_idx {batch_idx}/{len(dev_loader)}')
+            t.set_description(f'{name_set} batch_idx {batch_idx}/{len(dev_loader)}')
             
             for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
 
@@ -1058,10 +1062,10 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True):
             with torch.no_grad(): 
                 # Todo: generalize to distribution if the storage is enough
                 outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
-                distributions[cur_json.split("_")[0]].extend(F.softmax(outs.logits.cpu() , dim=-1))
-                golden_answers[cur_json.split("_")[0]].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
+                distributions[name_set].extend(F.softmax(outs.logits.cpu() , dim=-1))
+                golden_answers[name_set].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
 
-        cur_raw_distribution_path = os.path.join(RESULT_PATH, f'{cur_json.split("_")[0]}.pickle')
+        cur_raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
         
         with open(cur_raw_distribution_path, 'wb') as handle: 
             pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
