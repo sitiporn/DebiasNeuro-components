@@ -17,6 +17,7 @@
   "get_condition_inferences": False,
   "get_inference_based": True,
   "traced_params": True,
+  "test_traced_params": False,
   # "dev-name": "mismatched",
   # "dev-name": "hans",
   # this set uses matched dataset
