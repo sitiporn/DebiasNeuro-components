@@ -1011,7 +1011,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
         pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving losses into pickle files')
     
-def get_inference_based(model, config, tokenizer, DEVICE):
+def get_inference_based(model, config, tokenizer, DEVICE, is_load_model):
     distributions = {}
     losses = {}
     golden_answers = {}
@@ -1022,8 +1022,11 @@ def get_inference_based(model, config, tokenizer, DEVICE):
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
     
-    print(f'Loading model from {LOAD_MODEL_PATH}')
-    model.load_state_dict(torch.load(LOAD_MODEL_PATH))
+    if is_load_model:
+        model.load_state_dict(torch.load(LOAD_MODEL_PATH))
+        print(f'Loading model from {LOAD_MODEL_PATH}')
+    else:
+        print(f'Using original model')
 
     for cur_json in [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]:
         
