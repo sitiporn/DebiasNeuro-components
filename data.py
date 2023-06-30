@@ -922,6 +922,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
 
     epochs = 3
     learning_rate = 2e-5
+    grad_direction = None # should be matrix to perform elemense wise by sample 
     model = initial_partition_params(config, model, do)
 
     print(f'Epochs : {epochs}, with learning rate at : {learning_rate}')
@@ -981,7 +982,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
             assert abs(outs.loss - test_loss) < 1e-6
             assert scalers.shape == loss.shape
             
-            loss = torch.mean(scalers * loss )
+            loss =  torch.mean(scalers * loss * grad_direction) 
             loss.backward()
             optimizer.step()                
             
