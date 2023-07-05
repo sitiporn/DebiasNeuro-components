@@ -1250,3 +1250,6 @@ class ExcludeGrad(Function):
         mask[ctx.subset_indices] = 0
         grad_input = grad_output * mask
         return grad_input, None
+
+def exclude_subset(input, subset_indices):
+    return ExcludeGrad.apply(input, subset_indices)
