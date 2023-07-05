@@ -1233,3 +1233,20 @@ class EncoderParams:
         for child in list(self.params.keys()): 
             self.params[child][f'{component}-{neuron_id}'] = value[child].cpu()
 
+import torch
+from torch import nn
+from torch.optim import Adam
+from torch.autograd import Function
+
+class ExcludeGrad(Function):
+    @staticmethod
+    def forward(ctx, input, subset_indices):
+        ctx.subset_indices = subset_indices
+        return input
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        mask = torch.ones_like(grad_output)
+        mask[ctx.subset_indices] = 0
+        grad_input = grad_output * mask
+        return grad_input, None
