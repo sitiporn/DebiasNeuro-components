@@ -1031,7 +1031,7 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is
     losses = {}
     golden_answers = {}
     
-    trained_epoch = 1
+    trained_epoch = 2
     LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     OPTIMIZED_SET_JSONL = config['dev_json']
     IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'

@@ -20,8 +20,9 @@
 -  [x] traning main model with reweighted loss on canidate parameters and plot losses
 -  [x] uncomment load intitial partition parameters
 -  [x] write tester to check parameters which are candidate-only weights to optimize
+-  [ ] Custom Auto gradients to perform specific value brackpropagation  
+-  [ ] Train BERT model on MNLI dataset on Candidate parameters
 -  [ ] perform EDA on MNNLI-matched set to select both a1 and a2 samples
--  [ ] write gradient direction control used to train main model
 
 ## Problems
 1. training main model is too long 
