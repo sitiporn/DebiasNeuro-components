@@ -57,10 +57,10 @@ def main():
     geting_NIE_paths(config,mode)
 
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
-    model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
+    model = AutoModelForSequenceClassification.from_pretrained(config["model_name"], num_labels = len(config['label_maps'].keys()))
     model = model.to(DEVICE)
 
-    breakpoint()
+    # Todo: change config of model according to number of classes
 
     # # Todo: generalize for every model 
     # # using same seed everytime we create HOL and LOL sets 
