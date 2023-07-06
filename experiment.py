@@ -60,29 +60,31 @@ def main():
     model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
 
-    # Todo: generalize for every model 
-    # using same seed everytime we create HOL and LOL sets 
-    experiment_set = ExperimentDataset(config, encode = tokenizer)                            
-    dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
+    breakpoint()
 
-    if config['getting_counterfactual']: collect_output_components(config, DEVICE = DEVICE)
-    if config['print_config']: print_config(config)
-    if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
-    if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
-    # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
-    if config['topk']: get_top_k(config, treatments=mode) 
-    if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, DEVICE)
-    if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
-    if config['debias_test']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
-    if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
-    if config["diag"]: get_diagnosis(config)
-    if config['rank_losses']: rank_losses(config=config, do=mode[0])
-    # if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0],DEVICE)
-    # if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
-    if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= False, is_optimized_set=False)
-    # if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
-    # if config['test_traced_params']: test_restore_weight(model, config, DEVICE)
-    get_analysis(config)
+    # # Todo: generalize for every model 
+    # # using same seed everytime we create HOL and LOL sets 
+    # experiment_set = ExperimentDataset(config, encode = tokenizer)                            
+    # dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
+
+    # if config['getting_counterfactual']: collect_output_components(config, DEVICE = DEVICE)
+    # if config['print_config']: print_config(config)
+    # if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
+    # if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
+    # # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
+    # if config['topk']: get_top_k(config, treatments=mode) 
+    # if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, DEVICE)
+    # if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
+    # if config['debias_test']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
+    # if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
+    # if config["diag"]: get_diagnosis(config)
+    # if config['rank_losses']: rank_losses(config=config, do=mode[0])
+    # # if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0],DEVICE)
+    # # if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
+    # if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= False, is_optimized_set=False)
+    # # if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
+    # # if config['test_traced_params']: test_restore_weight(model, config, DEVICE)
+    # get_analysis(config)
     
 
     # Todo: train main model to debias

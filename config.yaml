@@ -37,7 +37,8 @@
   "rank_losses": False, 
   # "rank_losses": True, 
   
-  "model_name": "../bert-base-uncased-mnli/",
+  # "model_name": "../bert-base-uncased-mnli/",
+  "model_name": "../bert-base-uncased/",
   "is_group_by_class": False,
   "is_averaged_embeddings": True,
   "intervention_type": "weaken",
