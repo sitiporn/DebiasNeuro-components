@@ -34,7 +34,6 @@ from utils import get_num_neurons, get_params, get_diagnosis
 from data import get_analysis
 from transformers import AutoTokenizer, BertForSequenceClassification
 
-
 def main():
 
     with open("config.yaml", "r") as yamlfile:
@@ -58,7 +57,6 @@ def main():
     geting_NIE_paths(config,mode)
 
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
-    # model = AutoModelForSequenceClassification.from_pretrained(config["model_name"], num_labels = len(config['label_maps'].keys()))
     model = BertForSequenceClassification.from_pretrained(config["model_name"], num_labels = len(config['label_maps'].keys()))
     model = model.to(DEVICE)
 
@@ -90,6 +88,7 @@ def main():
     # if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
     # if config['test_traced_params']: test_restore_weight(model, config, DEVICE)
     get_analysis(config)
+    
     
 
     # Todo: train main model to debias
