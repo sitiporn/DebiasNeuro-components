@@ -1254,18 +1254,4 @@ class ExcludeGrad(Function):
 def exclude_subset(input, subset_indices):
     return ExcludeGrad.apply(input, subset_indices)
 
-# Example BERT model
-class BERTModel(nn.Module):
-    def __init__(self):
-        super(BERTModel, self).__init__()
-        self.embedding = nn.Embedding(10000, 256)
-        self.encoder = nn.TransformerEncoder(nn.TransformerEncoderLayer(256, 8))
-        self.classifier = nn.Linear(256, 10)
-    
-    def forward(self, x):
-        x = self.embedding(x)
-        x = exclude_subset(x, subset_indices=[0])  # Exclude the first layer
-        x = self.encoder(x)
-        x = self.classifier(x)
-        return x
 
