@@ -1239,30 +1239,62 @@ from torch.optim import Adam
 from torch.autograd import Function
 
 class ExcludeGrad(Function):
+    """
+    We can implement our own custom autograd Functions by subclassing
+    torch.autograd.Function and implementing the forward and backward passes
+    which operate on Tensors.
+    """
     @staticmethod
-    def forward(ctx, input, subset_indices):
-        ctx.subset_indices = subset_indices
-        return input
+    def forward(ctx, input, subset_indices=None):
+        """
+        In the forward pass we receive a Tensor containing the input and return
+        a Tensor containing the output. ctx is a context object that can be used
+        to stash information for backward computation. You can cache arbitrary
+        objects for use in the backward pass using the ctx.save_for_backward method.
+        """
+        # ctx.save_for_backward(input)
+        func = nn.Linear(2, 2)
+        print(f'weight :')
+        print(func.weight)
+        print(f'bias :')
+        print(func.bias)
+        output = func(input)
+        # ctx.save_for_backward(input, func.weight, func.bias)
+        ctx.save_for_backward(input)
+        
+        return output
     
     @staticmethod
     def backward(ctx, grad_output):
+        """
+        In the backward pass we receive a Tensor containing the gradient of the loss
+        with respect to the output, and we need to compute the gradient of the loss
+        with respect to the input.
+        """
         mask = torch.ones_like(grad_output)
-        mask[ctx.subset_indices] = 0
+        input  = ctx.saved_tensors
+        # input, weight, bias = ctx.save_for_backward
+        # mask[subset_indices] = 0
         grad_input = grad_output * mask
+        
         return grad_input, None
 
-def exclude_subset(input, subset_indices):
-    return ExcludeGrad.apply(input, subset_indices)
+learning_rate = 5e-6
+loss = nn.CrossEntropyLoss()
+sample_size = 3
+
+for t in range(2000):
+    x = torch.randn(sample_size, 2, requires_grad=True)
+    # x.required_grad = True
+    # y_pred = torch.argmax(exclude_subset(x, ), dim = -1)
+    test_grad = ExcludeGrad.apply
+    y_pred = test_grad(x)
+    target = torch.empty(sample_size, dtype=torch.long).random_(2)
+    # ground_truth = torch.randint(0,2, (2,)) 
+    output = loss(y_pred, target)
+    output.backward()
+
+    # # Use autograd to compute the backward pass.
 
 
-class TestModel(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.fc1 = nn.Linear(1, 2)
-        
-    def forward(self, x):
-        x = self.fc1(x)
-        pooled_output = exclude_subset(x, subset_indices=[0])
-        x = F.relu(x)
-        return x
 
