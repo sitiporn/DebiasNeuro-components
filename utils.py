@@ -1255,3 +1255,14 @@ def exclude_subset(input, subset_indices):
     return ExcludeGrad.apply(input, subset_indices)
 
 
+class TestModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(1, 2)
+        
+    def forward(self, x):
+        x = self.fc1(x)
+        pooled_output = exclude_subset(x, subset_indices=[0])
+        x = F.relu(x)
+        return x
+
