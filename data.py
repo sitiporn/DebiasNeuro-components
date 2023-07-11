@@ -1421,9 +1421,17 @@ def exclude_grad(model, hooks, value = 0.05):
             layer_params = pickle.load(handle)
         
         layer_param_names = group_layer_params(layer_params)
-
+        hooks.append(mediators[component](int(layer_id)).register_hook(lambda grad: masking_grad(grad, layer_param_names)))
     
     return model, hooks
+
+def masking_grad(grad, layer_param_names):
+    
+    mask = torch.ones_like(grad)
+
+    breakpoint()
+
+    return grad * mask
 
 def group_layer_params(layer_params):
     """ group parameter's component of both weight and bias """
