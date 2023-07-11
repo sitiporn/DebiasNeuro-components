@@ -31,7 +31,7 @@ from analze import cma_analysis, compute_embedding_set, get_distribution, get_to
 from utils import debias_test, get_nie_set_path
 import yaml
 from utils import get_num_neurons, get_params, get_diagnosis
-from data import get_analysis
+from data import get_analysis, exclude_grad
 from transformers import AutoTokenizer, BertForSequenceClassification
 
 def main():
@@ -60,8 +60,6 @@ def main():
     model = BertForSequenceClassification.from_pretrained(config["model_name"], num_labels = len(config['label_maps'].keys()))
     model = model.to(DEVICE)
 
-    breakpoint()
-
     # Todo: find all the components used for to clasisfiy our tasks
     # Custom model to be able to custom grad when perform brackpropagation
 
@@ -81,13 +79,15 @@ def main():
     if config['debias_test']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
     if config["diag"]: get_diagnosis(config)
-    if config['rank_losses']: rank_losses(config=config, do=mode[0])
+    # if config['rank_losses']: rank_losses(config=config, do=mode[0])
     # if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0],DEVICE)
-    # if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
-    if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= False, is_optimized_set=False)
+    # # if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
+    # if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= False, is_optimized_set=False)
     # if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
-    # if config['test_traced_params']: test_restore_weight(model, config, DEVICE)
-    get_analysis(config)
+    # # if config['test_traced_params']: test_restore_weight(model, config, DEVICE)
+    # get_analysis(config)
+    exclude_grad(model)
+    
     
     
 

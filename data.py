@@ -1394,3 +1394,30 @@ def test_restore_weight(model, config, DEVICE):
     trace_optimized_params(model, config, DEVICE, is_load_optimized_model = False)
 
 
+def exclude_grad(model,  value = 0.05):
+    
+    # Todo: get candidate parameters to train
+    # model.fc1.weight.register_hook(lambda grad: grad+1000.)
+    # model.fc2.bias.register_hook(lambda grad: grad-1000.)
+    # model.fc3.weight.register_hook(lambda grad: grad*1000.)
+    component_mappings = {}
+    restore_path = f'../pickles/restore_weight/'
+    restore_path = os.path.join(restore_path, f'v-{value}')
+    mediators  = get_mediators(model)
+    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+    for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
+
+    #  walking in 
+    for name, param in model.named_parameters(): 
+        splited_name = name.split('.')
+        if 'encoder' not in splited_name: continue
+        if 'LayerNorm' in splited_name: continue
+
+        layer_id, component = get_specific_component(splited_name, component_mappings) 
+        freeze_param_name = splited_name[-1]
+        cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
+        
+        with open(cur_restore_path, 'rb') as handle:
+            layer_params = pickle.load(handle)
+
+    return model
