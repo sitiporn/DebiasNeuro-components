@@ -1394,7 +1394,7 @@ def test_restore_weight(model, config, DEVICE):
     trace_optimized_params(model, config, DEVICE, is_load_optimized_model = False)
 
 
-def exclude_grad(model,  value = 0.05):
+def exclude_grad(model, hooks, value = 0.05):
     
     # Todo: get candidate parameters to train
     # model.fc1.weight.register_hook(lambda grad: grad+1000.)
@@ -1419,5 +1419,22 @@ def exclude_grad(model,  value = 0.05):
         
         with open(cur_restore_path, 'rb') as handle:
             layer_params = pickle.load(handle)
+        
+        layer_param_names = group_layer_params(layer_params)
 
-    return model
+    
+    return model, hooks
+
+def group_layer_params(layer_params):
+    """ group parameter's component of both weight and bias """
+
+    group_param_names = {}
+    param_names = list(layer_params.params['weight'].keys())
+
+    for name in param_names:
+        component = name.split('-')[0]
+        neuron_id = name.split('-')[1]
+        if component not in group_param_names.keys(): group_param_names[component] = []
+        group_param_names[component].append(neuron_id)
+    
+    return group_param_names
