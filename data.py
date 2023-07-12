@@ -837,8 +837,7 @@ def initial_partition_params(config, model, do, debug=True):
                     else:
                         train_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
             else:
-                # freeze whole tensor 
-                print(name)
+                print(f'freeze whole tensor: {name}')
                 param.requires_grad = False
                 
         for child in ['weight', 'bias']:
@@ -925,8 +924,9 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     grad_direction = None # should be matrix to perform elemense wise by sample 
     model = initial_partition_params(config, model, do)
     hooks = []
+    # when performing back propagation model only tern ?
     model, hooks = exclude_grad(model, hooks=hooks)
-
+    
     print(f'Epochs : {epochs}, with learning rate at : {learning_rate}')
 
     if DEBUG: 
@@ -984,13 +984,14 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
             assert abs(outs.loss - test_loss) < 1e-6
             assert scalers.shape == loss.shape
             
-            loss =  torch.mean(scalers * loss * grad_direction) 
+            # loss =  torch.mean(scalers * loss * grad_direction) 
+            loss =  torch.mean(scalers * loss) 
             loss.backward()
-            breakpoint()
+            
             optimizer.step()                
             
             # model = restore_original_weight(model, DEBUG=False)
-            # trace_optimized_params(model, config, DEVICE)
+            trace_optimized_params(model, config, DEVICE)
 
             if DEBUG: print(f'{model.bert.pooler.dense.weight[:3, :3]}')
 
@@ -1398,10 +1399,6 @@ def test_restore_weight(model, config, DEVICE):
 
 
 def exclude_grad(model, hooks, value = 0.05):
-    # Todo: get candidate parameters to train
-    # model.fc1.weight.register_hook(lambda grad: grad+1000.)
-    # model.fc2.bias.register_hook(lambda grad: grad-1000.)
-    # model.fc3.weight.register_hook(lambda grad: grad*1000.)
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
@@ -1431,22 +1428,20 @@ def exclude_grad(model, hooks, value = 0.05):
                 hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
             elif child == 'bias':
                 hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
+            print(f'exlude_grad func dense : {name}')
         else: 
             if child == 'weight': 
                 hooks.append(mediators[component](int(layer_id)).weight.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
             elif child == 'bias':
                 hooks.append(mediators[component](int(layer_id)).bias.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
-        
-        print(f'exlude_grad func : {name}')
+            print(f'exlude_grad func : {name}')
     
     return model, hooks
 
 def masking_grad(grad, layer_param_names, name):
     
     mask = torch.ones_like(grad)
-
-    breakpoint()
-
+    print(f'masking grad func : {name}')
     return grad * mask
 
 def group_layer_params(layer_params):

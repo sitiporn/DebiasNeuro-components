@@ -87,6 +87,8 @@ def main():
     # if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
     # # if config['test_traced_params']: test_restore_weight(model, config, DEVICE)
     # get_analysis(config)
+    # hooks = []
+    # model, hooks = exclude_grad(model, tokenizer, hooks=hooks)
     
 if __name__ == "__main__":
     main()
