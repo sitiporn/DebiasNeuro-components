@@ -22,16 +22,24 @@ from nn_pruning.patch_coordinator import (
 )
 
 def get_mediators(model):
-    
+    """
+    current option: ref: A New Framework for Shortcut Mitigation in NLU
+    another option: ref: Causal Mediation Analysis for Interpreting Neural NLP
+        this for attention intervention to select attention head?
+        attention_layer = lambda layer: model.bert.encoder.layer[layer].attention.self
+        intervention FFN neuron : 
+        neuron_layer lambda layer: model.bert.encoder.layer[layer].output
+    """
     mediators = {}
     
+    # ref: A New Framework for Shortcut Mitigation in NLU
     mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
     mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
     mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
-    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
-    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
-    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
-
+    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output # after dropout
+    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate # after activation
+    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output # after drop out 
+    
     return mediators
 
 def neuron_intervention(neuron_ids, 
