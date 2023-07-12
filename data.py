@@ -924,7 +924,8 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     learning_rate = 2e-5
     grad_direction = None # should be matrix to perform elemense wise by sample 
     model = initial_partition_params(config, model, do)
-    model = exclude_grad(model, hooks=[])
+    hooks = []
+    model, hooks = exclude_grad(model, hooks=hooks)
 
     print(f'Epochs : {epochs}, with learning rate at : {learning_rate}')
 
@@ -1435,6 +1436,8 @@ def exclude_grad(model, hooks, value = 0.05):
                 hooks.append(mediators[component](int(layer_id)).weight.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
             elif child == 'bias':
                 hooks.append(mediators[component](int(layer_id)).bias.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
+        
+        print(f'exlude_grad func : {name}')
     
     return model, hooks
 
