@@ -924,6 +924,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     learning_rate = 2e-5
     grad_direction = None # should be matrix to perform elemense wise by sample 
     model = initial_partition_params(config, model, do)
+    model = exclude_grad(model, hooks=[])
 
     print(f'Epochs : {epochs}, with learning rate at : {learning_rate}')
 
@@ -984,9 +985,10 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
             
             loss =  torch.mean(scalers * loss * grad_direction) 
             loss.backward()
+            breakpoint()
             optimizer.step()                
             
-            model = restore_original_weight(model, DEBUG=False)
+            # model = restore_original_weight(model, DEBUG=False)
             # trace_optimized_params(model, config, DEVICE)
 
             if DEBUG: print(f'{model.bert.pooler.dense.weight[:3, :3]}')
@@ -1395,7 +1397,6 @@ def test_restore_weight(model, config, DEVICE):
 
 
 def exclude_grad(model, hooks, value = 0.05):
-    
     # Todo: get candidate parameters to train
     # model.fc1.weight.register_hook(lambda grad: grad+1000.)
     # model.fc2.bias.register_hook(lambda grad: grad-1000.)
@@ -1413,6 +1414,8 @@ def exclude_grad(model, hooks, value = 0.05):
         if 'encoder' not in splited_name: continue
         if 'LayerNorm' in splited_name: continue
 
+        child = splited_name[-1]
+
         layer_id, component = get_specific_component(splited_name, component_mappings) 
         freeze_param_name = splited_name[-1]
         cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
@@ -1421,11 +1424,21 @@ def exclude_grad(model, hooks, value = 0.05):
             layer_params = pickle.load(handle)
         
         layer_param_names = group_layer_params(layer_params)
-        hooks.append(mediators[component](int(layer_id)).register_hook(lambda grad: masking_grad(grad, layer_param_names)))
+
+        if 'dense' in splited_name:
+            if child == 'weight': 
+                hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
+            elif child == 'bias':
+                hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
+        else: 
+            if child == 'weight': 
+                hooks.append(mediators[component](int(layer_id)).weight.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
+            elif child == 'bias':
+                hooks.append(mediators[component](int(layer_id)).bias.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
     
     return model, hooks
 
-def masking_grad(grad, layer_param_names):
+def masking_grad(grad, layer_param_names, name):
     
     mask = torch.ones_like(grad)
 

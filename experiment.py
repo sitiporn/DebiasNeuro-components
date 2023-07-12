@@ -31,8 +31,9 @@ from analze import cma_analysis, compute_embedding_set, get_distribution, get_to
 from utils import debias_test, get_nie_set_path
 import yaml
 from utils import get_num_neurons, get_params, get_diagnosis
-from data import get_analysis, exclude_grad
+from data import get_analysis 
 from transformers import AutoTokenizer, BertForSequenceClassification
+from data import exclude_grad
 
 def main():
 
@@ -86,12 +87,7 @@ def main():
     # if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
     # # if config['test_traced_params']: test_restore_weight(model, config, DEVICE)
     # get_analysis(config)
-    exclude_grad(model)
-    
-    
-    
-
-    # Todo: train main model to debias
+    model = exclude_grad(model, hooks=[])
     
 if __name__ == "__main__":
     main()
