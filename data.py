@@ -1399,6 +1399,7 @@ def test_restore_weight(model, config, DEVICE):
     trace_optimized_params(model, config, DEVICE, is_load_optimized_model = False)
 
 def exclude_grad(model, hooks, value = 0.05):
+    DEBUG = True
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
@@ -1425,15 +1426,15 @@ def exclude_grad(model, hooks, value = 0.05):
 
         if 'dense' in splited_name:
             if child == 'weight': 
-                hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, neuron_ids[component], name)))
+                hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, neuron_ids[component], name, DEBUG)))
             elif child == 'bias':
-                hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, neuron_ids[component], name)))
+                hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, neuron_ids[component], name, DEBUG)))
             print(f'exlude_grad func dense : {name}') 
         else: 
             if child == 'weight': 
-                hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(masking_grad, neuron_ids[component], name)))
+                hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(masking_grad, neuron_ids[component], name, DEBUG )))
             elif child == 'bias':
-                hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, neuron_ids[component], name)))
+                hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, neuron_ids[component], name, DEBUG)))
             print(f'exlude_grad func : {name}')
     
     return model, hooks
@@ -1448,15 +1449,15 @@ def group_layer_params(layer_params):
         component = name.split('-')[0]
         neuron_id = name.split('-')[1]
         if component not in group_param_names.keys(): group_param_names[component] = []
-        group_param_names[component].append(neuron_id)
+        group_param_names[component].append(int(neuron_id))
     
     return group_param_names
 
-def masking_grad(neuron_ids, name, grad):
+def masking_grad(neuron_ids, name, DEBUG, grad):
 
-    print(f'call back masking_grad func : {name}, {grad.shape}')
+    if DEBUG: print(f'call back masking_grad func : {name}, {grad.shape}')
+
+    mask =  torch.ones_like(grad)
     breakpoint()
-    # mask = 
-    # print(f'masking grad func : {name}')
-    # return grad * mask
-    return grad
+
+    return grad 
