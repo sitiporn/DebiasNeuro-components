@@ -26,8 +26,7 @@ from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans, compute_acc
 from utils import get_num_neurons, get_params, relabel, give_weight
 from torch.optim import Adam
-
-
+from functools import partial
 
 class ExperimentDataset(Dataset):
     def __init__(self, config, encode, DEBUG=False) -> None: 
@@ -924,7 +923,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     grad_direction = None # should be matrix to perform elemense wise by sample 
     model = initial_partition_params(config, model, do)
     hooks = []
-    # when performing back propagation model only tern ?
+    # when performing back propagation model it seems register o  ?
     model, hooks = exclude_grad(model, hooks=hooks)
     
     print(f'Epochs : {epochs}, with learning rate at : {learning_rate}')
@@ -987,6 +986,8 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
             # loss =  torch.mean(scalers * loss * grad_direction) 
             loss =  torch.mean(scalers * loss) 
             loss.backward()
+
+            breakpoint()
             
             optimizer.step()                
             
@@ -1397,7 +1398,6 @@ def test_restore_weight(model, config, DEVICE):
     # checker
     trace_optimized_params(model, config, DEVICE, is_load_optimized_model = False)
 
-
 def exclude_grad(model, hooks, value = 0.05):
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/'
@@ -1421,28 +1421,23 @@ def exclude_grad(model, hooks, value = 0.05):
         with open(cur_restore_path, 'rb') as handle:
             layer_params = pickle.load(handle)
         
-        layer_param_names = group_layer_params(layer_params)
+        neuron_ids = group_layer_params(layer_params)
 
         if 'dense' in splited_name:
             if child == 'weight': 
-                hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
+                hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, neuron_ids, name)))
             elif child == 'bias':
-                hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
-            print(f'exlude_grad func dense : {name}')
+                hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, neuron_ids, name)))
+            print(f'exlude_grad func dense : {name}') 
         else: 
             if child == 'weight': 
-                hooks.append(mediators[component](int(layer_id)).weight.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
+                hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(masking_grad, neuron_ids, name)))
             elif child == 'bias':
-                hooks.append(mediators[component](int(layer_id)).bias.register_hook(lambda grad: masking_grad(grad, layer_param_names, name)))
+                hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, neuron_ids, name)))
             print(f'exlude_grad func : {name}')
     
     return model, hooks
 
-def masking_grad(grad, layer_param_names, name):
-    
-    mask = torch.ones_like(grad)
-    print(f'masking grad func : {name}')
-    return grad * mask
 
 def group_layer_params(layer_params):
     """ group parameter's component of both weight and bias """
@@ -1457,3 +1452,12 @@ def group_layer_params(layer_params):
         group_param_names[component].append(neuron_id)
     
     return group_param_names
+
+def masking_grad(neuron_ids, name, grad):
+
+    print(f'call back masking_grad func : {name}, {grad.shape}')
+    # breakpoint()
+    # mask = 
+    # print(f'masking grad func : {name}')
+    # return grad * mask
+    return grad
