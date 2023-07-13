@@ -1425,19 +1425,18 @@ def exclude_grad(model, hooks, value = 0.05):
 
         if 'dense' in splited_name:
             if child == 'weight': 
-                hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, neuron_ids, name)))
+                hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, neuron_ids[component], name)))
             elif child == 'bias':
-                hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, neuron_ids, name)))
+                hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, neuron_ids[component], name)))
             print(f'exlude_grad func dense : {name}') 
         else: 
             if child == 'weight': 
-                hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(masking_grad, neuron_ids, name)))
+                hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(masking_grad, neuron_ids[component], name)))
             elif child == 'bias':
-                hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, neuron_ids, name)))
+                hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, neuron_ids[component], name)))
             print(f'exlude_grad func : {name}')
     
     return model, hooks
-
 
 def group_layer_params(layer_params):
     """ group parameter's component of both weight and bias """
@@ -1456,7 +1455,7 @@ def group_layer_params(layer_params):
 def masking_grad(neuron_ids, name, grad):
 
     print(f'call back masking_grad func : {name}, {grad.shape}')
-    # breakpoint()
+    breakpoint()
     # mask = 
     # print(f'masking grad func : {name}')
     # return grad * mask
