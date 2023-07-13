@@ -1454,10 +1454,9 @@ def group_layer_params(layer_params):
     return group_param_names
 
 def masking_grad(neuron_ids, name, DEBUG, grad):
-
+    
     if DEBUG: print(f'call back masking_grad func : {name}, {grad.shape}')
-
     mask =  torch.ones_like(grad)
-    breakpoint()
-
-    return grad 
+    mask[neuron_ids] = 0
+    # masking out gradients 
+    return grad  * mask
