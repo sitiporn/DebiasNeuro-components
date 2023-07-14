@@ -24,15 +24,6 @@
 -  [ ] Train BERT model on MNLI dataset on Candidate parameters
 -  [ ] perform EDA on MNNLI-matched set to select both a1 and a2 samples
 
-## Problems
-1. training main model is too long 
-    - running on server is not enough (2 days roughly) it's terminated already
-## Solutions
-1. reducing the number of epochs
-    - checking on papers
-    - checking loss 
-
-2. optimize linear search of candidate parameters
 
 ## General Tackles
 1. modifying embedding space to do counterfactual inference
@@ -66,4 +57,21 @@
     - Class 
     - Annotation artifact
     - etc.
+## Debias Technique on Training set
+
+1. Reweight: using inverse prob on target class  of bias model to scale loss using to train main model
+  * target label on bias inference
+    high ~ correct  -> less scale for particular samples
+    low  ~ incorrect  -> more scale for particular samples
+
+  modifying: train model using reweight loss for only candidate neuron's parameter
+
+2. Partition gradients:
+  * bias model inference
+      correct prediction -> advantage pair (a1)
+      incorrect prediction -> disadvantage pair (a2)
+  
+   * EDA ~ to find representative threshold for a1 and a2 
+        
+
 
