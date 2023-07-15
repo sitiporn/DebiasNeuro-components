@@ -59,19 +59,22 @@
     - etc.
 ## Debias Technique on Training set
 
-1. Reweight: using inverse prob on target class  of bias model to scale loss using to train main model
-  * target label on bias inference
-    high ~ correct  -> less scale for particular samples
-    low  ~ incorrect  -> more scale for particular samples
-
-  modifying: train model using reweight loss for only candidate neuron's parameter
-
-2. Partition gradients:
-  * bias model inference
-      correct prediction -> advantage pair (a1)
-      incorrect prediction -> disadvantage pair (a2)
-  
-   * EDA ~ to find representative threshold for a1 and a2 
+1. PCGU :   
+  * They used the same set(Winogender) to find bias source and tune masked langugage models
+  * pair sentences
+    advantage pair (a1): 
+     1. often coreferent 
+     2. more preffered by bias model
+     3. reweight perspective: low scalers -> lower loss to update main model parameters
         
+    disadvantage pair (a2):
+     1. less often coreferent 
+     2. less preferred by bias model
+     3. reweight perspective: high scalers -> higher loss to update main model parameters
+  * optimize step:
+    - decreasing maximal probability of advantaged term
 
-
+2. Ours:
+  
+  *** EDA ~ to find representative threshold for a1 and a2 
+        
