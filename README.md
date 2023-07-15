@@ -83,7 +83,7 @@
      2.3 components: 
          In encoder: update bias-only parameters the rest is frozen
          outside encoder are also updated eg. classifier, pooler, embeddings are also updat     
-3. The keys of ours vs PCGU
+3. The keys of ours vs PCGU:
   1. ranking bias source on 
      - valid set vs training set
      - using trained model ishan/bert-base-uncased-mnli  vs masked language models
