@@ -26,6 +26,7 @@ from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans, compute_acc
 from utils import get_num_neurons, get_params, relabel, give_weight
 from torch.optim import Adam
+from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 
 class ExperimentDataset(Dataset):
@@ -944,7 +945,6 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     # todo:
     # 2. collect loss for each step
     # 3. plot losses 
-
     losses = []
     accuracies = []
     
@@ -987,12 +987,11 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
             loss =  torch.mean(scalers * loss) 
             loss.backward()
 
-            breakpoint()
-            
             optimizer.step()                
             
             # model = restore_original_weight(model, DEBUG=False)
-            trace_optimized_params(model, config, DEVICE)
+            trace_optimized_params(model, config, DEVICE, DEBUG=False)
+            breakpoint()
 
             if DEBUG: print(f'{model.bert.pooler.dense.weight[:3, :3]}')
 
@@ -1293,7 +1292,6 @@ def get_specific_component(splited_name, component_mappings):
     
     return layer_id, component
 
-
 def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False , DEBUG=False):
 
     value = 0.05 # the percentage of candidate neurons
@@ -1311,8 +1309,6 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     
-    # LOAD_MODEL_PATH = '../pickles/models/reweight_model_partition_params.pth'
-    
     LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     NUM_PARAM_TYPES = 2
     
@@ -1324,22 +1320,19 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
         print(f'Using original model')
     
     # original model
-    original_model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
+    original_model = BertForSequenceClassification.from_pretrained(config["model_name"], num_labels = len(config['label_maps'].keys()))
     original_model = original_model.to(DEVICE)
-    # print(f'sucessful loading model from {LOAD_MODEL_PATH}')
 
     for key in (t := tqdm(model.state_dict())):
+        if 'classifier' in key: continue 
+                
         optimized_param = model.state_dict().get(key)
         non_optimized_param = original_model.state_dict().get(key)
-        
+
         # whole tensor exact
         if torch.all( abs( model.state_dict().get(key) - original_model.state_dict().get(key) ) < 1e-8 ):
             if DEBUG: print(key, optimized_param.size())
-            # print(f'Exact whole : {key}')
-            # if 'encoder' in key and 'LayerNorm' not in key:
-            #     print(f'Count real frozen Whole tensor :{count_real_freeze_param} {layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
-            #     count_frozen_whole_encoder_params +=1
-        # specific value tensor checking 
+        # specific value tensor checking
         else: 
             splited_name  = key.split('.')
             param_name = splited_name[-1]

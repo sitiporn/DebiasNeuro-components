@@ -60,7 +60,7 @@
 ## Debias Technique on Training set
 
 1. PCGU : They used the same set(Winogender) to 
-  1.1 find (calculate constrastive gradients) bias source by ranking gradients similarity
+  1.1 find (calculate constrastive gradients) bias sources by ranking gradients similarity
   1.2 tune masked langugage models on 
     advantage pair (a1): 
      1. often coreferent 
@@ -76,17 +76,17 @@
    - decreasing maximal probability of advantaged term
 
 2. Ours:
-   1. To calculate NIE scores on (valid set) multinli_1.0_dev_matched.jsonl to ranking biased neurons on 
+   1. Calculate NIE scores on (valid set) multinli_1.0_dev_matched.jsonl to find bias neurons
    2. training set to tune models (masked language models) 
      2.1 perform EDA ~ to find representative threshold for a1 and a2 
-     2.2 decreasing maximal probability of advantaged and increase the probability of advantaged 
+     2.2 decreasing maximal probability of advantaged and increase the probability of disadvantaged 
      2.3 components: 
-         In encoder: update bias-only parameters the rest is frozen
-         outside encoder are also updated eg. classifier, pooler, embeddings are also updat     
+         In encoder: Update bias-only parameters, the rest is frozen
+         outside encoder's components are also updated eg. classifier, pooler, embeddings are also update     
 
 Ours vs PCGU using resources:
 ---
-  1. ranking bias source on 
+  1. ranking bias sources on 
      - valid set vs training set
      - using trained model ishan/bert-base-uncased-mnli  vs masked language models
   2. optimize masked language model on 
