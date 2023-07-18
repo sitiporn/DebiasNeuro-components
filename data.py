@@ -950,6 +950,11 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     
     for epoch in (e:= tqdm(range(epochs))):
         running_loss = 0.0
+        
+        # if epoch == 1: 
+        #     print(f'Epoch : {epoch}')
+        #     trace_optimized_params(model, config, DEVICE, DEBUG=False)
+        #     breakpoint()
         for batch_idx, (inputs) in  enumerate(b:= tqdm(dev_loader)):
 
             model.train()
@@ -991,7 +996,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
             
             # model = restore_original_weight(model, DEBUG=False)
             trace_optimized_params(model, config, DEVICE, DEBUG=False)
-            breakpoint()
+            # breakpoint()
 
             if DEBUG: print(f'{model.bert.pooler.dense.weight[:3, :3]}')
 
@@ -1296,10 +1301,13 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
 
     value = 0.05 # the percentage of candidate neurons
     trained_epoch = 0
+    # use to tracking from deviating value
     count_real_freeze_param = 0
     count_real_unfreeze_param = 0
+    count_real_optimized_param = 0
+    # use to tracking from listing candidates
     count_expected_freeze_param = 0
-    count_optimized_param = 0
+    count_expected_optimized_param = 0
     debug_count = 0
     count_frozen_whole_encoder_params = 0 
     component_mappings = {}
@@ -1317,63 +1325,61 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
         print(f'Loading optimized model from {LOAD_MODEL_PATH}')
         model.load_state_dict(torch.load(LOAD_MODEL_PATH))
     else:
-        print(f'Using original model')
+        print(f'Using current model')
     
     # original model
     original_model = BertForSequenceClassification.from_pretrained(config["model_name"], num_labels = len(config['label_maps'].keys()))
     original_model = original_model.to(DEVICE)
+    total_neurons = 0
 
-    for key in (t := tqdm(model.state_dict())):
-        if 'classifier' in key: continue 
+    for param_name_key in (t := tqdm(model.state_dict())):
+        if 'classifier' in param_name_key: continue # dont consider for masked language models
                 
-        optimized_param = model.state_dict().get(key)
-        non_optimized_param = original_model.state_dict().get(key)
+        optimized_param = model.state_dict().get(param_name_key)
+        non_optimized_param = original_model.state_dict().get(param_name_key)
 
         # whole tensor exact
-        if torch.all( abs( model.state_dict().get(key) - original_model.state_dict().get(key) ) < 1e-8 ):
-            if DEBUG: print(key, optimized_param.size())
+        if torch.all( abs( optimized_param - non_optimized_param ) < 1e-8 ):
+            if DEBUG: print(param_name_key, optimized_param.size())
         # specific value tensor checking
         else: 
-            splited_name  = key.split('.')
+            splited_name  = param_name_key.split('.')
             param_name = splited_name[-1]
             layer_id, component = get_specific_component(splited_name, component_mappings)
             cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
             
             with open(cur_restore_path, 'rb') as handle:
-                layer_params = pickle.load(handle)
+                layer_frozen_params = pickle.load(handle)
             
             for neuron_id in range(optimized_param.shape[0]):
                 cur_neuron = f'{component}-{neuron_id}'
-                # frozen_param = layer_params.params[param_name][cur_neuron].to(DEVICE)
-                frozen_param = non_optimized_param[neuron_id]
+                total_neurons += 1
                 
-                # Todo: fix bugs in restore weight
-                if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
-                    debug_count += 1
-                else:
-                    pass
+                # if torch.all(abs( optimized_param[neuron_id] -  non_optimized_param[neuron_id]) < 1e-8):
+                #     debug_count += 1 # expected freeze param is actually not frozen
+                # else:
+                #     pass
                 
-                if cur_neuron in list(layer_params.params[param_name].keys()):
+                # checking  from listing candidate freeze parameters 
+                if cur_neuron in list(layer_frozen_params.params[param_name].keys()):
                     count_expected_freeze_param += 1
-                    # why  optimized parameters dont close to freeze parameter  
-                    if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
+                    # check weight or bias are still kept
+                    if torch.all(abs(optimized_param[neuron_id] - non_optimized_param[neuron_id]) < 1e-8):
                         count_real_freeze_param += 1
-                        # print(f'Count real frozen value :{count_real_freeze_param} {layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
                     else:
-                        # print(f'{layer_id},{cur_neuron}, {param_name} : {frozen_param.shape}, {optimized_param.shape}')
                         count_real_unfreeze_param += 1
                 else:
-                    count_optimized_param += 1
+                    count_expected_optimized_param += 1
 
-                    # optimized_param ~ W : (feature_out, feature_in), B: (out_features,)
-                    # Todo : get the exact number of parameters to keep
-    
-    # print(f'total optimized parameters inside an Encoder :{count_optimized_param / NUM_PARAM_TYPES}')
-    # print(f'total freeze parameters inside an Encoder :{count_freeze_param / NUM_PARAM_TYPES }') 
+                    if torch.all(abs( optimized_param[neuron_id] -  non_optimized_param[neuron_id]) < 1e-8):
+                        pass
+                    else:
+                        count_real_optimized_param += 1
+
+
     print(f'Real frozen value {count_real_freeze_param / NUM_PARAM_TYPES}, Expected freeze {count_expected_freeze_param / NUM_PARAM_TYPES }')
-    print(f'optimized parameters : {count_optimized_param / NUM_PARAM_TYPES}')
-    print(f'Debug freeze count : {debug_count / NUM_PARAM_TYPES}')
-    print(f"count whole tensor's encoder frozen {count_frozen_whole_encoder_params / NUM_PARAM_TYPES}")
+    print(f'Real optimized value {count_real_optimized_param / NUM_PARAM_TYPES} , Expected optimized parameters : {count_expected_optimized_param / NUM_PARAM_TYPES}')
+    
             
 def test_restore_weight(model, config, DEVICE):
     
@@ -1401,7 +1407,7 @@ def exclude_grad(model, hooks, value = 0.05):
 
     #  walking in 
     for param_name, param in model.named_parameters(): 
-        splited_name = name.split('.')
+        splited_name = param_name.split('.')
         if 'encoder' not in splited_name: continue
         if 'LayerNorm' in splited_name: continue
 
