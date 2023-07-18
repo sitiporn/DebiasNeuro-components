@@ -1351,7 +1351,6 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
                 if torch.all(abs(optimized_param[neuron_id] - frozen_param) < 1e-8):
                     debug_count += 1
                 else:
-                    # print(f'Not Exact : {key}')
                     pass
                 
                 if cur_neuron in list(layer_params.params[param_name].keys()):
@@ -1401,7 +1400,7 @@ def exclude_grad(model, hooks, value = 0.05):
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
     #  walking in 
-    for name, param in model.named_parameters(): 
+    for param_name, param in model.named_parameters(): 
         splited_name = name.split('.')
         if 'encoder' not in splited_name: continue
         if 'LayerNorm' in splited_name: continue
@@ -1419,16 +1418,16 @@ def exclude_grad(model, hooks, value = 0.05):
 
         if 'dense' in splited_name:
             if child == 'weight': 
-                hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, neuron_ids[component], name, DEBUG)))
+                hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, neuron_ids[component], param_name, DEBUG)))
             elif child == 'bias':
-                hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, neuron_ids[component], name, DEBUG)))
-            print(f'exlude_grad func dense : {name}') 
+                hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, neuron_ids[component], param_name, DEBUG)))
+            print(f'exlude_grad func dense : {param_name}') 
         else: 
             if child == 'weight': 
-                hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(masking_grad, neuron_ids[component], name, DEBUG )))
+                hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(masking_grad, neuron_ids[component], param_name, DEBUG )))
             elif child == 'bias':
-                hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, neuron_ids[component], name, DEBUG)))
-            print(f'exlude_grad func : {name}')
+                hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, neuron_ids[component], param_name, DEBUG)))
+            print(f'exlude_grad func : {param_name}')
     
     return model, hooks
 
@@ -1446,9 +1445,9 @@ def group_layer_params(layer_params):
     
     return group_param_names
 
-def masking_grad(neuron_ids, name, DEBUG, grad):
+def masking_grad(neuron_ids, param_name, DEBUG, grad):
     
-    if DEBUG: print(f'call back masking_grad func : {name}, {grad.shape}')
+    if DEBUG: print(f'call back masking_grad func : {param_name}, {grad.shape}')
     mask =  torch.ones_like(grad)
     mask[neuron_ids] = 0
     # masking out gradients 
