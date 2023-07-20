@@ -61,6 +61,7 @@ def main():
     model = BertForSequenceClassification.from_pretrained(config["model_name"], num_labels = len(config['label_maps'].keys()))
     model = model.to(DEVICE)
 
+
     # Todo: find all the components used for to clasisfiy our tasks
     # Custom model to be able to custom grad when perform brackpropagation
 

@@ -811,6 +811,11 @@ def initial_partition_params(config, model, do, debug=True):
         freeze_params[value] = {'weight': {}, 'bias': {}}
         train_params[value]  = {'weight': {}, 'bias': {}}
         total_params[value]  = {'weight': {}, 'bias': {}}
+
+        count_param =  0
+
+        #  if 'encoder' not in splited_name: continue
+        #  if 'LayerNorm' in splited_name: continue
         
         for name, param in model.named_parameters():
             cur_name = name.split('.')
@@ -818,6 +823,7 @@ def initial_partition_params(config, model, do, debug=True):
             if 'encoder' in cur_name and 'LayerNorm' not in cur_name:
                 component = None
                 layer_id = int(cur_name[3])
+                count_param  += param.shape[0]
                 
                 if 'self' in cur_name:  
                     component = component_mappings[cur_name[-2]]  # to get Q, K, V
@@ -840,6 +846,7 @@ def initial_partition_params(config, model, do, debug=True):
                 print(f'freeze whole tensor: {name}')
                 param.requires_grad = False
                 
+
         for child in ['weight', 'bias']:
             assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
             assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
@@ -847,6 +854,7 @@ def initial_partition_params(config, model, do, debug=True):
             print(f'# {child} freeze parameters: {len(freeze_params[value][child])} ')
             print(f'# {child} total oparameters: {len(train_params[value][child]) + len(freeze_params[value][child])} ')
 
+        print(f'count_param : {count_param}') 
         for name, param in model.named_parameters(): 
             if 'encoder' in name.split('.') and 'LayerNorm' not in name.split('.'): 
                 assert param.requires_grad == True, f' Error : {name}'
@@ -951,10 +959,6 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     for epoch in (e:= tqdm(range(epochs))):
         running_loss = 0.0
         
-        # if epoch == 1: 
-        #     print(f'Epoch : {epoch}')
-        #     trace_optimized_params(model, config, DEVICE, DEBUG=False)
-        #     breakpoint()
         for batch_idx, (inputs) in  enumerate(b:= tqdm(dev_loader)):
 
             model.train()
@@ -1331,9 +1335,11 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
     original_model = BertForSequenceClassification.from_pretrained(config["model_name"], num_labels = len(config['label_maps'].keys()))
     original_model = original_model.to(DEVICE)
     total_neurons = 0
+    count_param = 0
 
     for param_name_key in (t := tqdm(model.state_dict())):
-        if 'classifier' in param_name_key: continue # dont consider for masked language models
+        # if 'classifier' in param_name_key: continue # dont consider for masked language models
+        # if 'encoder' in cur_name and 'LayerNorm' not in cur_name:
                 
         optimized_param = model.state_dict().get(param_name_key)
         non_optimized_param = original_model.state_dict().get(param_name_key)
@@ -1347,6 +1353,7 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
             param_name = splited_name[-1]
             layer_id, component = get_specific_component(splited_name, component_mappings)
             cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
+            count_param += optimized_param.shape[0]
             
             with open(cur_restore_path, 'rb') as handle:
                 layer_frozen_params = pickle.load(handle)
@@ -1376,10 +1383,27 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
                     else:
                         count_real_optimized_param += 1
 
+    # print(f'Debug freeze count : {debug_count / NUM_PARAM_TYPES}')
+    total_parameter_checker_weight = 0
+    total_parameter_checker_bias = 0
 
+    for layer_id in range(12):
+        cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
+        with open(cur_restore_path, 'rb') as handle:
+            layer_frozen_params = pickle.load(handle)
+        
+        total_parameter_checker_weight += len(layer_frozen_params.params['weight'].keys())
+    
     print(f'Real frozen value {count_real_freeze_param / NUM_PARAM_TYPES}, Expected freeze {count_expected_freeze_param / NUM_PARAM_TYPES }')
     print(f'Real optimized value {count_real_optimized_param / NUM_PARAM_TYPES} , Expected optimized parameters : {count_expected_optimized_param / NUM_PARAM_TYPES}')
-    
+    print(f'Total neurons   : { total_neurons / 2}') # cover all neurons of component being not whole exact
+    print(f'count param : {count_param}')
+    print(f'+-----------------  Layer Param class -----------------')
+    print(f'Total parameters : { layer_frozen_params.total_params }')
+    print(f'train parameters : { layer_frozen_params.num_train_params }')
+    print(f'freeze parameters : { layer_frozen_params.num_freeze_params }')
+    print(f'total_parameter_checker_weight  : { total_parameter_checker_weight }')
+    breakpoint()
             
 def test_restore_weight(model, config, DEVICE):
     
