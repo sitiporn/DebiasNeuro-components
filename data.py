@@ -1332,7 +1332,7 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
         print(f'Using current model')
     
     # original model
-    original_model = BertForSequenceClassification.from_pretrained(config["model_name"], num_labels = len(config['label_maps'].keys()))
+    original_model = BertForSequenceClassification.from_pretrained(config["model_name"])
     original_model = original_model.to(DEVICE)
     total_neurons = 0
     count_param = 0

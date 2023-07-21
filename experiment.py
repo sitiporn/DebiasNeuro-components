@@ -58,8 +58,10 @@ def main():
     geting_NIE_paths(config,mode)
 
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
-    model = BertForSequenceClassification.from_pretrained(config["model_name"], num_labels = len(config['label_maps'].keys()))
+    model = BertForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
+
+    breakpoint()
 
 
     # Todo: find all the components used for to clasisfiy our tasks
