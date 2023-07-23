@@ -1338,27 +1338,24 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
         splited_name  = param_name_key.split('.')
         param_name = splited_name[-1]
         if 'encoder' in param_name_key and 'LayerNorm' not in param_name_key:
-            count_encoder_param += 1
+            encoder_tensor_param_count += 1
             optimized_param = model.state_dict().get(param_name_key)
             non_optimized_param = original_model.state_dict().get(param_name_key)
             layer_id, component = get_specific_component(splited_name, component_mappings)
             cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
-            count_param += optimized_param.shape[0]
             with open(cur_restore_path, 'rb') as handle: layer_frozen_params = pickle.load(handle)
             # bias parameters
             layer_candidated_params = list(layer_frozen_params.params[param_name].keys())
             
             for neuron_id in range(optimized_param.shape[0]):
                 cur_neuron = f'{component}-{neuron_id}'
-                total_neurons += 1
                 is_param_kept =  torch.all(abs(optimized_param[neuron_id] - non_optimized_param[neuron_id]) < 1e-8)
                 if cur_neuron in layer_candidated_params and is_param_kept: real_freeze_param_count += 1
                 elif cur_neuron not in layer_candidated_params and not is_param_kept: real_optimized_param_count += 1
         else:
-            count_non_encoder_param += 1
+            non_encoder_tensor_param_count += 1
                     
     print(f'Tensor params in Encoder : {encoder_tensor_param_count}, Outside Encoder : {non_encoder_tensor_param_count}') 
-    print(f' Total tensor model param:  {total_tensor_param_count}')
     print(f'===========  Optimized  parameters  ==============')
     print(f'Real optimized value : {real_optimized_param_count / NUM_PARAM_TYPES} , Expected train parameters : { layer_frozen_params.num_train_params}')
     print(f'===========  Frozen  parameters  ==============')
