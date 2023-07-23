@@ -54,6 +54,9 @@
   "label_maps": {"contradiction": 0 , "entailment" : 1, "neutral": 2 },
   "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+
+  # training 
+  "training_json":  multinli_1.0_train.jsonl, 
         
   # experiment set 
   "k":  null, 
