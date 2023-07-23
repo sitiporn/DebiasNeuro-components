@@ -1303,13 +1303,14 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
 
     value = 0.05 # the percentage of candidate neurons
     trained_epoch = 0
-    # use to tracking from deviating value
-    count_real_freeze_param = 0
-    count_real_unfreeze_param = 0
-    count_real_optimized_param = 0
-    # use to tracking from listing candidates
-    count_expected_freeze_param = 0
-    count_expected_optimized_param = 0
+    
+    # Tracking 
+    real_freeze_param_count= 0
+    real_optimized_param_count = 0
+    encoder_tensor_param_count = 0
+    non_encoder_tensor_param_count = 0
+    total_tensor_param_count = 0
+    
     debug_count = 0
     count_frozen_whole_encoder_params = 0 
     component_mappings = {}
@@ -1332,18 +1333,10 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
     # original model
     original_model = BertForSequenceClassification.from_pretrained(config["model_name"])
     original_model = original_model.to(DEVICE)
-    total_neurons = 0
-    count_param = 0
-
-    count_encoder_param = 0
-    count_non_encoder_param = 0
-    total_param = 0
-
 
     for param_name_key in (t := tqdm(model.state_dict())):
         splited_name  = param_name_key.split('.')
         param_name = splited_name[-1]
-        total_param += 1
         if 'encoder' in param_name_key and 'LayerNorm' not in param_name_key:
             count_encoder_param += 1
             optimized_param = model.state_dict().get(param_name_key)
@@ -1359,20 +1352,18 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
                 cur_neuron = f'{component}-{neuron_id}'
                 total_neurons += 1
                 is_param_kept =  torch.all(abs(optimized_param[neuron_id] - non_optimized_param[neuron_id]) < 1e-8)
-                if cur_neuron in layer_candidated_params and is_param_kept: count_real_freeze_param += 1
-                elif cur_neuron not in layer_candidated_params and not is_param_kept: count_real_optimized_param += 1
+                if cur_neuron in layer_candidated_params and is_param_kept: real_freeze_param_count += 1
+                elif cur_neuron not in layer_candidated_params and not is_param_kept: real_optimized_param_count += 1
         else:
             count_non_encoder_param += 1
                     
-    print(f'Tensor params in Encoder : {count_encoder_param}, Outside Encoder : {count_non_encoder_param}') 
-    print(f' Total tensor model param:  {total_param}')
+    print(f'Tensor params in Encoder : {encoder_tensor_param_count}, Outside Encoder : {non_encoder_tensor_param_count}') 
+    print(f' Total tensor model param:  {total_tensor_param_count}')
     print(f'===========  Optimized  parameters  ==============')
-    print(f'Real optimized value : {count_real_optimized_param / NUM_PARAM_TYPES} , Expected train parameters : { layer_frozen_params.num_train_params}')
+    print(f'Real optimized value : {real_optimized_param_count / NUM_PARAM_TYPES} , Expected train parameters : { layer_frozen_params.num_train_params}')
     print(f'===========  Frozen  parameters  ==============')
-    print(f'Real : {count_real_freeze_param / NUM_PARAM_TYPES} , Expected : { layer_frozen_params.num_freeze_params}')
+    print(f'Real : {real_freeze_param_count / NUM_PARAM_TYPES} , Expected : { layer_frozen_params.num_freeze_params}')
     print(f'Expected Total parameters : { layer_frozen_params.total_params }')
-    
-    breakpoint()
             
 def test_restore_weight(model, config, DEVICE):
     
