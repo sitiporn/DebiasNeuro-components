@@ -5,13 +5,13 @@
     "type": "snli",
     "tokenizer": {
       "type": "pretrained_transformer",
-      "model_name": transformer_model,
+      "model_name": "../bert-base-uncased/",
       "add_special_tokens": false
     },
     "token_indexers": {
       "tokens": {
         "type": "pretrained_transformer",
-        "model_name": transformer_model,
+        "model_name": "../bert-base-uncased/", 
         "max_length": 512
       }
     }
@@ -22,7 +22,8 @@
   "test_data": "multinli_1.0_dev_mismatched.jsonl",
   "model": {
       "tokens": {
-        "model_name": transformer_model,
+        "model_name": "../bert-base-uncased/",
+        transformer_model,
         "max_length": 512
                 },
     "dropout": 0.1,
