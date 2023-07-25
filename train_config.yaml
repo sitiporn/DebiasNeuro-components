@@ -1,0 +1,52 @@
+{ 
+# Mitigating Spurious Correlation in Natural Language Understanding with Counterfactual Inference
+# Main Model We apply the debiasing methods on the BERT base model (uncased) (Devlin et al., 2019). 
+  "dataset_reader": {
+    "type": "snli",
+    "tokenizer": {
+      "type": "pretrained_transformer",
+      "model_name": transformer_model,
+      "add_special_tokens": false
+    },
+    "token_indexers": {
+      "tokens": {
+        "type": "pretrained_transformer",
+        "model_name": transformer_model,
+        "max_length": 512
+      }
+    }
+  },
+  "data_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
+  "train_data": "multinli_1.0_train.jsonl",
+  "validation_data": "multinli_1.0_dev_matched.jsonl", 
+  "test_data": "multinli_1.0_dev_mismatched.jsonl",
+  "model": {
+      "tokens": {
+        "model_name": transformer_model,
+        "max_length": 512
+                },
+    "dropout": 0.1,
+    "namespace": "tags"
+  },
+  "data_loader": {
+    "batch_sampler": {
+      "type": "bucket",
+      "batch_size" : 32 
+    }
+  },
+  "trainer": {
+    "num_epochs": 3,
+    "validation_metric": "+accuracy",
+    "learning_rate_scheduler": {
+      "type": "slanted_triangular",
+      "cut_frac": 0.06
+    },
+    "optimizer": {
+      "type": "huggingface_adamw",
+      "lr": 5e-5,
+      "weight_decay": 0.1,
+    },
+    "use_amp": true,
+    "cuda_device" : 0,
+  }
+}
