@@ -44,11 +44,14 @@ def tokenize_function(examples):
 
 def to_label_id(text_label): return label_maps[text_label]
 
-# class TrainingDataset(Dataset):
-#     def __init__(self, config, encode, DEBUG=False) -> None: 
-#         df = pd.read_json(os.path.join(config['data_path'], config['train_data']), lines=True)
-#         dataset = df[['sentence1', 'sentence2', 'gold_label']].to_dict()
-#         # self.dataset = [{'label': row['gold_label'], 'text': [ row['sentence1'], row['sentence2']] } for index, row in df.iterrows()] 
+def get_dataset(config, data_name = 'train_data'):
+    df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+    df_new = df[['sentence1', 'sentence2', 'gold_label']]
+    df_new.rename(columns = {'gold_label':'label'}, inplace = True)
+    df_new['label'] = df_new['label'].apply(lambda label_text: to_label_id(label_text))
+
+    return Dataset.from_pandas(df_new)
+
 
 def main():
     global tokenizer
@@ -58,19 +61,19 @@ def main():
         # baseline config
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
     
+    dataset = {}
+    tokenized_datasets = {}
     output_dir = '../models/baseline/'
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     tokenizer = AutoTokenizer.from_pretrained(config['dataset_reader']['tokenizer']['model_name'])
     
     model = BertForSequenceClassification.from_pretrained(config['model']['tokens']["model_name"], num_labels=3 )
-    df = pd.read_json(os.path.join(config['data_path'], config['train_data']), lines=True)
-    df_new = df[['sentence1', 'sentence2', 'gold_label']]
-    df_new.rename(columns = {'gold_label':'label'}, inplace = True)
-    df_new['label'] = df_new['label'].apply(lambda label_text: to_label_id(label_text))
-    
-    train_set = Dataset.from_pandas(df_new)
-    tokenized_datasets = train_set.map(tokenize_function, batched=True)
-    
+
+    for data_name in ["train_data", "validation_data", "test_data"]:
+        dataset[data_name] = get_dataset(config, data_name = data_name)
+        tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
+
+    breakpoint()
 
 
     # "trainer": {
@@ -96,7 +99,6 @@ def main():
                                       per_device_train_batch_size = 32,
                                       num_train_epochs = 3,
                                       half_precision_backend = 'amp')
-    
     
     trainer = Trainer(
         model,
