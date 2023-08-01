@@ -38,6 +38,7 @@ from transformers import Trainer
 # from torch.utils.data import Dataset, DataLoader
 from transformers import TrainingArguments, Trainer
 from datasets import Dataset
+import evaluate
 
 def tokenize_function(examples):
     return tokenizer(examples["sentence1"], examples["sentence2"], padding="max_length", truncation=True) 
@@ -58,9 +59,20 @@ def get_dataset(config, data_name = 'train_data'):
     df_new['label'] = df_new['label'].apply(lambda label_text: to_label_id(label_text))
     return Dataset.from_pandas(df_new)
 
+def compute_metrics(eval_pred):
+
+    logits, labels = eval_pred
+
+    predictions = np.argmax(logits, axis=-1)
+
+    return metric.compute(predictions=predictions, references=labels)
+
 def main():
     global tokenizer
     global label_maps
+    global metric
+
+    metric = evaluate.load("accuracy")
     
     with open("train_config.yaml", "r") as yamlfile:
         # baseline config
@@ -108,10 +120,9 @@ def main():
         training_args,
         train_dataset= tokenized_datasets["train_data"],
         eval_dataset= tokenized_datasets["validation_data"],
+        compute_metrics=compute_metrics,
         tokenizer =tokenizer,)
         
-    breakpoint()
-
 
 if __name__ == "__main__":
     main()
