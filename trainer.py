@@ -56,9 +56,7 @@ def get_dataset(config, data_name = 'train_data'):
     df_new = df[['sentence1', 'sentence2', 'gold_label']]
     df_new.rename(columns = {'gold_label':'label'}, inplace = True)
     df_new['label'] = df_new['label'].apply(lambda label_text: to_label_id(label_text))
-
     return Dataset.from_pandas(df_new)
-
 
 def main():
     global tokenizer
@@ -73,15 +71,12 @@ def main():
     output_dir = '../models/baseline/'
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     tokenizer = AutoTokenizer.from_pretrained(config['dataset_reader']['tokenizer']['model_name'])
-    
     model = BertForSequenceClassification.from_pretrained(config['model']['tokens']["model_name"], num_labels=3 )
 
     for data_name in ["train_data", "validation_data", "test_data"]:
         dataset[data_name] = get_dataset(config, data_name = data_name)
         tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
-
-    breakpoint()
-
+        if data_name != 'test_data': tokenized_datasets[data_name].shuffle(seed=42)
 
     # "trainer": {
     #   "num_epochs": 3,
@@ -101,6 +96,7 @@ def main():
     
     # training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
     training_args = TrainingArguments(output_dir = output_dir,
+                                      overwrite_output_dir = True,
                                       learning_rate = 5e-5,
                                       weight_decay = 0.1,
                                       per_device_train_batch_size = 32,
@@ -110,8 +106,9 @@ def main():
     trainer = Trainer(
         model,
         training_args,
-        train_dataset=tokenized_datasets,
-        tokenizer=tokenizer,)
+        train_dataset= tokenized_datasets["train_data"],
+        eval_dataset= tokenized_datasets["validation_data"],
+        tokenizer =tokenizer,)
         
     breakpoint()
 
