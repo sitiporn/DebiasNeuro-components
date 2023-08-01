@@ -42,10 +42,17 @@ from datasets import Dataset
 def tokenize_function(examples):
     return tokenizer(examples["sentence1"], examples["sentence2"], padding="max_length", truncation=True) 
 
+def preprocss(df):
+    if '-' in df.gold_label.unique(): 
+        df = df[df.gold_label != '-'].reset_index(drop=True)
+
+    return df
+
 def to_label_id(text_label): return label_maps[text_label]
 
 def get_dataset(config, data_name = 'train_data'):
     df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+    df = preprocss(df)
     df_new = df[['sentence1', 'sentence2', 'gold_label']]
     df_new.rename(columns = {'gold_label':'label'}, inplace = True)
     df_new['label'] = df_new['label'].apply(lambda label_text: to_label_id(label_text))
