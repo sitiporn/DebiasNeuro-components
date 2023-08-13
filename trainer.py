@@ -39,6 +39,10 @@ from transformers import Trainer
 from transformers import TrainingArguments, Trainer
 from datasets import Dataset
 import evaluate
+import allennlp
+from typing import Optional
+from slanted_triangular import SlantedTriangular
+from torch.optim import Adam
 
 def tokenize_function(examples):
     return tokenizer(examples["sentence1"], examples["sentence2"], padding="max_length", truncation=True) 
@@ -73,7 +77,7 @@ def main():
     global metric
 
     metric = evaluate.load("accuracy")
-    
+
     with open("train_config.yaml", "r") as yamlfile:
         # baseline config
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
@@ -90,38 +94,51 @@ def main():
         tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
         if data_name != 'test_data': tokenized_datasets[data_name].shuffle(seed=42)
 
-    # "trainer": {
-    #   "num_epochs": 3,
-    #   "validation_metric": "+accuracy",
-    #   "learning_rate_scheduler": {
-    #     "type": "slanted_triangular",
-    #     "cut_frac": 0.06
-    #   },
-    #   "optimizer": {
-    #     "type": "huggingface_adamw",
-    #     "lr": 5e-5,
-    #     "weight_decay": 0.1,
-    #   },
-    #   "use_amp": true,
-    #   "cuda_device" : 0,
-    # }
+    trainer_config = {
+        "num_epochs": 3,
+        "validation_metric": "accuracy",
+        "learning_rate_scheduler": {
+            "type": "slanted_triangular",
+            "cut_frac": 0.06
+        },
+        "optimizer": {
+            "type": "huggingface_adamw",
+            "lr": 5e-5,
+            "weight_decay": 0.1,
+        },
+        "use_amp": True,
+        "cuda_device" : 0,
+        }
     
     # training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
     training_args = TrainingArguments(output_dir = output_dir,
                                       overwrite_output_dir = True,
-                                      learning_rate = 5e-5,
-                                      weight_decay = 0.1,
+                                      learning_rate = trainer_config['optimizer']['lr'],
+                                      weight_decay = trainer_config['optimizer']['weight_decay'],
                                       per_device_train_batch_size = 32,
-                                      num_train_epochs = 3,
+                                      num_train_epochs = trainer_config["num_epochs"],
                                       half_precision_backend = 'amp')
+
+    optimizer = Adam(model.parameters(), lr= trainer_config['optimizer']['lr'])
+    slanted_triangular = SlantedTriangular(optimizer=optimizer, 
+                                           num_epochs=trainer_config["num_epochs"],
+                                           cut_frac= trainer_config['learning_rate_scheduler']['cut_frac'],
+                                           )
+
+    breakpoint()
     
     trainer = Trainer(
         model,
         training_args,
         train_dataset= tokenized_datasets["train_data"],
         eval_dataset= tokenized_datasets["validation_data"],
-        compute_metrics=compute_metrics,
         tokenizer =tokenizer,)
+    
+    trainer.train()
+    # allennlp train -> trainer( trainer.train() ) -> using scheduler
+    # allennlp train ->  TrainModel(Registrable)
+    # learning_rate_scheduler -> where a learning scheduler is used  or called ?
+    # train_loop from_something is trainer inside this?; train_loop.run()  
         
 
 if __name__ == "__main__":
