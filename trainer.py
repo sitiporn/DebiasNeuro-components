@@ -44,6 +44,29 @@ from typing import Optional
 from slanted_triangular import SlantedTriangular
 from torch.optim import Adam
 
+
+class CustomTrainer(Trainer):
+    # Todo: custom where scheduler being created
+    def create_scheduler(self, num_training_steps: int, optimizer: torch.optim.Optimizer = None):
+        """
+        Setup the scheduler. The optimizer of the trainer must have been set up either before this method is called or
+        passed as an argument.
+
+        Args:
+            num_training_steps (int): The number of training steps to do.
+        """
+        if self.lr_scheduler is None:
+            self.lr_scheduler = get_scheduler(
+                self.args.lr_scheduler_type,
+                optimizer=self.optimizer if optimizer is None else optimizer,
+                num_warmup_steps=self.args.get_warmup_steps(num_training_steps),
+                num_training_steps=num_training_steps,
+            )
+            self._created_lr_scheduler = True
+        return self.lr_scheduler
+
+
+
 def tokenize_function(examples):
     return tokenizer(examples["sentence1"], examples["sentence2"], padding="max_length", truncation=True) 
 
@@ -139,6 +162,7 @@ def main():
     # allennlp train ->  TrainModel(Registrable)
     # learning_rate_scheduler -> where a learning scheduler is used  or called ?
     # train_loop from_something is trainer inside this?; train_loop.run()  
+
         
 
 if __name__ == "__main__":
