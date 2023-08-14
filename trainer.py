@@ -55,14 +55,15 @@ class CustomTrainer(Trainer):
         Args:
             num_training_steps (int): The number of training steps to do.
         """
+        cut_frac = 0.06
+
         if self.lr_scheduler is None:
-            self.lr_scheduler = get_scheduler(
-                self.args.lr_scheduler_type,
-                optimizer=self.optimizer if optimizer is None else optimizer,
-                num_warmup_steps=self.args.get_warmup_steps(num_training_steps),
-                num_training_steps=num_training_steps,
-            )
+            self.lr_scheduler = SlantedTriangular(optimizer = self.optimizer, 
+                                           num_epochs = self.args.num_train_epochs,
+                                           cut_frac= cut_frac,
+                                           )
             self._created_lr_scheduler = True
+        
         return self.lr_scheduler
 
 
@@ -135,22 +136,15 @@ def main():
     
     # training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
     training_args = TrainingArguments(output_dir = output_dir,
+                                      report_to="none",
                                       overwrite_output_dir = True,
                                       learning_rate = trainer_config['optimizer']['lr'],
                                       weight_decay = trainer_config['optimizer']['weight_decay'],
                                       per_device_train_batch_size = 32,
                                       num_train_epochs = trainer_config["num_epochs"],
                                       half_precision_backend = 'amp')
-
-    optimizer = Adam(model.parameters(), lr= trainer_config['optimizer']['lr'])
-    slanted_triangular = SlantedTriangular(optimizer=optimizer, 
-                                           num_epochs=trainer_config["num_epochs"],
-                                           cut_frac= trainer_config['learning_rate_scheduler']['cut_frac'],
-                                           )
-
-    breakpoint()
     
-    trainer = Trainer(
+    trainer = CustomTrainer(
         model,
         training_args,
         train_dataset= tokenized_datasets["train_data"],
