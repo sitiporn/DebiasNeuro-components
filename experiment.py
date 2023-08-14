@@ -48,6 +48,7 @@ def main():
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
+    label_maps = { 'contradiction': 0 , 'entailment' : 1, 'neutral' : 2}
     
     if config["dev-name"] == 'mismatched': config["dev_json"]['mismatched'] = 'multinli_1.0_dev_mismatched.jsonl'
     elif config["dev-name"] == 'hans': config["dev_json"]['hans'] = 'heuristics_evaluation_set.jsonl' 
@@ -61,8 +62,6 @@ def main():
     model = BertForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
 
-    breakpoint()
-
     # Todo: find all the components used for to clasisfiy our tasks
     # Custom model to be able to custom grad when perform brackpropagation
 
@@ -71,13 +70,14 @@ def main():
     experiment_set = ExperimentDataset(config, encode = tokenizer)                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
 
+    # Todo: test on 
     if config['getting_counterfactual']: collect_output_components(config, DEVICE = DEVICE)
     if config['print_config']: print_config(config)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
     if config['topk']: get_top_k(config, treatments=mode) 
-    if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, DEVICE)
+    if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, config['is_group_by_class'])
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['debias_test']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
