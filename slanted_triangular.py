@@ -134,7 +134,7 @@ class SlantedTriangular(LearningRateScheduler):
                     # i = 0 is the default group; we care about i > 0
                     param.requires_grad = bool(i <= num_layers_to_unfreeze)
 
-            self._last_lr = [group['lr'] for group in self.optimizer.param_groups]
+        self._last_lr = [group['lr'] for group in self.optimizer.param_groups]
 
     def step_batch(self, batch_num_total: int = None):
         if batch_num_total is None:
