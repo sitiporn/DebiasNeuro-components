@@ -109,7 +109,9 @@ def main():
     tokenized_datasets = {}
     output_dir = '../models/baseline/'
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
-    tokenizer = AutoTokenizer.from_pretrained(config['dataset_reader']['tokenizer']['model_name'])
+    
+    
+    tokenizer = AutoTokenizer.from_pretrained(config['dataset_reader']['tokenizer']['model_name'], model_max_length=512)
     model = BertForSequenceClassification.from_pretrained(config['model']['tokens']["model_name"], num_labels=3 )
 
     for data_name in ["train_data", "validation_data", "test_data"]:
