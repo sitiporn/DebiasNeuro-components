@@ -57,6 +57,9 @@ class CustomTrainer(Trainer):
         """
         cut_frac = 0.06
 
+        # bugs: lr_scheuduler is no get_lr()[0]
+        # Scheduler -> slanted override 
+        # Allennlp -> override from
         if self.lr_scheduler is None:
             self.lr_scheduler = SlantedTriangular(optimizer = self.optimizer, 
                                            num_epochs = self.args.num_train_epochs,
@@ -65,8 +68,6 @@ class CustomTrainer(Trainer):
             self._created_lr_scheduler = True
         
         return self.lr_scheduler
-
-
 
 def tokenize_function(examples):
     return tokenizer(examples["sentence1"], examples["sentence2"], padding="max_length", truncation=True) 
@@ -88,11 +89,9 @@ def get_dataset(config, data_name = 'train_data'):
     return Dataset.from_pandas(df_new)
 
 def compute_metrics(eval_pred):
-
+    breakpoint()
     logits, labels = eval_pred
-
     predictions = np.argmax(logits, axis=-1)
-
     return metric.compute(predictions=predictions, references=labels)
 
 def main():
@@ -149,15 +148,15 @@ def main():
         training_args,
         train_dataset= tokenized_datasets["train_data"],
         eval_dataset= tokenized_datasets["validation_data"],
-        tokenizer =tokenizer,)
+        tokenizer =tokenizer, 
+        compute_metrics=compute_metrics,
+        )
     
     trainer.train()
     # allennlp train -> trainer( trainer.train() ) -> using scheduler
     # allennlp train ->  TrainModel(Registrable)
     # learning_rate_scheduler -> where a learning scheduler is used  or called ?
     # train_loop from_something is trainer inside this?; train_loop.run()  
-
-        
 
 if __name__ == "__main__":
     main()
