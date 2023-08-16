@@ -123,7 +123,7 @@ def main():
     training_args = TrainingArguments(output_dir = output_dir,
                                       report_to="none",
                                       overwrite_output_dir = True,
-                                      learning_rate = config['optimizer']['lr'],
+                                      learning_rate = float(config['optimizer']['lr']),
                                       weight_decay = config['optimizer']['weight_decay'],
                                       per_device_train_batch_size = 32,
                                       num_train_epochs = config["num_epochs"],
