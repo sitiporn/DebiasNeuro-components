@@ -68,7 +68,8 @@ class SlantedTriangular(LearningRateScheduler):
         self.is_first_epoch = True
         # track the actual number of steps for each epoch
         self.batch_num_total_epoch_end: List[int] = []
-        self._last_lr = None
+        # initial learning rate
+     
         
         if self.gradual_unfreezing:
             assert not optimizer.param_groups[-1]["params"], "The default group should be empty."
@@ -91,12 +92,15 @@ class SlantedTriangular(LearningRateScheduler):
         # set up for the first batch
         self.last_batch_num_total = -1
         self.step_batch(0)
+        self._last_lr = self.get_values()
     
     # Todo: find where this method being used Pytorch's scheduler
     # Todo: How it can be used in this 
     def get_last_lr(self):
         """ Return last computed learning rate by current scheduler.
         """
+        self._last_lr = self.get_values()
+        
         return self._last_lr
 
     def step(self, metric: float = None) -> None:
@@ -128,13 +132,11 @@ class SlantedTriangular(LearningRateScheduler):
                 logger.info(
                     f"Gradual unfreezing. Training only the top {num_layers_to_unfreeze} layers."
                 )
-            # where to get -> self._last_lr?
+            
             for i, param_group in enumerate(reversed(self.optimizer.param_groups)):
                 for param in param_group["params"]:
                     # i = 0 is the default group; we care about i > 0
                     param.requires_grad = bool(i <= num_layers_to_unfreeze)
-
-        self._last_lr = [group['lr'] for group in self.optimizer.param_groups]
 
     def step_batch(self, batch_num_total: int = None):
         if batch_num_total is None:
@@ -142,6 +144,7 @@ class SlantedTriangular(LearningRateScheduler):
         self.last_batch_num_total = batch_num_total
         for param_group, learning_rate in zip(self.optimizer.param_groups, self.get_values()):
             param_group["lr"] = learning_rate
+
 
     def get_values(self):
         # get the actual number of batches per epoch seen in training
@@ -170,5 +173,6 @@ class SlantedTriangular(LearningRateScheduler):
             step = min(self.last_batch_num_total - frozen_steps, num_steps)
         cut = int(num_steps * self.cut_frac)
         prop = step / cut if step < cut else 1 - (step - cut) / (num_steps - cut)
+        
         return [lr * (1 + prop * (self.ratio - 1)) / self.ratio for lr in self.base_values]
 
