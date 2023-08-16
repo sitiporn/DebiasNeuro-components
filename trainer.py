@@ -132,7 +132,8 @@ def main():
     # TODO: fix: change lr respect slanted triagular?
     # TODO: find where model is not able to learn?
     # TODO: fix optmizers
-    opitmizer = AdamW(lr= config['optimizer']['lr'] , 
+    opitmizer = AdamW(params=model.parameters(),
+                      lr= config['optimizer']['lr'] , 
                       weight_decay = config['optimizer']['weight_decay'])
 
     trainer = CustomTrainer(
