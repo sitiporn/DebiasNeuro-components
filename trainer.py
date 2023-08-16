@@ -101,8 +101,7 @@ def main():
 
     metric = evaluate.load("accuracy")
 
-    with open("train_config.yaml", "r") as yamlfile:
-        # baseline config
+    with open("baseline_config.yaml", "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
     
     dataset = {}
@@ -111,38 +110,23 @@ def main():
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
     
-    tokenizer = AutoTokenizer.from_pretrained(config['dataset_reader']['tokenizer']['model_name'], model_max_length=512)
-    model = BertForSequenceClassification.from_pretrained(config['model']['tokens']["model_name"], num_labels=3 )
+    tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+    model = BertForSequenceClassification.from_pretrained(config['model']["model_name"], num_labels = len(label_maps.keys()))
+
 
     for data_name in ["train_data", "validation_data", "test_data"]:
         dataset[data_name] = get_dataset(config, data_name = data_name)
         tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
         if data_name != 'test_data': tokenized_datasets[data_name].shuffle(seed=42)
 
-    trainer_config = {
-        "num_epochs": 3,
-        "validation_metric": "accuracy",
-        "learning_rate_scheduler": {
-            "type": "slanted_triangular",
-            "cut_frac": 0.06
-        },
-        "optimizer": {
-            "type": "huggingface_adamw",
-            "lr": 5e-5,
-            "weight_decay": 0.1,
-        },
-        "use_amp": True,
-        "cuda_device" : 0,
-        }
-    
     # training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
     training_args = TrainingArguments(output_dir = output_dir,
                                       report_to="none",
                                       overwrite_output_dir = True,
-                                      learning_rate = trainer_config['optimizer']['lr'],
-                                      weight_decay = trainer_config['optimizer']['weight_decay'],
+                                      learning_rate = config['optimizer']['lr'],
+                                      weight_decay = config['optimizer']['weight_decay'],
                                       per_device_train_batch_size = 32,
-                                      num_train_epochs = trainer_config["num_epochs"],
+                                      num_train_epochs = config["num_epochs"],
                                       half_precision_backend = 'amp')
     
     trainer = CustomTrainer(

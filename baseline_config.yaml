@@ -1,0 +1,58 @@
+{ 
+# Mitigating Spurious Correlation in Natural Language Understanding with Counterfactual Inference
+# Main Model We apply the debiasing methods on the BERT base model (uncased) (Devlin et al., 2019). 
+# ideas from : https://github.com/c4n/debias_nlu/blob/9d3f55449a15fe6e4538ed5713530207d2127afd/configs/nli/baseline/mnli_bert_base_clark_1.jsonnet#L4
+  "dataset_reader": {
+    "type": "snli",
+    "tokenizer": {
+      "type": "pretrained_transformer",
+      "model_name": "../bert-base-uncased/",
+      "add_special_tokens": false
+    }
+  },
+    
+  # Tokenizer
+  "tokens": {
+    "type": "pretrained_transformer",
+    "model_name": "../bert-base-uncased/", 
+    "max_length": 512
+  },
+  
+  # dataset
+  "data_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
+  "train_data": "multinli_1.0_train.jsonl",
+  "validation_data": "multinli_1.0_dev_matched.jsonl", 
+  "test_data": "multinli_1.0_dev_mismatched.jsonl",
+
+  # models
+  "model": {
+    "model_name": "../bert-base-uncased/",
+    transformer_model,
+    "max_length": 512
+  },
+  "dropout": 0.1,
+  "namespace": "tags",
+  
+  "data_loader": {
+    "batch_sampler": {
+      "type": "bucket",
+      "batch_size" : 32 
+    }
+  },
+  
+  # Trainer
+  "num_epochs": 3,
+  "validation_metric": "accuracy",
+  "learning_rate_scheduler": {
+    "type": "slanted_triangular",
+    "cut_frac": 0.06
+  },
+  "optimizer": {
+    "type": "huggingface_adamw",
+    "lr": 5e-5,
+    "weight_decay": 0.1,
+  },
+  "use_amp": true,
+  "cuda_device" : 0,
+
+}
