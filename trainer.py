@@ -36,7 +36,7 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from data import exclude_grad
 from transformers import Trainer
 # from torch.utils.data import Dataset, DataLoader
-from transformers import TrainingArguments, Trainer
+from transformers import TrainingArguments, Trainer, AdamW
 from datasets import Dataset
 import evaluate
 import allennlp
@@ -89,7 +89,7 @@ def get_dataset(config, data_name = 'train_data'):
     return Dataset.from_pandas(df_new)
 
 def compute_metrics(eval_pred):
-    breakpoint()
+    # why compute_metrics never be called?
     logits, labels = eval_pred
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
@@ -129,6 +129,12 @@ def main():
                                       num_train_epochs = config["num_epochs"],
                                       half_precision_backend = 'amp')
     
+    # TODO: fix: change lr respect slanted triagular?
+    # TODO: find where model is not able to learn?
+    # TODO: fix optmizers
+    opitmizer = AdamW(lr= config['optimizer']['lr'] , 
+                      weight_decay = config['optimizer']['weight_decay'])
+
     trainer = CustomTrainer(
         model,
         training_args,
@@ -136,6 +142,7 @@ def main():
         eval_dataset= tokenized_datasets["validation_data"],
         tokenizer =tokenizer, 
         compute_metrics=compute_metrics,
+        optimizers = (opitmizer, None),
         )
     
     trainer.train()
