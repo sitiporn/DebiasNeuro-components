@@ -340,7 +340,7 @@ def debias_test(do,
 def get_ans(ans: int):
 
     # Todo: generalize to all challenge  sets 
-    if ans == 1:
+    if ans == 0:
         return "entailment"
     else:
         return "non-entailment"
