@@ -12,11 +12,10 @@
   "getting_counterfactual": False,
   "traced": False, 
   "debias_test": False,
-  "partition_params": True,
-  # "partition_params": False,
+  "partition_params": False,
   "get_condition_inferences": False,
   "get_inference_based": True,
-  "traced_params": True,
+  "traced_params": False,
   "test_traced_params": False,
   # "dev-name": "mismatched",
   # "dev-name": "hans",
@@ -51,7 +50,7 @@
   
   # compute nie scores
   "num_samples": 300,
-  "label_maps": {"contradiction": 0 , "entailment" : 1, "neutral": 2 },
+  "label_maps": {"entailment": 0, "contradiction": 1, "neutral": 2},
   "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
 

@@ -1038,15 +1038,18 @@ def get_analysis(config):
     print(f'average distribution of each class : {avg_dist}')
     
 def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is_optimized_set = False):
+    """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
     golden_answers = {}
-    
+
     trained_epoch = 2
-    LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
+    LOAD_MODEL_PATH = '../models/baseline/checkpoint-28000/pytorch_model.bin' #f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     OPTIMIZED_SET_JSONL = config['dev_json']
+    # datasets
     IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
+    
     RESULT_PATH = f'../pickles/performances/'
     json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
     
