@@ -21,6 +21,7 @@
 -  [x] uncomment load intitial partition parameters
 -  [x] write tester to check parameters which are candidate-only weights to optimize
 -  [x] Custom Auto gradients to perform specific value brackpropagation  
+-  [x] slanted compuation get right 
 -  [ ] Train model to debias on candidate parameters using training set 
 -  [ ] Perform gradient reversal 
 -  [ ] perform EDA on MNNLI-matched set to select both a1 and a2 samples

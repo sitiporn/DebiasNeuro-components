@@ -101,6 +101,7 @@ class SlantedTriangular(LearningRateScheduler):
         """ Return last computed learning rate by current scheduler.
         """
         self._last_lr = self.get_values()
+        print(f'get last lr : {self._last_lr}')
         # it's called every 500 step -> it's not related to scheduler computation
         return self._last_lr
     
@@ -182,8 +183,14 @@ class SlantedTriangular(LearningRateScheduler):
             # iteration t
             step = min(self.last_batch_num_total - frozen_steps, num_steps)
         
+        
         cut = int(num_steps * self.cut_frac)
 
         prop = step / cut if step < cut else 1 - (step - cut) / (num_steps - cut)
+
+        # print(f'============= {cut} ===========')
+        # print(f'in get values:{step}, num_steps:{num_steps}, prop: {prop}, actual_num_steps_per_epoch:{actual_num_steps_per_epoch}')
+        # in get values:2208, num_steps:36816, prop: 1.0, actual_num_steps_per_epoch:12272               
+        # 2208: 5e-05 
         
         return [lr * (1 + prop * (self.ratio - 1)) / self.ratio for lr in self.base_values]
