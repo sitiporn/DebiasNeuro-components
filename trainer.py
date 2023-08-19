@@ -63,10 +63,11 @@ class CustomTrainer(Trainer):
         if self.lr_scheduler is None:
             self.lr_scheduler = SlantedTriangular(optimizer = self.optimizer, 
                                            num_epochs = self.args.num_train_epochs,
+                                           num_steps_per_epoch = len(self.get_train_dataloader()),
                                            cut_frac= cut_frac,
                                            )
             self._created_lr_scheduler = True
-        
+
         return self.lr_scheduler
 
 def tokenize_function(examples):
@@ -115,11 +116,15 @@ def main():
 
 
     for data_name in ["train_data", "validation_data", "test_data"]:
+        print(f'========= {data_name} ===========')
         dataset[data_name] = get_dataset(config, data_name = data_name)
         tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
         if data_name != 'test_data': tokenized_datasets[data_name].shuffle(seed=42)
 
+    
+    #392702
     # training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
+    # batch_size?
     training_args = TrainingArguments(output_dir = output_dir,
                                       report_to="none",
                                       overwrite_output_dir = True,
@@ -131,7 +136,6 @@ def main():
     
     # TODO: fix: change lr respect slanted triagular?
     # TODO: find where model is not able to learn?
-    # TODO: fix optmizers
     opitmizer = AdamW(params=model.parameters(),
                       lr= float(config['optimizer']['lr']) , 
                       weight_decay = config['optimizer']['weight_decay'])

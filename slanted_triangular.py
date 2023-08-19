@@ -175,6 +175,7 @@ class SlantedTriangular(LearningRateScheduler):
                 num_frozen_epochs = len(self.optimizer.param_groups) - 2
                 frozen_steps = self.batch_num_total_epoch_end[num_frozen_epochs]
 
+            
             # the number of epochs times the number of updates per epoch.
             # total iterations
             num_steps = self.num_epochs * actual_num_steps_per_epoch - frozen_steps
@@ -182,7 +183,7 @@ class SlantedTriangular(LearningRateScheduler):
             step = min(self.last_batch_num_total - frozen_steps, num_steps)
         
         cut = int(num_steps * self.cut_frac)
-        
+
         prop = step / cut if step < cut else 1 - (step - cut) / (num_steps - cut)
         
         return [lr * (1 + prop * (self.ratio - 1)) / self.ratio for lr in self.base_values]
