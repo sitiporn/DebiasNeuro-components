@@ -108,6 +108,7 @@ def main():
     dataset = {}
     tokenized_datasets = {}
     output_dir = '../models/baseline/'
+    output_dir_two = '../models/baseline3/'
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
     
@@ -119,23 +120,24 @@ def main():
         print(f'========= {data_name} ===========')
         dataset[data_name] = get_dataset(config, data_name = data_name)
         tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
-        if data_name != 'test_data': tokenized_datasets[data_name].shuffle(seed=42)
+        if data_name == 'train_data': tokenized_datasets[data_name].shuffle(seed=42)
 
     
-    #392702
-    # training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
-    # batch_size?
-    training_args = TrainingArguments(output_dir = output_dir,
+    training_args = TrainingArguments(output_dir = output_dir_two,
                                       report_to="none",
                                       overwrite_output_dir = True,
+                                      evaluation_strategy="steps",
+                                      eval_steps=500,
                                       learning_rate = float(config['optimizer']['lr']),
                                       weight_decay = config['optimizer']['weight_decay'],
                                       per_device_train_batch_size = 32,
+                                      per_device_eval_batch_size=32,
                                       num_train_epochs = config["num_epochs"],
+                                      seed=42,
+                                      load_best_model_at_end=True,
+                                      save_total_limit=2,
                                       half_precision_backend = 'amp')
     
-    # TODO: fix: change lr respect slanted triagular?
-    # TODO: find where model is not able to learn?
     opitmizer = AdamW(params=model.parameters(),
                       lr= float(config['optimizer']['lr']) , 
                       weight_decay = config['optimizer']['weight_decay'])
