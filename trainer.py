@@ -100,7 +100,6 @@ def main():
     global label_maps
     global metric
 
-    metric = evaluate.load("accuracy")
 
     with open("baseline_config.yaml", "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
@@ -111,7 +110,7 @@ def main():
     output_dir_two = '../models/baseline3/'
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
-    
+    metric = evaluate.load(config["validation_metric"])
     tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
     model = BertForSequenceClassification.from_pretrained(config['model']["model_name"], num_labels = len(label_maps.keys()))
 
@@ -121,22 +120,23 @@ def main():
         dataset[data_name] = get_dataset(config, data_name = data_name)
         tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
         if data_name == 'train_data': tokenized_datasets[data_name].shuffle(seed=42)
-
+    
+     
     
     training_args = TrainingArguments(output_dir = output_dir_two,
                                       report_to="none",
                                       overwrite_output_dir = True,
-                                      evaluation_strategy="steps",
-                                      eval_steps=500,
+                                      evaluation_strategy=config['evaluation_strategy'],
+                                      eval_steps=config['eval_steps'],
                                       learning_rate = float(config['optimizer']['lr']),
                                       weight_decay = config['optimizer']['weight_decay'],
-                                      per_device_train_batch_size = 32,
-                                      per_device_eval_batch_size=32,
+                                      per_device_train_batch_size = config["data_loader"]["batch_sampler"]["batch_size"],
+                                      per_device_eval_batch_size=config["data_loader"]["batch_sampler"]["batch_size"],
                                       num_train_epochs = config["num_epochs"],
-                                      seed=42,
-                                      load_best_model_at_end=True,
-                                      save_total_limit=2,
-                                      half_precision_backend = 'amp')
+                                      seed=config['seed'],
+                                      load_best_model_at_end=config["load_best_model_at_end"],
+                                      save_total_limit= config["save_total_limit"],
+                                      half_precision_backend = config["half_precision_backend"])
     
     opitmizer = AdamW(params=model.parameters(),
                       lr= float(config['optimizer']['lr']) , 
