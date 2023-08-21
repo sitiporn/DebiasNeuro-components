@@ -107,23 +107,29 @@ def main():
     dataset = {}
     tokenized_datasets = {}
     output_dir = '../models/baseline/'
-    output_dir_two = '../models/baseline3/'
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
+    
+    # random seed
+    seed = random.randint(0,10000)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    output_dir = os.path.join(output_dir, "seed_"+ str(seed))
+    if not os.path.exists(output_dir): os.mkdir(output_dir) 
     
     metric = evaluate.load(config["validation_metric"])
     tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
     model = BertForSequenceClassification.from_pretrained(config['model']["model_name"], num_labels = len(label_maps.keys()))
 
-
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
         dataset[data_name] = get_dataset(config, data_name = data_name)
         tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
-        if data_name == 'train_data': tokenized_datasets[data_name].shuffle(seed=42)
+        if data_name == 'train_data': tokenized_datasets[data_name].shuffle(seed=seed)
     
      
     
-    training_args = TrainingArguments(output_dir = output_dir_two,
+    training_args = TrainingArguments(output_dir = output_dir,
                                       report_to="none",
                                       overwrite_output_dir = True,
                                       evaluation_strategy=config['evaluation_strategy'],
@@ -133,7 +139,7 @@ def main():
                                       per_device_train_batch_size = config["data_loader"]["batch_sampler"]["batch_size"],
                                       per_device_eval_batch_size=config["data_loader"]["batch_sampler"]["batch_size"],
                                       num_train_epochs = config["num_epochs"],
-                                      seed=config['seed'],
+                                      seed=seed,
                                       load_best_model_at_end=config["load_best_model_at_end"],
                                       save_total_limit= config["save_total_limit"],
                                       half_precision_backend = config["half_precision_backend"])
