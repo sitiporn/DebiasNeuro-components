@@ -1036,22 +1036,51 @@ def get_analysis(config):
     distributions = torch.stack(distributions[key], dim=0)
     avg_dist = torch.mean(distributions, dim=0)
     print(f'average distribution of each class : {avg_dist}')
+
+def get_all_model_paths(LOAD_MODEL_PATH):
+    import pathlib
+    seed_path_ind = 3
+    num_seeds = 5
+    model_files = pathlib.Path(LOAD_MODEL_PATH)
+    model_files.rglob('*.bin')
+    all_model_files = {} 
+    clean_model_files = []
+    
+    for f in model_files.rglob("*.bin"):
+        key = str(f).split("/")[seed_path_ind]
+        if  key not in all_model_files.keys(): all_model_files[key] = []
+        if 'pytorch_model' not in str(f): continue
+        all_model_files[key].append(str(f))
+
+    def take_second(elem):
+        return elem[1]
+
+    for seed in all_model_files.keys():
+        checkpoint_paths = [ (checkpoint.split("/")[4].split('_')[-1], checkpoint) for checkpoint in all_model_files[seed]]
+        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
+        clean_model_files.append(checkpoint[-1])
+
+    assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
+
+    return clean_model_files
     
 def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
     golden_answers = {}
-
     trained_epoch = 2
-    LOAD_MODEL_PATH = '../models/baseline/checkpoint-28000/pytorch_model.bin' #f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
+    # LOAD_MODEL_PATH = '../models/debug_baseline/checkpoint-36500/pytorch_model.bin' #'../models/baseline/'
+    LOAD_MODEL_PATH = '../models/baseline/'
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    # LOAD_MODEL_PATH = '../models/baseline3/checkpoint-36500/pytorch_model.bin' #f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
     IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
-    
     RESULT_PATH = f'../pickles/performances/'
     json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
+    
     
     if is_load_model:
         model.load_state_dict(torch.load(LOAD_MODEL_PATH))
