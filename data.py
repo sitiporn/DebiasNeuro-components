@@ -1069,6 +1069,7 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is
     distributions = {}
     losses = {}
     golden_answers = {}
+
     trained_epoch = 2
     # LOAD_MODEL_PATH = '../models/debug_baseline/checkpoint-36500/pytorch_model.bin' #'../models/baseline/'
     LOAD_MODEL_PATH = '../models/baseline/'
@@ -1080,66 +1081,82 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
     json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
+    acc_avg = 0
+    entail_avg = 0
+    contradiction_avg = 0
+    neutral_avg = 0
+    hans_avg = 0
+    count = 0
     
-    
-    if is_load_model:
-        model.load_state_dict(torch.load(LOAD_MODEL_PATH))
-        print(f'Loading model from {LOAD_MODEL_PATH}')
-    else:
-        print(f'Using original model')
-
     for cur_json in json_sets:
-
         name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+        for path in all_paths:
+            if is_load_model:
+                model.load_state_dict(torch.load(path))
+                print(f'Loading model from {path}')
+            else:
+                print(f'Using original model')
 
-        distributions[name_set] = []
-        losses[name_set] = []
-        golden_answers[name_set] = []
-        
-        dev_set = Dev(config['dev_path'] , cur_json)
-        dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-        
-        for batch_idx, (inputs) in enumerate( t := tqdm(dev_loader)):
+            distributions[name_set] = []
+            losses[name_set] = []
+            golden_answers[name_set] = []
             
-            model.eval()
-            cur_inputs = {} 
-            t.set_description(f'{name_set} batch_idx {batch_idx}/{len(dev_loader)}')
+            dev_set = Dev(config['dev_path'] , cur_json)
+            dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
             
-            for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
+            for batch_idx, (inputs) in enumerate( t := tqdm(dev_loader)):
+                
+                model.eval()
+                cur_inputs = {} 
+                t.set_description(f'{name_set} batch_idx {batch_idx}/{len(dev_loader)}')
+                
+                for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
 
-            # get the inputs 
-            pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
-            pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-            pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+                # get the inputs 
+                pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+                pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
 
-            # ignore label_ids when running experiment on hans
-            label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if  'heuristics' not in cur_json  else None
-            # ignore label_ids when running experiment on hans
-            if label_ids is not None: label_ids = label_ids.to(DEVICE)
+                # ignore label_ids when running experiment on hans
+                label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if  'heuristics' not in cur_json  else None
+                # ignore label_ids when running experiment on hans
+                if label_ids is not None: label_ids = label_ids.to(DEVICE)
 
-            with torch.no_grad(): 
-                # Todo: generalize to distribution if the storage is enough
-                outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
-                distributions[name_set].extend(F.softmax(outs.logits.cpu() , dim=-1))
-                golden_answers[name_set].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
+                with torch.no_grad(): 
+                    # Todo: generalize to distribution if the storage is enough
+                    outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
+                    distributions[name_set].extend(F.softmax(outs.logits.cpu() , dim=-1))
+                    golden_answers[name_set].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
 
-        cur_raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
-        
-        with open(cur_raw_distribution_path, 'wb') as handle: 
-            pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
-            pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            # pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f'saving without condition distribution into : {cur_raw_distribution_path}')
-        
-        if 'heuristics' not in cur_json: 
-            acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
-            print(f"overall acc : {acc['all']}")
-            print(f"contradiction acc : {acc['contradiction']}")
-            print(f"entailment acc : {acc['entailment']}")
-            print(f"neutral acc : {acc['neutral']}")
+            cur_raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
+            
+            with open(cur_raw_distribution_path, 'wb') as handle: 
+                pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                # pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving without condition distribution into : {cur_raw_distribution_path}')
+                
+            if 'heuristics' not in cur_json: 
+                acc = compute_acc(cur_raw_distribution_path, config["label_maps"], count=count)
+                print(f"overall acc : {acc['all']}")
+                print(f"contradiction acc : {acc['contradiction']}")
+                print(f"entailment acc : {acc['entailment']}")
+                print(f"neutral acc : {acc['neutral']}")
 
-        elif config['get_hans_result'] and 'heuristics'in cur_json: 
-            get_hans_result(cur_raw_distribution_path, config)
+                acc_avg += acc['all']
+                entail_avg += acc['entailment']
+                neutral_avg += acc['neutral']
+                contradiction_avg += acc['contradiction']
+
+            elif config['get_hans_result'] and 'heuristics'in cur_json: 
+                hans_avg += get_hans_result(cur_raw_distribution_path, config)
+    
+    print(f'==================== Avearge scores ===================')
+    print(f"average overall acc : {acc_avg / len(all_paths)}")
+    print(f"averge contradiction acc : {contradiction_avg / len(all_paths)}")
+    print(f"average entailment acc : {entail_avg   / len(all_paths)}")
+    print(f"average neutral acc : {neutral_avg /  len(all_paths)}")
+    print(f'avarge hans score : { hans_avg  / len(all_paths)}')
 
 def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path):
 
@@ -1296,6 +1313,8 @@ def get_hans_result(raw_distribution_path, config):
 
     avg_score = get_avg_score(score_path)
     print(f'average score : {avg_score}')
+
+    return avg_score
 
 
 def get_avg_score(score_path):
