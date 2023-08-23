@@ -1137,7 +1137,7 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is
                 print(f'saving without condition distribution into : {cur_raw_distribution_path}')
                 
             if 'heuristics' not in cur_json: 
-                acc = compute_acc(cur_raw_distribution_path, config["label_maps"], count=count)
+                acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
                 print(f"overall acc : {acc['all']}")
                 print(f"contradiction acc : {acc['contradiction']}")
                 print(f"entailment acc : {acc['entailment']}")
