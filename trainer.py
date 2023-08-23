@@ -36,8 +36,9 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from data import exclude_grad
 from transformers import Trainer
 # from torch.utils.data import Dataset, DataLoader
-from transformers import TrainingArguments, Trainer, AdamW
+from transformers import TrainingArguments, Trainer, AdamW, DataCollatorWithPadding
 from datasets import Dataset
+from torch.utils.data import IterableDataset, RandomSampler, Sampler
 import evaluate
 import allennlp
 from typing import Optional
@@ -69,9 +70,9 @@ class CustomTrainer(Trainer):
             self._created_lr_scheduler = True
 
         return self.lr_scheduler
-
+    
 def tokenize_function(examples):
-    return tokenizer(examples["sentence1"], examples["sentence2"], padding="max_length", truncation=True) 
+    return tokenizer(examples["sentence1"], examples["sentence2"], truncation=True) 
 
 def preprocss(df):
     if '-' in df.gold_label.unique(): 
@@ -107,27 +108,27 @@ def main():
     dataset = {}
     tokenized_datasets = {}
     output_dir = '../models/baseline/'
+    output_dir_debug = '../models/debug_baseline/'
+
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
     # random seed
-    seed = random.randint(0,10000)
+    seed = config['seed'] #random.randint(0,10000)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     output_dir = os.path.join(output_dir, "seed_"+ str(seed))
     if not os.path.exists(output_dir): os.mkdir(output_dir) 
-    
     metric = evaluate.load(config["validation_metric"])
     tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
     model = BertForSequenceClassification.from_pretrained(config['model']["model_name"], num_labels = len(label_maps.keys()))
-
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
         dataset[data_name] = get_dataset(config, data_name = data_name)
         tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
-        if data_name == 'train_data': tokenized_datasets[data_name].shuffle(seed=seed)
-    
-     
+        # is it needed when use bucket allenlp sytle
+        # if data_name == 'train_data': tokenized_datasets[data_name].shuffle(seed=seed)
     
     training_args = TrainingArguments(output_dir = output_dir,
                                       report_to="none",
@@ -142,7 +143,8 @@ def main():
                                       seed=seed,
                                       load_best_model_at_end=config["load_best_model_at_end"],
                                       save_total_limit= config["save_total_limit"],
-                                      half_precision_backend = config["half_precision_backend"])
+                                      half_precision_backend = config["half_precision_backend"],
+                                      group_by_length = config["data_loader"]["batch_sampler"]["group_by_length"])
     
     opitmizer = AdamW(params=model.parameters(),
                       lr= float(config['optimizer']['lr']) , 
@@ -156,13 +158,10 @@ def main():
         tokenizer =tokenizer, 
         compute_metrics=compute_metrics,
         optimizers = (opitmizer, None),
+        data_collator=data_collator,
         )
     
     trainer.train()
-    # allennlp train -> trainer( trainer.train() ) -> using scheduler
-    # allennlp train ->  TrainModel(Registrable)
-    # learning_rate_scheduler -> where a learning scheduler is used  or called ?
-    # train_loop from_something is trainer inside this?; train_loop.run()  
 
 if __name__ == "__main__":
     main()
