@@ -44,6 +44,7 @@ import allennlp
 from typing import Optional
 from slanted_triangular import SlantedTriangular
 from torch.optim import Adam
+from transformers import BertConfig, BertModel
 
 
 class CustomTrainer(Trainer):
@@ -107,8 +108,7 @@ def main():
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/baseline/'
-    output_dir_debug = '../models/debug_baseline/'
+    output_dir = '../models/baseline/' 
 
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
@@ -120,15 +120,17 @@ def main():
     output_dir = os.path.join(output_dir, "seed_"+ str(seed))
     if not os.path.exists(output_dir): os.mkdir(output_dir) 
     metric = evaluate.load(config["validation_metric"])
+    model_config = BertConfig(config['model']["model_name"])
+    model_config.num_labels = len(label_maps.keys())
     tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
-    model = BertForSequenceClassification.from_pretrained(config['model']["model_name"], num_labels = len(label_maps.keys()))
+    model = BertForSequenceClassification.from_pretrained(model_config)
+    breakpoint()
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
         dataset[data_name] = get_dataset(config, data_name = data_name)
         tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
-        # is it needed when use bucket allenlp sytle
-        # if data_name == 'train_data': tokenized_datasets[data_name].shuffle(seed=seed)
+        if data_name == 'train_data': tokenized_datasets[data_name].shuffle(seed=seed)
     
     training_args = TrainingArguments(output_dir = output_dir,
                                       report_to="none",
@@ -144,7 +146,8 @@ def main():
                                       load_best_model_at_end=config["load_best_model_at_end"],
                                       save_total_limit= config["save_total_limit"],
                                       half_precision_backend = config["half_precision_backend"],
-                                      group_by_length = config["data_loader"]["batch_sampler"]["group_by_length"])
+                                      group_by_length = config["data_loader"]["batch_sampler"]["group_by_length"],
+                                     )
     
     opitmizer = AdamW(params=model.parameters(),
                       lr= float(config['optimizer']['lr']) , 
