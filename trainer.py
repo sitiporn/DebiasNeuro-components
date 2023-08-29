@@ -46,6 +46,9 @@ from slanted_triangular import SlantedTriangular
 from torch.optim import Adam
 from transformers import BertConfig, BertModel
 from transformers.optimization import get_scheduler
+from transformers.trainer_utils import has_length
+from transformers.utils import is_datasets_available
+from batchsampler import BucketBatchSampler
 
 class CustomTrainer(Trainer):
     # Todo: custom where scheduler being created
@@ -71,6 +74,28 @@ class CustomTrainer(Trainer):
             self._created_lr_scheduler = True
 
         return self.lr_scheduler
+
+    def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
+        if self.train_dataset is None or not has_length(self.train_dataset):
+            return None
+
+        # Build the sampler.
+        if self.args.group_by_length:
+            import datasets
+            if is_datasets_available() and isinstance(self.train_dataset, datasets.Dataset):
+                lengths = (
+                    self.train_dataset[self.args.length_column_name]
+                    if self.args.length_column_name in self.train_dataset.column_names
+                    else None
+                )
+            else:
+                lengths = None
+            model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
+            return BucketBatchSampler(batch_size=self.args.train_batch_size,)
+
+        else:
+            return RandomSampler(self.train_dataset)
+
     
 def tokenize_function(examples):
     return tokenizer(examples["sentence1"], examples["sentence2"], truncation=True) 
@@ -163,7 +188,6 @@ def main():
         optimizers = (opitmizer, None),
         data_collator=data_collator,
         )
-    breakpoint() 
     trainer.train()
 
 if __name__ == "__main__":
