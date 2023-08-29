@@ -45,7 +45,7 @@ from typing import Optional
 from slanted_triangular import SlantedTriangular
 from torch.optim import Adam
 from transformers import BertConfig, BertModel
-
+from transformers.optimization import get_scheduler
 
 class CustomTrainer(Trainer):
     # Todo: custom where scheduler being created
@@ -123,8 +123,8 @@ def main():
     model_config = BertConfig(config['model']["model_name"])
     model_config.num_labels = len(label_maps.keys())
     tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
-    model = BertForSequenceClassification.from_pretrained(model_config)
-    breakpoint()
+    model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
+
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
@@ -163,7 +163,7 @@ def main():
         optimizers = (opitmizer, None),
         data_collator=data_collator,
         )
-    
+    breakpoint() 
     trainer.train()
 
 if __name__ == "__main__":

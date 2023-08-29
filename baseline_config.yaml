@@ -35,7 +35,7 @@
   },
 
   # models; 
-  # follow allennlp set up, the rest is the default of bert-base-uncased
+  # follow allennlp setups, the rest is the default of bert-base-uncased
   "model": {
     "model_name": "../bert-base-uncased/",
     transformer_model,
