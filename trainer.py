@@ -20,10 +20,10 @@ import operator
 import torch.nn.functional as F
 import numpy as np
 from pprint import pprint
-from nn_pruning.patch_coordinator import (
-    SparseTrainingArguments,
-    ModelPatchingCoordinator,
-)
+#from nn_pruning.patch_coordinator import (
+#    SparseTrainingArguments,
+#    ModelPatchingCoordinator,
+#)
 from data import ExperimentDataset, Dev, get_condition_inferences, get_inference_based, print_config, trace_optimized_params
 from data import rank_losses, initial_partition_params, restore_original_weight, partition_param_train
 from intervention import intervene, high_level_intervention
@@ -48,7 +48,8 @@ from transformers import BertConfig, BertModel
 from transformers.optimization import get_scheduler
 from transformers.trainer_utils import has_length
 from transformers.utils import is_datasets_available
-from batchsampler import BucketBatchSampler
+from transformers.trainer_pt_utils import LengthGroupedSampler
+from torchtext.data.iterator import BucketIterator
 
 class CustomTrainer(Trainer):
     # Todo: custom where scheduler being created
@@ -91,8 +92,9 @@ class CustomTrainer(Trainer):
             else:
                 lengths = None
             model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
-            return BucketBatchSampler(batch_size=self.args.train_batch_size,)
 
+            return BucketIterator(dataset=self.train_dataset, batch_size = self.args.train_batch_size)
+        
         else:
             return RandomSampler(self.train_dataset)
 
@@ -156,7 +158,7 @@ def main():
         dataset[data_name] = get_dataset(config, data_name = data_name)
         tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
         if data_name == 'train_data': tokenized_datasets[data_name].shuffle(seed=seed)
-    
+     
     training_args = TrainingArguments(output_dir = output_dir,
                                       report_to="none",
                                       overwrite_output_dir = True,
