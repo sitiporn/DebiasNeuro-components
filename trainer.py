@@ -49,7 +49,8 @@ from transformers.optimization import get_scheduler
 from transformers.trainer_utils import has_length
 from transformers.utils import is_datasets_available
 from transformers.trainer_pt_utils import LengthGroupedSampler
-from torchtext.data.iterator import BucketIterator
+from torch.utils.data.sampler import SequentialSampler            
+from batchsampler import BucketBatchSampler
 
 class CustomTrainer(Trainer):
     # Todo: custom where scheduler being created
@@ -92,11 +93,16 @@ class CustomTrainer(Trainer):
             else:
                 lengths = None
             model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
-            return BucketIterator(dataset=self.train_dataset, 
+            # Todo: convert dataset huggingface format into torchtext format
+            # self.train_dataset = Dataset.to_pandas(self.train_dataset)
+            sampler = SequentialSampler(list(range(self.train_dataset.num_rows)))
+            return BucketBatchSampler(sampler=sampler,
                                   batch_size=self.args.train_batch_size,
                                   sort_key=lambda x: len(x['sentence1']) + len(x['sentence2']),
                                  )
-        
+            # NOTE: Dataset 
+            # feilds?
+            # keys?
         else:
             return RandomSampler(self.train_dataset)
 
