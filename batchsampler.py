@@ -5,6 +5,8 @@ from torch.utils.data.sampler import SubsetRandomSampler
 
 from torchnlp.samplers.sorted_sampler import SortedSampler
 
+def identity(x):
+    return x
 
 class BucketBatchSampler(BatchSampler):
     """ `BucketBatchSampler` toggles between `sampler` batches and sorted batches.
