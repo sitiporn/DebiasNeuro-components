@@ -98,6 +98,7 @@ class CustomTrainer(Trainer):
             sampler = SequentialSampler(list(range(self.train_dataset.num_rows)))
             return BucketBatchSampler(sampler=sampler,
                                   batch_size=self.args.train_batch_size,
+                                  drop_last=False,
                                   sort_key=lambda x: len(x['sentence1']) + len(x['sentence2']),
                                  )
             # NOTE: Dataset 
