@@ -92,8 +92,10 @@ class CustomTrainer(Trainer):
             else:
                 lengths = None
             model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
-
-            return BucketIterator(dataset=self.train_dataset, batch_size = self.args.train_batch_size)
+            return BucketIterator(dataset=self.train_dataset, 
+                                  batch_size=self.args.train_batch_size,
+                                  sort_key=lambda x: len(x['sentence1']) + len(x['sentence2']),
+                                 )
         
         else:
             return RandomSampler(self.train_dataset)
