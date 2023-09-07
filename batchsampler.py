@@ -8,6 +8,23 @@ from typing import Iterator, Iterable, Optional, Sequence, List, TypeVar, Generi
 def identity(x):
     return x
 
+class SequentialSampler(Sampler[int]):
+    r"""Samples elements sequentially, always in the same order.
+
+    Args:
+        data_source (Dataset): dataset to sample from
+    """
+    data_source: Sized
+
+    def __init__(self, data_source: Sized) -> None:
+        self.data_source = data_source
+
+    def __iter__(self) -> Iterator[int]:
+        return iter(range(len(self.data_source)))
+
+    def __len__(self) -> int:
+        return len(self.data_source)
+
 class BatchSampler(Sampler[List[int]]):
     r"""Wraps another sampler to yield a mini-batch of indices.
 
