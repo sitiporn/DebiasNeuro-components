@@ -56,6 +56,15 @@ class BatchSampler(Sampler[List[int]]):
         self.batch_size = batch_size
         self.drop_last = drop_last
 
+    def __len__(self) -> int:
+        # Can only be called if self.sampler has __len__ implemented
+        # We cannot enforce this condition, so we turn off typechecking for the
+        # implementation below.
+        # Somewhat related: see NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
+        if self.drop_last:
+            return len(self.sampler) // self.batch_size  # type: ignore[arg-type]
+        else:
+            return (len(self.sampler) + self.batch_size - 1) // self.batch_size  # type: ignore[arg-type]
     def __iter__(self) -> Iterator[List[int]]:
         # Implemented based on the benchmarking in https://github.com/pytorch/pytorch/pull/76951
         if self.drop_last:
@@ -78,17 +87,6 @@ class BatchSampler(Sampler[List[int]]):
                     batch = [0] * self.batch_size
             if idx_in_batch > 0:
                 yield batch[:idx_in_batch]
-
-    def __len__(self) -> int:
-        # Can only be called if self.sampler has __len__ implemented
-        # We cannot enforce this condition, so we turn off typechecking for the
-        # implementation below.
-        # Somewhat related: see NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
-        if self.drop_last:
-            return len(self.sampler) // self.batch_size  # type: ignore[arg-type]
-        else:
-            return (len(self.sampler) + self.batch_size - 1) // self.batch_size  # type: ignore[arg-type]
-
 
 class BucketBatchSampler(BatchSampler):
     """ `BucketBatchSampler` toggles between `sampler` batches and sorted batches.
@@ -144,10 +142,21 @@ class BucketBatchSampler(BatchSampler):
         self.bucket_sampler = BatchSampler(sampler, _bucket_size, False)
 
     def __iter__(self):
+        """
+        >>> sampler = SequentialSampler(list(range(10)))
+        >>> list(SubsetRandomSampler(list(BatchSampler(sampler, batch_size=3, drop_last=False))))
+        >>> [[0, 1, 2], [9], [3, 4, 5], [6, 7, 8]]
+        
+        """
+        # each bucket := all indices
         for bucket in self.bucket_sampler:
+            # Todo: provide text len info
             sorted_sampler = SortedSampler(bucket, self.sort_key)
+            # each batch := all indices?
+            # subset permute list
             for batch in SubsetRandomSampler(
                     list(BatchSampler(sorted_sampler, self.batch_size, self.drop_last))):
+                # yeild each batch 
                 yield [bucket[i] for i in batch]
 
     def __len__(self):
@@ -192,6 +201,7 @@ class RandomSampler(Sampler[int]):
             return len(self.data_source)
         return self._num_samples
 
+    # seem to provide list of all indices
     def __iter__(self) -> Iterator[int]:
         n = len(self.data_source)
         if self.generator is None:
@@ -207,8 +217,18 @@ class RandomSampler(Sampler[int]):
             yield from torch.randint(high=n, size=(self.num_samples % 32,), dtype=torch.int64, generator=generator).tolist()
         else:
             for _ in range(self.num_samples // n):
+                # permute indices of samples as a list 
                 yield from torch.randperm(n, generator=generator).tolist()
+            # permute indices of samples as a list 
             yield from torch.randperm(n, generator=generator).tolist()[:self.num_samples % n]
 
     def __len__(self) -> int:
         return self.num_samples
+
+# there are the different between  Batchsampler 
+sampler = SequentialSampler(range(10))
+print(f" BatchSampler:")
+print(list(BatchSampler(sampler, batch_size=3, drop_last=False)))
+print(f" BucketBatchSampler:")
+print(list(BucketBatchSampler(sampler, batch_size=3, drop_last=False)))
+breakpoint()
