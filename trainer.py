@@ -50,7 +50,7 @@ from transformers.trainer_utils import has_length
 from transformers.utils import is_datasets_available
 from transformers.trainer_pt_utils import LengthGroupedSampler
 from torch.utils.data.sampler import SequentialSampler            
-from batchsampler import BucketBatchSampler
+from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
 
 class CustomTrainer(Trainer):
     # Todo: custom where scheduler being created
@@ -93,19 +93,18 @@ class CustomTrainer(Trainer):
             else:
                 lengths = None
             model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
-            # Todo: convert dataset huggingface format into torchtext format
-            # self.train_dataset = Dataset.to_pandas(self.train_dataset)
-            sampler = SequentialSampler(list(range(self.train_dataset.num_rows)))
-            return BucketBatchSampler(sampler=sampler,
-                                  batch_size=self.args.train_batch_size,
-                                  drop_last=False,
-                                  sort_key=lambda x: len(x['sentence1']) + len(x['sentence2']),
-                                 )
-            # NOTE: Dataset 
-            # feilds?
-            # keys?
+            # Todo: recheck how huggingface sampler works?
+            # sampler = SequentialSampler(self.train_dataset) 
+            # BucketBatchSampler(sampler, batch_size=self.args.train_batch_size, drop_last=False)
+            return LengthGroupedSampler(
+                self.args.train_batch_size * self.args.gradient_accumulation_steps,
+                dataset=self.train_dataset,
+                lengths=lengths,
+                model_input_name=model_input_name,
+            )
+
         else:
-            return RandomSampler(self.train_dataset)
+            return RandomSampler(self.train_dataset) # in __iter__() -> yeild the same as Batchsampler and bucket iterator
 
     
 def tokenize_function(examples):
@@ -199,6 +198,7 @@ def main():
         optimizers = (opitmizer, None),
         data_collator=data_collator,
         )
+    
     trainer.train()
 
 if __name__ == "__main__":
