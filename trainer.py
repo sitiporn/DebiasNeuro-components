@@ -51,6 +51,9 @@ from transformers.utils import is_datasets_available
 from transformers.trainer_pt_utils import LengthGroupedSampler
 from torch.utils.data.sampler import SequentialSampler            
 from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
+from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING_NAMES, MODEL_MAPPING_NAMES
+from transformers.modeling_utils import PreTrainedModel, load_sharded_checkpoint, unwrap_model
+
 
 class CustomTrainer(Trainer):
     # Todo: custom where scheduler being created
@@ -82,7 +85,7 @@ class CustomTrainer(Trainer):
             return None
 
         # Build the sampler.
-        if self.args.group_by_length:
+        if self.args.group_by_length: 
             import datasets
             if is_datasets_available() and isinstance(self.train_dataset, datasets.Dataset):
                 lengths = (
@@ -105,6 +108,42 @@ class CustomTrainer(Trainer):
 
         else:
             return RandomSampler(self.train_dataset) # in __iter__() -> yeild the same as Batchsampler and bucket iterator
+    
+    def compute_loss(self, model, inputs, return_outputs=False):
+        """
+        How the loss is computed by Trainer. By default, all models return the loss in the first element.
+
+        Subclass and override for custom behavior.
+        """
+        if self.label_smoother is not None and "labels" in inputs:
+            labels = inputs.pop("labels")
+        else:
+            labels = None
+        outputs = model(**inputs)
+        # Save past state if it exists
+        # TODO: this needs to be fixed and made cleaner later.
+        if self.args.past_index >= 0:
+            self._past = outputs[self.args.past_index]
+
+        if labels is not None:
+            if is_peft_available() and isinstance(model, PeftModel):
+                model_name = unwrap_model(model.base_model)._get_name()
+            else:
+                model_name = unwrap_model(model)._get_name()
+            if model_name in MODEL_FOR_CAUSAL_LM_MAPPING_NAMES.values():
+                loss = self.label_smoother(outputs, labels, shift_labels=True)
+            else:
+                loss = self.label_smoother(outputs, labels)
+        else:
+            if isinstance(outputs, dict) and "loss" not in outputs:
+                raise ValueError(
+                    "The model did not return a loss from the inputs, only the following keys: "
+                    f"{','.join(outputs.keys())}. For reference, the inputs it received are {','.join(inputs.keys())}."
+                )
+            # We don't use .loss here since the model may return tuples instead of ModelOutput.
+            loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+
+        return (loss, outputs) if return_outputs else loss
 
     
 def tokenize_function(examples):
@@ -159,7 +198,6 @@ def main():
     model_config.num_labels = len(label_maps.keys())
     tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
     model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
-
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
