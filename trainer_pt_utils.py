@@ -248,10 +248,7 @@ class BucketBatchSampler(BatchSampler):
         return iter(indices)
 
     def __len__(self):
-        if self.drop_last:
-            return len(self.sampler) // self.batch_size
-        else:
-            return math.ceil(len(self.sampler) / self.batch_size)
+        return len(self.sampler)
 
 class RandomSampler(Sampler[int]):
     r"""Samples elements randomly. If without replacement, then sample from a shuffled dataset.
