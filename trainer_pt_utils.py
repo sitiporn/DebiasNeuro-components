@@ -30,19 +30,31 @@ class CustomSortedSampler(Sampler):
 
     """
 
-    def __init__(self, data, sort_key=identity):
-        super().__init__(data)
-        self.data = data
+    def __init__(self, indexes, dataset, sort_key=identity):
+        super().__init__(indexes)
+        # size equal to bucket_size
+        self.indexes = indexes
         self.sort_key = sort_key
-        zip_ = [(i, row) for i, row in enumerate(self.data)]
+        self.dataset = dataset
+        self.lengths = [len(feature[self.sort_key]) for feature in self.dataset]
+        zip_ = [(i, self.lengths[row]) for i, row in enumerate(self.indexes)]
         zip_ = sorted(zip_, key=lambda r: r[1])
         self.sorted_indexes = [item[0] for item in zip_]
-    
+        
+        if isinstance(self.lengths, torch.Tensor):
+            logger.info(
+                "If lengths is a torch.Tensor, LengthGroupedSampler will be slow. Converting lengths to List[int]..."
+            )
+            self.lengths = self.lengths.tolist()
+
+        # show lens are soted together
+        #np.array(self.lengths)[self.sorted_indexes[128:128+32]]
+ 
     def __iter__(self):
         return iter(self.sorted_indexes)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.indexes)
 
 class SequentialSampler(Sampler[int]):
     r"""Samples elements sequentially, always in the same order.
@@ -165,18 +177,44 @@ class BucketBatchSampler(BatchSampler):
     """
 
     def __init__(self,
-                 sampler,
-                 batch_size,
-                 drop_last,
+                 batch_size: int,
+                 drop_last: bool,
+                 dataset: Optional[Dataset] = None,
+                 lengths: Optional[List[int]] = None,
+                 model_input_name: Optional[str] = None,
+                 generator=None,
                  sort_key=identity,
                  bucket_size_multiplier=100):
+        
+        # Get length of  entire dataset
+        if dataset is None and lengths is None:
+            raise ValueError("One of dataset and lengths must be provided.")
+        
+        self.batch_size = batch_size
+        if lengths is None:
+            model_input_name = model_input_name if model_input_name is not None else "input_ids"
+            if (
+                not (isinstance(dataset[0], dict) or isinstance(dataset[0], BatchEncoding))
+                or model_input_name not in dataset[0]
+            ):
+                raise ValueError(
+                    "Can only automatically infer lengths for datasets whose items are dictionaries with an "
+                    f"'{model_input_name}' key."
+                )
+        
+        self.lengths = lengths
+        sampler = SequentialSampler(dataset)
         super().__init__(sampler, batch_size, drop_last)
-        self.sort_key = sort_key
+        self.sort_key = model_input_name
         _bucket_size = batch_size * bucket_size_multiplier
+        self.dataset = dataset
+        
         if hasattr(sampler, "__len__"):
             _bucket_size = min(_bucket_size, len(sampler))
+        
+        # require_idxes
         self.bucket_sampler = BatchSampler(sampler, _bucket_size, False)
-
+    
     def __iter__(self):
         """
         >>> sampler = SequentialSampler(list(range(10)))
@@ -185,22 +223,31 @@ class BucketBatchSampler(BatchSampler):
         
         """
         # each bucket := all indices
+        buckets = []
         for bucket in self.bucket_sampler:
             # Todo: provide text len info
-            sorted_sampler = SortedSampler(bucket, self.sort_key)
+            # Each bucket get sorted
+            sorted_sampler = CustomSortedSampler(bucket, self.dataset, self.sort_key)
             # each batch := all indices?
-            # subset permute list
+            # 
             for batch in SubsetRandomSampler(
                     list(BatchSampler(sorted_sampler, self.batch_size, self.drop_last))):
                 # yeild each batch 
-                yield [bucket[i] for i in batch]
+                # yield [bucket[i] for i in batch]
+                buckets.append([bucket[i] for i in batch])
+                breakpoint()
+
+        flat_bucket = flatten_list(buckets)
+        breakpoint()
+        assert len(set(flat_bucket)) == len(flat_bucket)
+        
+        # return iter(indices)
 
     def __len__(self):
         if self.drop_last:
             return len(self.sampler) // self.batch_size
         else:
             return math.ceil(len(self.sampler) / self.batch_size)
-
 
 class RandomSampler(Sampler[int]):
     r"""Samples elements randomly. If without replacement, then sample from a shuffled dataset.
@@ -396,7 +443,6 @@ Example
 # sampler = SequentialSampler(range(10))
 # print(f" BatchSampler:")
 # print(list(BatchSampler(sampler, batch_size=3, drop_last=False)))
-# breakpoint()
 # print(f" BucketBatchSampler:")
 # bucket_list = list(BucketBatchSampler(sampler, batch_size=3, drop_last=False))
 # print(flatten_list(bucket_list))
