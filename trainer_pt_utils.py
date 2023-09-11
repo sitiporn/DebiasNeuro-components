@@ -10,6 +10,7 @@ from transformers.utils import logging
 from torch import nn
 from dataclasses import dataclass
 import itertools
+from tqdm import tqdm
 
 logger = logging.get_logger(__name__)
 
@@ -33,13 +34,14 @@ class CustomSortedSampler(Sampler):
     def __init__(self, indexes, dataset, sort_key=identity):
         super().__init__(indexes)
         # size equal to bucket_size
-        self.indexes = indexes
+        self.indexes = indexes[0]
         self.sort_key = sort_key
         self.dataset = dataset
         self.lengths = [len(feature[self.sort_key]) for feature in self.dataset]
         zip_ = [(i, self.lengths[row]) for i, row in enumerate(self.indexes)]
         zip_ = sorted(zip_, key=lambda r: r[1])
         self.sorted_indexes = [item[0] for item in zip_]
+        breakpoint()
         
         if isinstance(self.lengths, torch.Tensor):
             logger.info(
@@ -224,7 +226,7 @@ class BucketBatchSampler(BatchSampler):
         """
         # each bucket := all indices
         buckets = []
-        for bucket in self.bucket_sampler:
+        for bucket in enumerate(tqdm(self.bucket_sampler)):
             # Todo: provide text len info
             # Each bucket get sorted
             sorted_sampler = CustomSortedSampler(bucket, self.dataset, self.sort_key)
@@ -234,12 +236,13 @@ class BucketBatchSampler(BatchSampler):
                     list(BatchSampler(sorted_sampler, self.batch_size, self.drop_last))):
                 # yeild each batch 
                 # yield [bucket[i] for i in batch]
-                buckets.append([bucket[i] for i in batch])
-                breakpoint()
+                # buckets.append([bucket[i] for i in batch])
+                yield [bucket[i] for i in batch]
 
-        flat_bucket = flatten_list(buckets)
-        breakpoint()
-        assert len(set(flat_bucket)) == len(flat_bucket)
+
+        # flat_bucket = flatten_list(buckets)
+        # breakpoint()
+        # assert len(set(flat_bucket)) == len(flat_bucket)
         
         # return iter(indices)
 
