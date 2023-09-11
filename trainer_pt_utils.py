@@ -34,14 +34,13 @@ class CustomSortedSampler(Sampler):
     def __init__(self, indexes, dataset, sort_key=identity):
         super().__init__(indexes)
         # size equal to bucket_size
-        self.indexes = indexes[0]
+        self.indexes = indexes
         self.sort_key = sort_key
         self.dataset = dataset
         self.lengths = [len(feature[self.sort_key]) for feature in self.dataset]
         zip_ = [(i, self.lengths[row]) for i, row in enumerate(self.indexes)]
         zip_ = sorted(zip_, key=lambda r: r[1])
         self.sorted_indexes = [item[0] for item in zip_]
-        breakpoint()
         
         if isinstance(self.lengths, torch.Tensor):
             logger.info(
@@ -50,7 +49,8 @@ class CustomSortedSampler(Sampler):
             self.lengths = self.lengths.tolist()
 
         # show lens are soted together
-        #np.array(self.lengths)[self.sorted_indexes[128:128+32]]
+        # import numpy as np 
+        # np.array(self.lengths)[self.sorted_indexes[128:128+32]]
  
     def __iter__(self):
         return iter(self.sorted_indexes)
@@ -205,17 +205,17 @@ class BucketBatchSampler(BatchSampler):
                 )
         
         self.lengths = lengths
-        sampler = SequentialSampler(dataset)
-        super().__init__(sampler, batch_size, drop_last)
+        self.sampler = SequentialSampler(dataset)
+        super().__init__(self.sampler, batch_size, drop_last)
         self.sort_key = model_input_name
         _bucket_size = batch_size * bucket_size_multiplier
         self.dataset = dataset
         
-        if hasattr(sampler, "__len__"):
-            _bucket_size = min(_bucket_size, len(sampler))
+        if hasattr(self.sampler, "__len__"):
+            _bucket_size = min(_bucket_size, len(self.sampler))
         
         # require_idxes
-        self.bucket_sampler = BatchSampler(sampler, _bucket_size, False)
+        self.bucket_sampler = BatchSampler(self.sampler, _bucket_size, False)
     
     def __iter__(self):
         """
@@ -226,7 +226,7 @@ class BucketBatchSampler(BatchSampler):
         """
         # each bucket := all indices
         buckets = []
-        for bucket in enumerate(tqdm(self.bucket_sampler)):
+        for bucket_id, bucket in enumerate(tqdm(self.bucket_sampler)):
             # Todo: provide text len info
             # Each bucket get sorted
             sorted_sampler = CustomSortedSampler(bucket, self.dataset, self.sort_key)
@@ -236,15 +236,16 @@ class BucketBatchSampler(BatchSampler):
                     list(BatchSampler(sorted_sampler, self.batch_size, self.drop_last))):
                 # yeild each batch 
                 # yield [bucket[i] for i in batch]
-                # buckets.append([bucket[i] for i in batch])
-                yield [bucket[i] for i in batch]
+                buckets.append([bucket[i] for i in batch])
+                # yield [bucket[i] for i in batch]
+                #np.array(sorted_sampler.lengths)[flatten_list(buckets)]
 
-
-        # flat_bucket = flatten_list(buckets)
-        # breakpoint()
+        flat_bucket = flatten_list(buckets)
+        
+        indices = list(self.sampler)
         # assert len(set(flat_bucket)) == len(flat_bucket)
         
-        # return iter(indices)
+        return iter(indices)
 
     def __len__(self):
         if self.drop_last:
