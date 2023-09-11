@@ -53,9 +53,44 @@ from torch.utils.data.sampler import SequentialSampler
 from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
 from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING_NAMES, MODEL_MAPPING_NAMES
 from transformers.modeling_utils import PreTrainedModel, load_sharded_checkpoint, unwrap_model
-
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+from transformers.data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
+from transformers.trainer_utils import EvalPrediction
+from transformers.trainer_callback import TrainerCallback
+from trainer_pt_utils import CustomLabelSmoother
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 class CustomTrainer(Trainer):
+    def __init__(self,
+                 model: Union[PreTrainedModel, nn.Module] = None,
+                 args: TrainingArguments = None,
+                 data_collator: Optional[DataCollator] = None,
+                 train_dataset: Optional[Dataset] = None,
+                 eval_dataset: Optional[Union[Dataset, Dict[str, Dataset]]] = None,
+                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
+                 model_init: Optional[Callable[[], PreTrainedModel]] = None,
+                 compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
+                 callbacks: Optional[List[TrainerCallback]] = None,
+                 optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
+                 preprocess_logits_for_metrics: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None,):
+        super().__init__(model, 
+                         args, 
+                         train_dataset= train_dataset, 
+                         eval_dataset= eval_dataset, 
+                         tokenizer =tokenizer, 
+                         compute_metrics=compute_metrics,
+                         optimizers = optimizers,
+                         data_collator=data_collator,) 
+        
+        if self.args.label_smoothing_factor != 0:
+            self.label_smoother = CustomLabelSmoother(epsilon=self.args.label_smoothing_factor)
+            print(f'label smoothing factor : {self.args.label_smoothing_factor}')
+        else:
+            print(f'label smoother is None :')
+            self.label_smoother = None
+
+        self._loss = torch.nn.CrossEntropyLoss()
+    
     # Todo: custom where scheduler being created
     def create_scheduler(self, num_training_steps: int, optimizer: torch.optim.Optimizer = None):
         """
@@ -142,6 +177,8 @@ class CustomTrainer(Trainer):
                 )
             # We don't use .loss here since the model may return tuples instead of ModelOutput.
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+            
+            assert abs(loss -  self._loss(outputs['logits'], inputs['labels'].long().view(-1))) < 1e-8
 
         return (loss, outputs) if return_outputs else loss
 
