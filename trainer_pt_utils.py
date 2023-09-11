@@ -9,6 +9,7 @@ from transformers.tokenization_utils_base import BatchEncoding
 from transformers.utils import logging
 from torch import nn
 from dataclasses import dataclass
+import itertools
 
 logger = logging.get_logger(__name__)
 
@@ -309,8 +310,10 @@ class LengthGroupedSampler(Sampler):
 
     def __iter__(self):
         indices = get_length_grouped_indices(self.lengths, self.batch_size, generator=self.generator)
-        breakpoint()
         return iter(indices)
+
+def flatten_list(nested_list):
+    return list(itertools.chain(*nested_list))
 
 # Todo: add loss compute loss
 # custom smoothed_loss
@@ -366,5 +369,7 @@ sampler = SequentialSampler(range(10))
 print(f" BatchSampler:")
 print(list(BatchSampler(sampler, batch_size=3, drop_last=False)))
 print(f" BucketBatchSampler:")
-print(list(BucketBatchSampler(sampler, batch_size=3, drop_last=False)))
+bucket_list = list(BucketBatchSampler(sampler, batch_size=3, drop_last=False))
+print(bucket_list)
+print(flatten_list(bucket_list))
 breakpoint()
