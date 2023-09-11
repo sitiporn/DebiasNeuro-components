@@ -44,7 +44,6 @@ class CustomSortedSampler(Sampler):
     def __len__(self):
         return len(self.data)
 
-
 class SequentialSampler(Sampler[int]):
     r"""Samples elements sequentially, always in the same order.
 
@@ -57,7 +56,8 @@ class SequentialSampler(Sampler[int]):
         self.data_source = data_source
 
     def __iter__(self) -> Iterator[int]:
-        return iter(range(len(self.data_source)))
+        # return iter(range(len(self.data_source)))
+        return iter(self.data_source)
 
     def __len__(self) -> int:
         return len(self.data_source)
