@@ -56,8 +56,7 @@ class SequentialSampler(Sampler[int]):
         self.data_source = data_source
 
     def __iter__(self) -> Iterator[int]:
-        # return iter(range(len(self.data_source)))
-        return iter(self.data_source)
+        return iter(range(len(self.data_source)))
 
     def __len__(self) -> int:
         return len(self.data_source)
@@ -103,7 +102,7 @@ class BatchSampler(Sampler[List[int]]):
         else:
             return (len(self.sampler) + self.batch_size - 1) // self.batch_size  # type: ignore[arg-type]
     def __iter__(self) -> Iterator[List[int]]:
-        # Implemented based on the benchmarking in https://github.com/pytorch/pytorch/pull/76951
+        # Implemented based on the benchmarking in https://github.co/pytorch/pytorch/pull/76951
         if self.drop_last:
             sampler_iter = iter(self.sampler)
             while True:
@@ -394,11 +393,10 @@ class CustomLabelSmoother:
 """
 Example
 """
-sampler = SequentialSampler(range(10))
-print(f" BatchSampler:")
-print(list(BatchSampler(sampler, batch_size=3, drop_last=False)))
-print(f" BucketBatchSampler:")
-bucket_list = list(BucketBatchSampler(sampler, batch_size=3, drop_last=False))
-print(bucket_list)
-print(flatten_list(bucket_list))
-breakpoint()
+# sampler = SequentialSampler(range(10))
+# print(f" BatchSampler:")
+# print(list(BatchSampler(sampler, batch_size=3, drop_last=False)))
+# breakpoint()
+# print(f" BucketBatchSampler:")
+# bucket_list = list(BucketBatchSampler(sampler, batch_size=3, drop_last=False))
+# print(flatten_list(bucket_list))
