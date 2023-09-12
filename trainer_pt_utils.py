@@ -236,16 +236,12 @@ class BucketBatchSampler(BatchSampler):
                     list(BatchSampler(sorted_sampler, self.batch_size, self.drop_last))):
                 # yeild each batch 
                 # yield [bucket[i] for i in batch]
-                buckets.append([bucket[i] for i in batch])
+                buckets.extend([bucket[i] for i in batch])
                 # yield [bucket[i] for i in batch]
                 #np.array(sorted_sampler.lengths)[flatten_list(buckets)]
 
-        flat_bucket = flatten_list(buckets)
-        
-        indices = list(self.sampler)
-        # assert len(set(flat_bucket)) == len(flat_bucket)
-        
-        return iter(indices)
+        assert len(set(buckets)) == len(buckets)
+        return iter(buckets)
 
     def __len__(self):
         return len(self.sampler)
