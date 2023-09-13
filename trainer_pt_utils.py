@@ -186,7 +186,8 @@ class BucketBatchSampler(BatchSampler):
                  model_input_name: Optional[str] = None,
                  generator=None,
                  sort_key=identity,
-                 bucket_size_multiplier=100):
+                 bucket_size_multiplier=100,
+                 DEBUG=False):
         
         # Get length of  entire dataset
         if dataset is None and lengths is None:
@@ -210,6 +211,7 @@ class BucketBatchSampler(BatchSampler):
         self.sort_key = model_input_name
         _bucket_size = batch_size * bucket_size_multiplier
         self.dataset = dataset
+        self.debug = DEBUG
         
         if hasattr(self.sampler, "__len__"):
             _bucket_size = min(_bucket_size, len(self.sampler))
@@ -217,6 +219,8 @@ class BucketBatchSampler(BatchSampler):
         # require_idxes
         self.bucket_sampler = BatchSampler(self.sampler, _bucket_size, False)
     
+    def get_lengths(self): 
+        return  [len(feature[self.sort_key]) for feature in self.dataset]
     def __iter__(self):
         """
         >>> sampler = SequentialSampler(list(range(10)))
@@ -227,25 +231,21 @@ class BucketBatchSampler(BatchSampler):
         # each bucket := all indices
         buckets = []
         for bucket_id, bucket in enumerate(tqdm(self.bucket_sampler)):
-            # Todo: provide text len info
-            # Each bucket get sorted
             sorted_sampler = CustomSortedSampler(bucket, self.dataset, self.sort_key)
-            # each batch := all indices?
-            # 
             for batch in SubsetRandomSampler(
                     list(BatchSampler(sorted_sampler, self.batch_size, self.drop_last))):
-                # yeild each batch 
-                # yield [bucket[i] for i in batch]
-                buckets.extend([bucket[i] for i in batch])
-                # yield [bucket[i] for i in batch]
-                #np.array(sorted_sampler.lengths)[flatten_list(buckets)]
-
-        assert len(set(buckets)) == len(buckets)
-        return iter(buckets)
+                if self.debug: 
+                    yield [bucket[i] for i in batch]
+                else: 
+                    buckets.extend([bucket[i] for i in batch])
+                    #np.array(sorted_sampler.lengths)[flatten_list(buckets)]
+                    assert len(set(buckets)) == len(buckets)
+                    return iter(buckets)
 
     def __len__(self):
         return len(self.sampler)
 
+        
 class RandomSampler(Sampler[int]):
     r"""Samples elements randomly. If without replacement, then sample from a shuffled dataset.
     If with replacement, then user can specify :attr:`num_samples` to draw.
