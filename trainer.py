@@ -48,17 +48,21 @@ from transformers import BertConfig, BertModel
 from transformers.optimization import get_scheduler
 from transformers.trainer_utils import has_length
 from transformers.utils import is_datasets_available
-from transformers.trainer_pt_utils import LengthGroupedSampler
+from transformers.trainer_pt_utils import DistributedTensorGatherer,  SequentialDistributedSampler
 from torch.utils.data.sampler import SequentialSampler            
-from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
 from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING_NAMES, MODEL_MAPPING_NAMES
 from transformers.modeling_utils import PreTrainedModel, load_sharded_checkpoint, unwrap_model
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
-from transformers.trainer_utils import EvalPrediction
+from transformers.trainer_utils import EvalPrediction, EvalLoopOutput
 from transformers.trainer_callback import TrainerCallback
-from trainer_pt_utils import CustomLabelSmoother
+from trainer_pt_utils import CustomLabelSmoother, test_bucket_iterator
+from transformers.trainer_utils import denumpify_detensorize
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from transformers.utils import logging
+from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
+
+logger = logging.get_logger(__name__)
 
 class CustomTrainer(Trainer):
     def __init__(self,
@@ -131,15 +135,21 @@ class CustomTrainer(Trainer):
             else:
                 lengths = None
             model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
-            # Todo: recheck how huggingface sampler works?
-            # sampler = SequentialSampler(self.train_dataset) 
-            # BucketBatchSampler(sampler, batch_size=self.args.train_batch_size, drop_last=False)
-            return LengthGroupedSampler(
-                self.args.train_batch_size * self.args.gradient_accumulation_steps,
-                dataset=self.train_dataset,
-                lengths=lengths,
-                model_input_name=model_input_name,
-            )
+
+            
+            breakpoint()
+            return BucketBatchSampler(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
+                                      dataset=self.train_dataset,
+                                      lengths=lengths,
+                                      drop_last=False,
+                                      model_input_name=model_input_name)
+            # breakpoint()
+            # return LengthGroupedSampler(
+            #     self.args.train_batch_size * self.args.gradient_accumulation_steps,
+            #     dataset=self.train_dataset,
+            #     lengths=lengths,
+            #     model_input_name=model_input_name,
+            # )
 
         else:
             return RandomSampler(self.train_dataset) # in __iter__() -> yeild the same as Batchsampler and bucket iterator
@@ -204,6 +214,7 @@ def get_dataset(config, data_name = 'train_data'):
 
 def compute_metrics(eval_pred):
     # why compute_metrics never be called?
+    # why there are problem in compute_metrics
     logits, labels = eval_pred
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
@@ -263,18 +274,20 @@ def main():
                       lr= float(config['optimizer']['lr']) , 
                       weight_decay = config['optimizer']['weight_decay'])
 
-    trainer = CustomTrainer(
-        model,
-        training_args,
-        train_dataset= tokenized_datasets["train_data"],
-        eval_dataset= tokenized_datasets["validation_data"],
-        tokenizer =tokenizer, 
-        compute_metrics=compute_metrics,
-        optimizers = (opitmizer, None),
-        data_collator=data_collator,
-        )
+    # trainer = CustomTrainer(
+    #     model,
+    #     training_args,
+    #     train_dataset= tokenized_datasets["train_data"],
+    #     eval_dataset= tokenized_datasets["validation_data"],
+    #     tokenizer =tokenizer, 
+    #     compute_metrics=compute_metrics,
+    #     optimizers = (opitmizer, None),
+    #     data_collator=data_collator,
+    #     )
     
-    trainer.train()
+    # trainer.train()
+    test_bucket_iterator(tokenized_datasets['train_data'])
+    
 
 if __name__ == "__main__":
     main()

@@ -245,6 +245,19 @@ class BucketBatchSampler(BatchSampler):
     def __len__(self):
         return len(self.sampler)
 
+def test_bucket_iterator(dataset, batch_size = 32, gradient_accumulation_steps=1, lengths=None,drop_last=False, model_input_name='input_ids'):
+    
+    sampler = BucketBatchSampler(batch_size= batch_size * gradient_accumulation_steps, 
+                                dataset=dataset,
+                                lengths=lengths,
+                                drop_last=drop_last,
+                                model_input_name=model_input_name, 
+                                DEBUG=True)
+
+    text_lengths = sampler.get_lengths()
+    import numpy as np
+    for batch_id, batch in enumerate(sampler):
+        print(f'Batch_id:{batch_id},Lens:{np.array(text_lengths)[batch]}')
         
 class RandomSampler(Sampler[int]):
     r"""Samples elements randomly. If without replacement, then sample from a shuffled dataset.
