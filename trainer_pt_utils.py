@@ -228,20 +228,12 @@ class BucketBatchSampler(BatchSampler):
         >>> [[0, 1, 2], [9], [3, 4, 5], [6, 7, 8]]
         
         """
-        # each bucket := all indices
         buckets = []
         for bucket_id, bucket in enumerate(tqdm(self.bucket_sampler)):
             sorted_sampler = CustomSortedSampler(bucket, self.dataset, self.sort_key)
-            for batch in SubsetRandomSampler(
-                    list(BatchSampler(sorted_sampler, self.batch_size, self.drop_last))):
-                if self.debug: 
-                    yield [bucket[i] for i in batch]
-                else: 
-                    buckets.extend([bucket[i] for i in batch])
-                    #np.array(sorted_sampler.lengths)[flatten_list(buckets)]
-                    assert len(set(buckets)) == len(buckets)
-                    return iter(buckets)
-
+            for batch in SubsetRandomSampler(list(BatchSampler(sorted_sampler, self.batch_size, self.drop_last))):
+                yield from [bucket[i] for i in batch]
+    
     def __len__(self):
         return len(self.sampler)
 
@@ -447,12 +439,13 @@ class CustomLabelSmoother:
         return (1 - self.epsilon) * nll_loss + self.epsilon * smoothed_loss
 
 
+
 """
 Example
 """
 # sampler = SequentialSampler(range(10))
 # print(f" BatchSampler:")
 # print(list(BatchSampler(sampler, batch_size=3, drop_last=False)))
-# print(f" BucketBatchSampler:")
+# print(f" BucketBatchSampler:")\````````````
 # bucket_list = list(BucketBatchSampler(sampler, batch_size=3, drop_last=False))
 # print(flatten_list(bucket_list))
