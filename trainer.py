@@ -62,6 +62,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Un
 from transformers.utils import logging
 from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
 import math
+from data import CustomDataset
 
 logger = logging.get_logger(__name__)
 
@@ -141,28 +142,18 @@ class CustomTrainer(Trainer):
                                       dataset=self.train_dataset,
                                       lengths=lengths,
                                       drop_last=False,
-                                      model_input_name=model_input_name)
+                                      model_input_name=model_input_name,
+                                      DEBUG=True)
         else:
             return RandomSampler(self.train_dataset) # in __iter__() -> yeild the same as Batchsampler and bucket iterator
     
-def tokenize_function(examples):
-    return tokenizer(examples["sentence1"], examples["sentence2"], truncation=True) 
-
-def preprocss(df):
-    if '-' in df.gold_label.unique(): 
-        df = df[df.gold_label != '-'].reset_index(drop=True)
-
-    return df
-
-def to_label_id(text_label): return label_maps[text_label]
-
-def get_dataset(config, data_name = 'train_data'):
-    df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
-    df = preprocss(df)
-    df_new = df[['sentence1', 'sentence2', 'gold_label']]
-    df_new.rename(columns = {'gold_label':'label'}, inplace = True)
-    df_new['label'] = df_new['label'].apply(lambda label_text: to_label_id(label_text))
-    return Dataset.from_pandas(df_new)
+# def get_dataset(config, data_name = 'train_data'):
+#     df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+#     df = preprocss(df)
+#     df_new = df[['sentence1', 'sentence2', 'gold_label']]
+#     df_new.rename(columns = {'gold_label':'label'}, inplace = True)
+#     df_new['label'] = df_new['label'].apply(lambda label_text: to_label_id(label_text))
+#     return Dataset.from_pandas(df_new)
 
 def compute_metrics(eval_pred):
     # why compute_metrics never be called?
@@ -184,7 +175,6 @@ def main():
     dataset = {}
     tokenized_datasets = {}
     output_dir = '../models/baseline/' 
-
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
     # random seed
@@ -200,11 +190,12 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
     model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    dataset = {}
+    tokenized_datasets = {}
+    
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
-        dataset[data_name] = get_dataset(config, data_name = data_name)
-        tokenized_datasets[data_name] = dataset[data_name].map(tokenize_function, batched=True)
-        if data_name == 'train_data': tokenized_datasets[data_name].shuffle(seed=seed)
+        tokenized_datasets[data_name] = CustomDataset(config, label_maps=label_maps, data_name=data_name)
      
     training_args = TrainingArguments(output_dir = output_dir,
                                       report_to="none",
@@ -240,6 +231,10 @@ def main():
     
     trainer.train()
     # test_bucket_iterator(tokenized_datasets['train_data'])
+    # Todo:
+    # 1. fix bucket iterator
+    # 2. change dataset to iterable-style and try yield 
+    # 3. 
     
 
 if __name__ == "__main__":

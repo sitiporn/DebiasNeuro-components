@@ -16,10 +16,10 @@ import operator
 import torch.nn.functional as F
 import numpy as np
 from pprint import pprint
-from nn_pruning.patch_coordinator import (
-    SparseTrainingArguments,
-    ModelPatchingCoordinator,
-)
+#from nn_pruning.patch_coordinator import (
+#    SparseTrainingArguments,
+#    ModelPatchingCoordinator,
+#)
 
 from utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations, EncoderParams
 from intervention import Intervention, neuron_intervention, get_mediators
@@ -224,6 +224,37 @@ class Dev(Dataset):
         return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
 
         # return pair_sentence , label
+
+def preprocss(df):
+    if '-' in df.gold_label.unique(): 
+        df = df[df.gold_label != '-'].reset_index(drop=True)
+
+    return df
+
+class CustomDataset(Dataset):
+    def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
+        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+        df = preprocss(df)
+        df_new = df[['sentence1', 'sentence2', 'gold_label']]
+        df_new.rename(columns = {'gold_label':'label'}, inplace = True)
+        self.label_maps = label_maps
+        df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
+        from datasets import Dataset as HugginfaceDataset
+        self.dataset = HugginfaceDataset.from_pandas(df_new)
+        self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+        self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+    def to_label_id(self, text_label): 
+        return self.label_maps[text_label]
+    
+    def tokenize_function(self, examples):
+        return self.tokenizer(examples["sentence1"], examples["sentence2"], truncation=True) 
+   
+    def __len__(self): 
+        return self.tokenized_datasets.shape[0]
+    
+    def __getitem__(self, idx):
+        return self.tokenized_datasets[idx]
+
 
 def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = False):
 
@@ -1058,6 +1089,7 @@ def get_all_model_paths(LOAD_MODEL_PATH):
     for seed in all_model_files.keys():
         checkpoint_paths = [ (checkpoint.split("/")[4].split('_')[-1], checkpoint) for checkpoint in all_model_files[seed]]
         checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
+        # checkpoint = sorted(checkpoint_paths, key=take_second )[0]
         clean_model_files.append(checkpoint[-1])
 
     assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
@@ -1072,6 +1104,7 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is
 
     trained_epoch = 2
     # LOAD_MODEL_PATH = '../models/debug_baseline/checkpoint-36500/pytorch_model.bin' #'../models/baseline/'
+    # LOAD_MODEL_PATH = '../models/debug_baseline/' #'../models/baseline/'
     LOAD_MODEL_PATH = '../models/baseline/'
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     # LOAD_MODEL_PATH = '../models/baseline3/checkpoint-36500/pytorch_model.bin' #f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
