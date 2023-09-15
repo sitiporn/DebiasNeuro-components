@@ -92,7 +92,6 @@ def get_max_padding_lenght(input_ids:torch.Tensor):
         max_pad_len = abs(start_pos - input_ids.shape[-1])
     else:
         max_pad_len = 0
-    
     print(f'padding len : {max_pad_len}')
 
 class CustomTrainer(Trainer):
@@ -385,7 +384,7 @@ class CustomTrainer(Trainer):
 
             step = -1
             for step, inputs in enumerate(epoch_iterator):
-                get_max_padding_lenght(input_ids=inputs['input_ids'])
+                # get_max_padding_lenght(input_ids=inputs['input_ids'])
                 # Skip past any already trained steps if resuming training
                 if steps_trained_in_current_epoch > 0:
                     steps_trained_in_current_epoch -= 1
@@ -550,6 +549,29 @@ class CustomTrainer(Trainer):
         self.control = self.callback_handler.on_train_end(args, self.state, self.control)
 
         return TrainOutput(self.state.global_step, train_loss, metrics)
+    
+    def compute_loss(self, model, inputs, return_outputs=False):
+        """
+        How the loss is computed by Trainer. By default, all models return the loss in the first element.
+
+        Subclass and override for custom behavior.
+        """
+        if self.label_smoother is not None and "labels" in inputs:
+            labels = inputs.pop("labels")
+        else:
+            labels = None
+        outputs = model(**inputs)
+        # Save past state if it exists
+        # TODO: this needs to be fixed and made cleaner later.
+        if self.args.past_index >= 0:
+            self._past = outputs[self.args.past_index]
+
+        if labels is not None:
+            loss = self.label_smoother(outputs, labels)
+        else:
+            # We don't use .loss here since the model may return tuples instead of ModelOutput.
+            loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+        return (loss, outputs) if return_outputs else loss
 
 def compute_metrics(eval_pred):
     # why compute_metrics never be called?
