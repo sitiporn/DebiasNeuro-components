@@ -229,7 +229,7 @@ class BucketBatchSampler(BatchSampler):
         
         """
         buckets = []
-        for bucket_id, bucket in enumerate(tqdm(self.bucket_sampler)):
+        for bucket_id, bucket in enumerate(self.bucket_sampler):
             sorted_sampler = CustomSortedSampler(bucket, self.dataset, self.sort_key)
             for batch in SubsetRandomSampler(list(BatchSampler(sorted_sampler, self.batch_size, self.drop_last))):
                 yield from [bucket[i] for i in batch]
