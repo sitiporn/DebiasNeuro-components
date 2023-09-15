@@ -87,8 +87,12 @@ def get_max_padding_lenght(input_ids:torch.Tensor):
         ids = ((input_ids[i,:] == 0).nonzero(as_tuple=True)[0])
         if ids.shape[0] != 0: id_poses.extend(ids.tolist())
     #find the lowest one
-    start_pos = sorted(id_poses)[0] 
-    max_pad_len = abs(start_pos - input_ids.shape[-1])
+    if len(id_poses) > 0:
+        start_pos = sorted(id_poses)[0] 
+        max_pad_len = abs(start_pos - input_ids.shape[-1])
+    else:
+        max_pad_len = 0
+    
     print(f'padding len : {max_pad_len}')
 
 class CustomTrainer(Trainer):
