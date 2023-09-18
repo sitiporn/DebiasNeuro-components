@@ -76,6 +76,25 @@ class SequentialSampler(Sampler[int]):
     def __len__(self) -> int:
         return len(self.data_source)
 
+class CustomSequentialSampler(Sampler[int]):
+    r"""Samples elements sequentially, always in the same order.
+
+    Args:
+        data_source (Dataset): lengths of data 
+    """
+    data_source: Sized
+
+    def __init__(self, data_source: Sized) -> None:
+        self.data_source = data_source
+
+    def __iter__(self) -> Iterator[int]:
+        return iter(self.data_source)
+
+    def __len__(self) -> int:
+        return len(self.data_source)
+
+
+
 class BatchSampler(Sampler[List[int]]):
     r"""Wraps another sampler to yield a mini-batch of indices.
 
