@@ -163,6 +163,62 @@ def add_noise_to_value(value: int, noise_param: float):
     noise = random.uniform(-noise_value, noise_value)
     return value + noise
 
+class BucketIteratorAllennlp:
+    def __init__(self,
+                 batch_size: int,
+                 dataset: Optional[Dataset] = None,
+                 lengths: Optional[List[int]] = None,
+                 sorting_key: str = None,
+                 padding_noise: float = 0.1,
+                 drop_last: bool = False,
+                 shuffle: bool = True,
+                 DEBUG=False):
+        
+        self.sorting_key = sorting_key
+        self.padding_noise = padding_noise
+        self.batch_size = batch_size
+        self.drop_last = drop_last
+        self.shuffle = shuffle
+        self.dataset = dataset
+        
+        if not shuffle:
+            self.padding_noise = 0.0
+
+        if lengths is None:
+            self.lengths = self.get_lengths()
+
+
+    def get_lengths(self): 
+        return  [len(feature[self.sorting_key]) for feature in self.dataset]
+    
+    def _argsort_by_lengths(self):
+
+        instances_with_lengths = []
+        for ind in range(len(self.lengths)):
+            instances_with_lengths.append((add_noise_to_value(self.lengths[ind], self.padding_noise) , self.lengths[ind]))
+
+        with_indices = [(x, i) for i, x in enumerate(instances_with_lengths)]
+        with_indices.sort(key=lambda x: x[0][0])
+
+        return [instance_with_index[-1] for instance_with_index in with_indices]
+    
+    def __iter__(self):
+        indices = self._argsort_by_lengths()
+        self.sampler = CustomSequentialSampler(indices)
+        batches = list(BatchSampler(self.sampler, batch_size=32, drop_last=False))
+        
+        if self.shuffle:
+            random.shuffle(batches)
+        for batch in batches:
+            yield from batch
+
+    # def get_num_batches(self) -> int:
+    def get_batch_size(self) -> Optional[int]:
+        return self.batch_size 
+    def __len__(self):
+        return len(self.dataset)
+
+
 
 class BucketBatchSampler(BatchSampler):
     """ `BucketBatchSampler` toggles between `sampler` batches and sorted batches.
