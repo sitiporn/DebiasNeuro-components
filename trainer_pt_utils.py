@@ -11,6 +11,7 @@ from torch import nn
 from dataclasses import dataclass
 import itertools
 from tqdm import tqdm
+import random
 
 logger = logging.get_logger(__name__)
 
@@ -137,6 +138,12 @@ class BatchSampler(Sampler[List[int]]):
                     batch = [0] * self.batch_size
             if idx_in_batch > 0:
                 yield batch[:idx_in_batch]
+
+def add_noise_to_value(value: int, noise_param: float):
+    noise_value = value * noise_param
+    noise = random.uniform(-noise_value, noise_value)
+    return value + noise
+
 
 class BucketBatchSampler(BatchSampler):
     """ `BucketBatchSampler` toggles between `sampler` batches and sorted batches.
