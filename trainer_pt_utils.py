@@ -194,17 +194,6 @@ class BucketBatchSampler(BatchSampler):
             raise ValueError("One of dataset and lengths must be provided.")
         
         self.batch_size = batch_size
-        if lengths is None:
-            model_input_name = model_input_name if model_input_name is not None else "input_ids"
-            if (
-                not (isinstance(dataset[0], dict) or isinstance(dataset[0], BatchEncoding))
-                or model_input_name not in dataset[0]
-            ):
-                raise ValueError(
-                    "Can only automatically infer lengths for datasets whose items are dictionaries with an "
-                    f"'{model_input_name}' key."
-                )
-        
         self.lengths = lengths
         self.sampler = SequentialSampler(dataset)
         super().__init__(self.sampler, batch_size, drop_last)
@@ -437,7 +426,6 @@ class CustomLabelSmoother:
         smoothed_loss = smoothed_loss.sum() / (num_active_elements * log_probs.shape[-1])
         print(f'custom label smoother')
         return (1 - self.epsilon) * nll_loss + self.epsilon * smoothed_loss
-
 
 
 """
