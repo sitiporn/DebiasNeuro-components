@@ -77,6 +77,7 @@ from transformers.trainer_callback import (
 from torch.utils.data.distributed import DistributedSampler
 from transformers.trainer_pt_utils import IterableDatasetShard
 from transformers.utils import is_torch_tpu_available
+from transformers.trainer_utils import speed_metrics, TrainOutput
 
 logger = logging.get_logger(__name__)
 
@@ -166,12 +167,21 @@ class CustomTrainer(Trainer):
                 lengths = None
             model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
 
-            return BucketBatchSampler(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
+            from trainer_pt_utils import BucketIteratorAllennlp
+
+            return BucketIteratorAllennlp(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
                                       dataset=self.train_dataset,
                                       lengths=lengths,
                                       drop_last=False,
-                                      model_input_name=model_input_name,
+                                      sorting_key=model_input_name,
                                       DEBUG=True)
+            
+            # BucketBatchSampler(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
+            #                           dataset=self.train_dataset,
+            #                           lengths=lengths,
+            #                           drop_last=False,
+            #                           model_input_name=model_input_name,
+            #                           DEBUG=True)
         else:
             return RandomSampler(self.train_dataset) # in __iter__() -> yeild the same as Batchsampler and bucket iterator
     def _inner_training_loop(
@@ -560,7 +570,12 @@ class CustomTrainer(Trainer):
             labels = inputs.pop("labels")
         else:
             labels = None
+        
+        # from intervention import compute_nie
         outputs = model(**inputs)
+        # Todo: get nie scores
+        # Todo: get nie scores
+        # compute_nie(inputs, counterfactual=None, model=model)
         # Save past state if it exists
         # TODO: this needs to be fixed and made cleaner later.
         if self.args.past_index >= 0:
@@ -571,15 +586,14 @@ class CustomTrainer(Trainer):
         else:
             # We don't use .loss here since the model may return tuples instead of ModelOutput.
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+            # self._loss(outputs['logits'], inputs['labels'].long().view(-1))
+
         return (loss, outputs) if return_outputs else loss
 
 def compute_metrics(eval_pred):
-    # why compute_metrics never be called?
-    # why there are problem in compute_metrics
     logits, labels = eval_pred
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
-
 
 def main():
     global tokenizer
@@ -602,39 +616,45 @@ def main():
     torch.cuda.manual_seed(seed)
     output_dir = os.path.join(output_dir, "seed_"+ str(seed))
     if not os.path.exists(output_dir): os.mkdir(output_dir) 
+    # "validation_metric": "+accuracy"?
     metric = evaluate.load(config["validation_metric"])
     model_config = BertConfig(config['model']["model_name"])
     model_config.num_labels = len(label_maps.keys())
     tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
     model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer) if config['data_loader']['batch_sampler']['dynamic_padding'] else None
     dataset = {}
     tokenized_datasets = {}
-    
+
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
         tokenized_datasets[data_name] = CustomDataset(config, label_maps=label_maps, data_name=data_name)
-     
+    print(f'Config of dataloader') 
+    print(f'Group by len : {config["data_loader"]["batch_sampler"]["group_by_length"]}')
+    print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")
+    
     training_args = TrainingArguments(output_dir = output_dir,
-                                      report_to="none",
-                                      overwrite_output_dir = True,
-                                      evaluation_strategy=config['evaluation_strategy'],
-                                      eval_steps=config['eval_steps'],
-                                      learning_rate = float(config['optimizer']['lr']),
-                                      weight_decay = config['optimizer']['weight_decay'],
-                                      per_device_train_batch_size = config["data_loader"]["batch_sampler"]["batch_size"],
-                                      per_device_eval_batch_size=config["data_loader"]["batch_sampler"]["batch_size"],
-                                      num_train_epochs = config["num_epochs"],
-                                      seed=seed,
-                                      load_best_model_at_end=config["load_best_model_at_end"],
-                                      save_total_limit= config["save_total_limit"],
-                                      half_precision_backend = config["half_precision_backend"],
-                                      group_by_length = config["data_loader"]["batch_sampler"]["group_by_length"],
-                                     )
+                                    report_to="none",
+                                    overwrite_output_dir = True,
+                                    # steps
+                                    evaluation_strategy=config['evaluation_strategy'],
+                                    # num of steps
+                                    eval_steps=config['eval_steps'],
+                                    learning_rate = float(config['optimizer']['lr']),
+                                    weight_decay = config['optimizer']['weight_decay'],
+                                    per_device_train_batch_size = config["data_loader"]["batch_sampler"]["batch_size"],
+                                    per_device_eval_batch_size=config["data_loader"]["batch_sampler"]["batch_size"],
+                                    num_train_epochs = config["num_epochs"],
+                                    seed=seed,
+                                    load_best_model_at_end=config["load_best_model_at_end"],
+                                    save_total_limit= config["save_total_limit"],
+                                    half_precision_backend = config["half_precision_backend"],
+                                    group_by_length = config["data_loader"]["batch_sampler"]["group_by_length"],
+                                    )
     
     opitmizer = AdamW(params=model.parameters(),
-                      lr= float(config['optimizer']['lr']) , 
-                      weight_decay = config['optimizer']['weight_decay'])
+                    lr= float(config['optimizer']['lr']) , 
+                    weight_decay = config['optimizer']['weight_decay'])
 
     trainer = CustomTrainer(
         model,
@@ -642,17 +662,22 @@ def main():
         train_dataset= tokenized_datasets["train_data"],
         eval_dataset= tokenized_datasets["validation_data"],
         tokenizer =tokenizer, 
+        # "validation_metric": "+accuracy"?
         compute_metrics=compute_metrics,
         optimizers = (opitmizer, None),
         data_collator=data_collator,
         )
     
+    ## Open questions of the problems
+    # 1. Which one is the best model? 
+    #  - why selecting the recent ones are better result on challenge set?
+    # 2. which critertion is  the right one to select best model?
+    # -  compute metrics for eval -> no 
+    # -  best model
+    # 3. getting padding_len for each instance?
+    # 4. label_maps  -> no
+    # 5. compute acc on challenge set get_ans on hans- > no?
     trainer.train()
-    # test_bucket_iterator(tokenized_datasets['train_data'])
-    # Todo:
-    # 1. fix bucket iterator
-    # 2. change dataset to iterable-style and try yield 
-    # 3. 
     
 
 if __name__ == "__main__":
