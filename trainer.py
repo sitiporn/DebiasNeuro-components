@@ -647,6 +647,8 @@ def main():
                                     num_train_epochs = config["num_epochs"],
                                     seed=seed,
                                     load_best_model_at_end=config["load_best_model_at_end"],
+                                    metric_for_best_model = config['validation_metric'], # used for criterion for best model
+                                    greater_is_better = True,  #  used for criterion for best model
                                     save_total_limit= config["save_total_limit"],
                                     half_precision_backend = config["half_precision_backend"],
                                     group_by_length = config["data_loader"]["batch_sampler"]["group_by_length"],
