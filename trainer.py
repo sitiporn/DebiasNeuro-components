@@ -172,16 +172,21 @@ class CustomTrainer(Trainer):
             return BucketIteratorAllennlp(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
                                       dataset=self.train_dataset,
                                       lengths=lengths,
+                                      seed=self.args.seed,
                                       drop_last=False,
                                       sorting_key=model_input_name,
                                       DEBUG=True)
-            
+            # LengthGroupedSampler(self.args.train_batch_size * self.args.gradient_accumulation_steps,
+            #                            dataset=self.train_dataset,
+            #                            lengths=lengths,
+            #                            model_input_name=model_input_name,)
             # BucketBatchSampler(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
             #                           dataset=self.train_dataset,
             #                           lengths=lengths,
             #                           drop_last=False,
             #                           model_input_name=model_input_name,
             #                           DEBUG=True)
+            
         else:
             return RandomSampler(self.train_dataset) # in __iter__() -> yeild the same as Batchsampler and bucket iterator
     def _inner_training_loop(

@@ -13,6 +13,7 @@ import itertools
 from tqdm import tqdm
 import random
 
+
 logger = logging.get_logger(__name__)
 
 def identity(x):
@@ -158,7 +159,8 @@ class BatchSampler(Sampler[List[int]]):
             if idx_in_batch > 0:
                 yield batch[:idx_in_batch]
 
-def add_noise_to_value(value: int, noise_param: float):
+def add_noise_to_value(value: int, noise_param: float, seed):
+    random.seed(seed)
     noise_value = value * noise_param
     noise = random.uniform(-noise_value, noise_value)
     return value + noise
@@ -168,6 +170,7 @@ class BucketIteratorAllennlp:
                  batch_size: int,
                  dataset: Optional[Dataset] = None,
                  lengths: Optional[List[int]] = None,
+                 seed: int = None,
                  sorting_key: str = None,
                  padding_noise: float = 0.1,
                  drop_last: bool = False,
@@ -180,6 +183,7 @@ class BucketIteratorAllennlp:
         self.drop_last = drop_last
         self.shuffle = shuffle
         self.dataset = dataset
+        self.seed = seed
         
         if not shuffle:
             self.padding_noise = 0.0
@@ -187,15 +191,26 @@ class BucketIteratorAllennlp:
         if lengths is None:
             self.lengths = self.get_lengths()
 
-
+        
+        # Todo: get padding length
     def get_lengths(self): 
         return  [len(feature[self.sorting_key]) for feature in self.dataset]
     
+    """
+    # Todo: fix arg sort by padding and add padding_noise to padding len
+    ## Open Questions
+     - where I can get padding?
+        Instance.get_padding_lengths()?
+        1) know max length in a batch and padding to that 
+        2) know max len of dataset and padding to that 
+     - how it looks like?
+    
+    """
     def _argsort_by_lengths(self):
 
         instances_with_lengths = []
         for ind in range(len(self.lengths)):
-            instances_with_lengths.append((add_noise_to_value(self.lengths[ind], self.padding_noise) , self.lengths[ind]))
+            instances_with_lengths.append((add_noise_to_value(self.lengths[ind], self.padding_noise, seed=self.seed) , self.lengths[ind]))
 
         with_indices = [(x, i) for i, x in enumerate(instances_with_lengths)]
         with_indices.sort(key=lambda x: x[0][0])
@@ -203,6 +218,7 @@ class BucketIteratorAllennlp:
         return [instance_with_index[-1] for instance_with_index in with_indices]
     
     def __iter__(self):
+        random.seed(self.seed)
         indices = self._argsort_by_lengths()
         self.sampler = CustomSequentialSampler(indices)
         batches = list(BatchSampler(self.sampler, batch_size=32, drop_last=False))
