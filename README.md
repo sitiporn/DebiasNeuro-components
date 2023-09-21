@@ -22,11 +22,12 @@
 -  [x] write tester to check parameters which are candidate-only weights to optimize
 -  [x] Custom Auto gradients to perform specific value brackpropagation  
 -  [x] Scheduler computation get accurate 
--  [ ] Train model to debias on candidate parameters using training set 
--  [ ] Perform gradient reversal 
--  [ ] perform EDA on MNNLI-matched set to select both a1 and a2 samples
--
+-  [ ] finding candidate parameters from recent models (an existing function) using data for computing NIE
+-  [ ] Perform gradient reversal (backward optimization)
+-  [ ] Perform EDA on MNNLI-matched set to select to advantaged samples(preferred by bias model)
+-  [ ] Train on candidate parameters using training set utilizing existing partition parameter function
 
+## Open questions
 
 ## General Tackles
 1. modifying embedding space to do counterfactual inference
