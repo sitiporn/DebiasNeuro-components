@@ -172,6 +172,7 @@ class CustomTrainer(Trainer):
             return BucketIteratorAllennlp(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
                                       dataset=self.train_dataset,
                                       lengths=lengths,
+                                      max_len= self.tokenizer.model_max_length,
                                       seed=self.args.seed,
                                       drop_last=False,
                                       sorting_key=model_input_name,

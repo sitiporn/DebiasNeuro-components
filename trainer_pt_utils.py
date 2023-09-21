@@ -170,6 +170,7 @@ class BucketIteratorAllennlp:
                  batch_size: int,
                  dataset: Optional[Dataset] = None,
                  lengths: Optional[List[int]] = None,
+                 max_len: int = None,
                  seed: int = None,
                  sorting_key: str = None,
                  padding_noise: float = 0.1,
@@ -191,6 +192,8 @@ class BucketIteratorAllennlp:
         if lengths is None:
             self.lengths = self.get_lengths()
 
+        import numpy as np
+        self.padding_lens = abs(np.array(self.lengths) - max_len).tolist()
         
         # Todo: get padding length
     def get_lengths(self): 
@@ -210,7 +213,7 @@ class BucketIteratorAllennlp:
 
         instances_with_lengths = []
         for ind in range(len(self.lengths)):
-            instances_with_lengths.append((add_noise_to_value(self.lengths[ind], self.padding_noise, seed=self.seed) , self.lengths[ind]))
+            instances_with_lengths.append((add_noise_to_value(self.padding_lens[ind], self.padding_noise, seed=self.seed) , self.padding_lens[ind]))
 
         with_indices = [(x, i) for i, x in enumerate(instances_with_lengths)]
         with_indices.sort(key=lambda x: x[0][0])
