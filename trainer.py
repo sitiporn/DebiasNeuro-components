@@ -180,8 +180,8 @@ class CustomTrainer(Trainer):
             # LengthGroupedSampler(self.args.train_batch_size * self.args.gradient_accumulation_steps,
             #                            dataset=self.train_dataset,
             #                            lengths=lengths,
-            #                            model_input_name=model_input_name,)
-            # BucketBatchSampler(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
+                                    #    model_input_name=model_input_name,)
+             ## BucketBatchSampler(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
             #                           dataset=self.train_dataset,
             #                           lengths=lengths,
             #                           drop_last=False,
@@ -189,7 +189,7 @@ class CustomTrainer(Trainer):
             #                           DEBUG=True)
             
         else:
-            return RandomSampler(self.train_dataset) # in __iter__() -> yeild the same as Batchsampler and bucket iterator
+            return RandomSampler(self.train_dataset) 
     def _inner_training_loop(
         self, batch_size=None, args=None, resume_from_checkpoint=None, trial=None, ignore_keys_for_eval=None
     ):
@@ -612,7 +612,7 @@ def main():
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/baseline/' 
+    output_dir = '../models/recent_baseline/' 
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
     # random seed
@@ -676,15 +676,6 @@ def main():
         data_collator=data_collator,
         )
     
-    ## Open questions of the problems
-    # 1. Which one is the best model? 
-    #  - why selecting the recent ones are better result on challenge set?
-    # 2. which critertion is  the right one to select best model?
-    # -  compute metrics for eval -> no 
-    # -  best model
-    # 3. getting padding_len for each instance?
-    # 4. label_maps  -> no
-    # 5. compute acc on challenge set get_ans on hans- > no?
     trainer.train()
     
 
