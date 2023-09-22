@@ -1103,9 +1103,7 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is
     golden_answers = {}
 
     trained_epoch = 2
-    # LOAD_MODEL_PATH = '../models/debug_baseline/checkpoint-36500/pytorch_model.bin' #'../models/baseline/'
-    # LOAD_MODEL_PATH = '../models/debug_baseline/' #'../models/baseline/'
-    LOAD_MODEL_PATH = '../models/baseline/'
+    LOAD_MODEL_PATH = '../models/debug_baseline/' #'../models/baseline/'
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     # LOAD_MODEL_PATH = '../models/baseline3/checkpoint-36500/pytorch_model.bin' #f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     OPTIMIZED_SET_JSONL = config['dev_json']
@@ -1517,10 +1515,13 @@ def group_layer_params(layer_params):
     
     return group_param_names
 
-def masking_grad(neuron_ids, param_name, DEBUG, grad):
-    
+def masking_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
     if DEBUG: print(f'call back masking_grad func : {param_name}, {grad.shape}')
     mask =  torch.ones_like(grad)
     mask[neuron_ids] = 0
     # masking out gradients 
     return grad  * mask
+
+def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
+    if DEBUG: print(f'call back reverse gradient func : {param_name}, {grad.shape}')
+    return -grad
