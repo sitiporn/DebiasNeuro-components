@@ -1103,7 +1103,7 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is
     golden_answers = {}
 
     trained_epoch = 2
-    LOAD_MODEL_PATH = '../models/debug_baseline/' #'../models/baseline/'
+    LOAD_MODEL_PATH = '../models/recent_baseline/'
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     # LOAD_MODEL_PATH = '../models/baseline3/checkpoint-36500/pytorch_model.bin' #f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     OPTIMIZED_SET_JSONL = config['dev_json']
