@@ -1088,7 +1088,7 @@ def get_all_model_paths(LOAD_MODEL_PATH):
 
     for seed in all_model_files.keys():
         checkpoint_paths = [ (checkpoint.split("/")[4].split('_')[-1], checkpoint) for checkpoint in all_model_files[seed]]
-        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
+        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[-1]
         # checkpoint = sorted(checkpoint_paths, key=take_second )[0]
         clean_model_files.append(checkpoint[-1])
 
