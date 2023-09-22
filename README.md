@@ -22,6 +22,7 @@
 -  [x] write tester to check parameters which are candidate-only weights to optimize
 -  [x] Custom Auto gradients to perform specific value brackpropagation  
 -  [x] Scheduler computation get accurate 
+-  [ ] compute counterfactual for all seeds
 -  [ ] finding candidate parameters from recent models (an existing function) using data for computing NIE
 -  [ ] Perform gradient reversal (backward optimization)
 -  [ ] Perform EDA on MNNLI-matched set to select to advantaged samples(preferred by bias model)
