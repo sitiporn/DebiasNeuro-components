@@ -26,48 +26,36 @@ def report_gpu():
   print(f"++++++++++++++++++++++++++++++")
   
 def geting_counterfactual_paths(config):
+
+    path = f'../counterfactuals/'
+    path = os.path.join(path, "seed_"+ str(config['seed']))
+    if not os.path.exists(path): os.mkdir(path) 
     
     for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
-
         if config["is_averaged_embeddings"]:
-                
             if config["is_group_by_class"]:
-
-                cur_path = f'../pickles/avg_class_level_{component}_counterfactual_representation.pickle'
-
+                cur_path = f'avg_class_level_{component}_counterfactual_representation.pickle'
             else:
-                cur_path = f'../pickles/avg_{component}_counterfactual_representation.pickle'
-
+                cur_path = f'avg_{component}_counterfactual_representation.pickle'
         else:
-
             if config["is_group_by_class"]:
-            
-                    if component == "I":
-                        
-                        for  do in ['High-overlap','Low-overlap']:
-                            
-                            for class_name in ["contradiction","entailment","neutral"]:
-                            
-                                cur_path = f'../pickles/individual_class_level_{component}_{do}_{class_name}_counterfactual_representation.pickle'
-                                
-                                config["counterfactual_paths"].append(cur_path)
-                                config['is_counterfactual_exist'].append(os.path.isfile(cur_path))
-                                
-                    else: 
+                if component == "I":
+                    for  do in ['High-overlap','Low-overlap']:
+                        for class_name in ["contradiction","entailment","neutral"]:
+                            cur_path = f'individual_class_level_{component}_{do}_{class_name}_counterfactual_representation.pickle'
+                            config["counterfactual_paths"].append(os.path.join(path, cur_path))
+                            config['is_counterfactual_exist'].append(os.path.isfile(os.path.join(path, cur_path)))
+                else: 
+                    cur_path = f'individual_class_level_{component}_counterfactual_representation.pickle'
+                    config['counterfactual_paths'].append(os.path.join(path, cur_path))
+                    config['is_counterfactual_exist'].append(os.path.isfile(os.path.join(path, cur_path)))
 
-                        cur_path = f'../pickles/individual_class_level_{component}_counterfactual_representation.pickle'
-
-                        config['counterfactual_paths'].append(cur_path)
-                        config['is_counterfactual_exist'].append(os.path.isfile(cur_path))
-
-                    continue
-
+                continue
             else:
+                cur_path = f'individual_{component}_counterfactual_representation.pickle'
 
-                cur_path = f'../pickles/individual_{component}_counterfactual_representation.pickle'
-
-        config['counterfactual_paths'].append(cur_path)
-        config['is_counterfactual_exist'].append(os.path.isfile(cur_path))
+        config['counterfactual_paths'].append(os.path.join(path, cur_path))
+        config['is_counterfactual_exist'].append(os.path.isfile(os.path.join(path, cur_path)))
 
 class BertAttentionOverride(nn.Module):
     """A copy of `modeling_bert.BertSelfAttention` class, but with overridden attention values"""
@@ -669,10 +657,12 @@ def get_activation(layer, do, component, activation, is_averaged_embeddings, cla
   
   return hook
 
-def collect_output_components(model, counterfactual_paths, experiment_set, dataloader, tokenizer, DEVICE, layers, heads, is_averaged_embeddings):
-    
+def collect_output_components(model, config, experiment_set, dataloader, tokenizer, DEVICE): 
     """ getting all neurons used as mediators(Z) later """
-   
+    # "NIE_paths": [],
+    # "is_NIE_exist": [],
+    # "is_counterfactual_exist": [],
+    
     layer_modules = {}
 
     # using for register

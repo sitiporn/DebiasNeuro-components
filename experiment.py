@@ -61,6 +61,15 @@ def main():
     model = BertForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
 
+    seed = config['seed'] #random.randint(0,10000)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    output_dir = '../models/recent_baseline/' 
+    if os.path.exists(output_dir): 
+        output_dir = os.path.join(output_dir, "seed_"+ str(seed))
+        print(f'random seed : {seed}')
+
     # Todo: find all the components used for to clasisfiy our tasks
     # Custom model to be able to custom grad when perform brackpropagation
 
@@ -68,9 +77,9 @@ def main():
     # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(config, encode = tokenizer)                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
-
+    
     # Todo: test on 
-    if config['getting_counterfactual']: collect_output_components(config, DEVICE = DEVICE)
+    if config['getting_counterfactual']: collect_output_components(model, config, experiment_set, dataloader, tokenizer, DEVICE) 
     if config['print_config']: print_config(config)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
