@@ -1123,8 +1123,8 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is
         name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
         for path in all_paths:
             if is_load_model:
-                model.load_state_dict(torch.load(path))
-                print(f'Loading model from {path}')
+                from utils import load_model
+                model = load_model(path=path, model=model)
             else:
                 print(f'Using original model')
 

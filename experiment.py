@@ -84,7 +84,7 @@ def main():
     if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
     if config['topk']: get_top_k(config, treatments=mode) 
-    if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'])
+    if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], path=output_dir)
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['debias_test']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
