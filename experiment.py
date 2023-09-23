@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
-from utils import collect_output_components , report_gpu, trace_counterfactual
+from utils import collect_counterfactuals , report_gpu, trace_counterfactual
 from utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths
 from data import test_restore_weight
 from sklearn.metrics import accuracy_score
@@ -44,7 +44,6 @@ def main():
     DEBUG = True
     debug = False # for tracing top counterfactual 
     torch.manual_seed(config['seed'])
-    collect_representation = True
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
@@ -79,7 +78,7 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     
     # Todo: test on 
-    if config['getting_counterfactual']: collect_output_components(model, config, experiment_set, dataloader, tokenizer, DEVICE) 
+    if config['getting_counterfactual']: collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer, DEVICE) 
     if config['print_config']: print_config(config)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)

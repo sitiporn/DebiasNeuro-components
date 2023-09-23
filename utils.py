@@ -657,8 +657,13 @@ def get_activation(layer, do, component, activation, is_averaged_embeddings, cla
   
   return hook
 
-def collect_output_components(model, config, experiment_set, dataloader, tokenizer, DEVICE): 
+def collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer, DEVICE): 
     """ getting all neurons used as mediators(Z) later """
+    layers = config["layers"] 
+    heads = config["heads"]
+    is_averaged_embeddings = config["is_averaged_embeddings"]
+    counterfactual_paths = config["counterfactual_paths"]
+     
     # "NIE_paths": [],
     # "is_NIE_exist": [],
     # "is_counterfactual_exist": [],
