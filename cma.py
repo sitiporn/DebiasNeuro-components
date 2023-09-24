@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
-from utils import collect_output_components , report_gpu
+from utils import collect_counterfactuals , report_gpu
 from utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
@@ -19,10 +19,10 @@ import operator
 import torch.nn.functional as F
 import numpy as np
 from pprint import pprint
-from nn_pruning.patch_coordinator import (
-    SparseTrainingArguments,
-    ModelPatchingCoordinator,
-)
+#from nn_pruning.patch_coordinator import (
+#    SparseTrainingArguments,
+#    ModelPatchingCoordinator,
+#)
 
 from data import ExperimentDataset
 from intervention import intervene, high_level_intervention
@@ -226,20 +226,29 @@ def get_top_k(config, treatments, debug=False):
 
         # breakpoint()
 
-def compute_embedding_set(experiment_set, model, tokenizer, label_maps, DEVICE, is_group_by_class):
-    
+def compute_embedding_set(experiment_set, config, model, tokenizer, label_maps, DEVICE, is_group_by_class, LOAD_MODEL_PATH=None):
     label_remaps = { 0 :'contradiction', 1 : 'entailment', 2 : 'neutral'}
-
     computing_embeddings = ComputingEmbeddings(label_maps, label_remaps, tokenizer=tokenizer)
+    from utils import load_model
+    from data import get_all_model_paths
 
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    path = [ path for path in all_paths if str(config['seed']) in path][0]
+    
+    if path is not None: 
+        model = load_model(path= path, model=model)
+    else:
+        print(f'using original model as input to this function')
+    
     classifier = Classifier(model=model)
-        
     representation_loader = DataLoader(experiment_set,
                                         batch_size = 64,
                                         shuffle = False, 
                                         num_workers=0)
         
     for batch_idx, (sentences, labels) in enumerate(tqdm(representation_loader, desc=f"representation_loader")):
+
+        # breakpoint()
         
         for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
             
