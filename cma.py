@@ -8,9 +8,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
-from utils import collect_counterfactuals , report_gpu
-from utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths
+from cma_utils import get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
+from cma_utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths, collect_counterfactuals
+from utils import report_gpu
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse

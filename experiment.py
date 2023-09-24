@@ -27,7 +27,8 @@ from data import ExperimentDataset, Dev, get_condition_inferences, get_inference
 from data import rank_losses, initial_partition_params, restore_original_weight, partition_param_train
 from intervention import intervene, high_level_intervention
 from cma import cma_analysis, compute_embedding_set, get_distribution, get_top_k
-from utils import debias_test, get_nie_set_path
+from utils import debias_test
+from cma_utils import get_nie_set_path
 import yaml
 from utils import get_num_neurons, get_params, get_diagnosis
 from data import get_analysis 
