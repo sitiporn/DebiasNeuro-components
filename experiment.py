@@ -8,9 +8,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
-from utils import collect_counterfactuals , report_gpu, trace_counterfactual
-from utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths
+from utils import  report_gpu
+from cma_utils import collect_counterfactuals, trace_counterfactual, geting_counterfactual_paths, get_single_representation, geting_NIE_paths, Classifier, test_mask
 from data import test_restore_weight
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
@@ -27,7 +26,7 @@ from pprint import pprint
 from data import ExperimentDataset, Dev, get_condition_inferences, get_inference_based, print_config, trace_optimized_params
 from data import rank_losses, initial_partition_params, restore_original_weight, partition_param_train
 from intervention import intervene, high_level_intervention
-from analze import cma_analysis, compute_embedding_set, get_distribution, get_top_k
+from cma import cma_analysis, compute_embedding_set, get_distribution, get_top_k
 from utils import debias_test, get_nie_set_path
 import yaml
 from utils import get_num_neurons, get_params, get_diagnosis
@@ -64,27 +63,24 @@ def main():
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    output_dir = '../models/recent_baseline/' 
-    if os.path.exists(output_dir): 
-        output_dir = os.path.join(output_dir, "seed_"+ str(seed))
-        print(f'random seed : {seed}')
-
+    LOAD_MODEL_PATH = '../models/recent_baseline/'
+    if os.path.exists(LOAD_MODEL_PATH): print(f'random seed : {seed}')
+    
     # Todo: find all the components used for to clasisfiy our tasks
     # Custom model to be able to custom grad when perform brackpropagation
-
     # Todo: generalize for every model 
     # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(config, encode = tokenizer)                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     
     # Todo: test on 
+    if config['embedding_summary']: compute_embedding_set(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], LOAD_MODEL_PATH=LOAD_MODEL_PATH)
     if config['getting_counterfactual']: collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer, DEVICE) 
     if config['print_config']: print_config(config)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
     if config['topk']: get_top_k(config, treatments=mode) 
-    if config['embedding_summary']: compute_embedding_set(experiment_set, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], path=output_dir)
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['debias_test']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)

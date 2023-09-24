@@ -20,8 +20,8 @@ from pprint import pprint
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-
-from utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations, EncoderParams
+from utils import  EncoderParams
+from cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
 from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans, compute_acc
 from utils import get_num_neurons, get_params, relabel, give_weight
