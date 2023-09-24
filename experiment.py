@@ -26,7 +26,7 @@ from pprint import pprint
 from data import ExperimentDataset, Dev, get_condition_inferences, get_inference_based, print_config, trace_optimized_params
 from data import rank_losses, initial_partition_params, restore_original_weight, partition_param_train
 from intervention import intervene, high_level_intervention
-from cma import cma_analysis, compute_embedding_set, get_distribution, get_top_k
+from cma import cma_analysis, evalutate_counterfactual, get_distribution, get_top_k
 from utils import debias_test
 from cma_utils import get_nie_set_path
 import yaml
@@ -75,9 +75,9 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     
     # Todo: test on 
-    if config['embedding_summary']: compute_embedding_set(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], LOAD_MODEL_PATH=LOAD_MODEL_PATH)
-    if config['getting_counterfactual']: collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer, DEVICE) 
     if config['print_config']: print_config(config)
+    if config['embedding_summary']: evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], LOAD_MODEL_PATH=LOAD_MODEL_PATH)
+    if config['getting_counterfactual']: collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer, DEVICE) 
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
