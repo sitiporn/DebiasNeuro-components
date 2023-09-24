@@ -6,8 +6,11 @@ import pickle
 import json
 import torch
 import torch.nn as nn
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from utils import get_params, get_num_neurons, load_model
+from data import get_all_model_paths
 from cma_utils import get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
 from cma_utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths, collect_counterfactuals
 from utils import report_gpu
@@ -17,16 +20,14 @@ import argparse
 import sys
 import operator
 import torch.nn.functional as F
-import numpy as np
 from pprint import pprint
+from data import ExperimentDataset
+from intervention import intervene, high_level_intervention
 #from nn_pruning.patch_coordinator import (
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
 
-from data import ExperimentDataset
-from intervention import intervene, high_level_intervention
-from utils import get_params, get_num_neurons
 
 class ComputingEmbeddings:
     def __init__(self, label_maps, label_remaps, tokenizer) -> None:
@@ -123,7 +124,6 @@ def cma_analysis(config, save_nie_set_path, model, treatments, tokenizer, experi
                 pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(probs, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving NIE scores into : {NIE_path}')
-
             
             del counterfactual_components
             report_gpu()
@@ -226,157 +226,109 @@ def get_top_k(config, treatments, debug=False):
 
         # breakpoint()
 
-def compute_embedding_set(experiment_set, config, model, tokenizer, label_maps, DEVICE, is_group_by_class, LOAD_MODEL_PATH=None):
+def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_maps, DEVICE, is_group_by_class, LOAD_MODEL_PATH=None):
+    """ To see the difference between High-overlap and Low-overlap score whether our counterfactuals have huge different."""
     label_remaps = { 0 :'contradiction', 1 : 'entailment', 2 : 'neutral'}
-    computing_embeddings = ComputingEmbeddings(label_maps, label_remaps, tokenizer=tokenizer)
-    from utils import load_model
-    from data import get_all_model_paths
-
+    computing_embeddings = {}
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
-    path = [ path for path in all_paths if str(config['seed']) in path][0]
-    
-    if path is not None: 
-        model = load_model(path= path, model=model)
-    else:
-        print(f'using original model as input to this function')
-    
-    classifier = Classifier(model=model)
-    representation_loader = DataLoader(experiment_set,
-                                        batch_size = 64,
-                                        shuffle = False, 
-                                        num_workers=0)
+    for path in all_paths:
+        seed = path.split('/')[3].split('_')[-1]
+        computing_embeddings[seed] = ComputingEmbeddings(label_maps, label_remaps, tokenizer=tokenizer)
+        if path is not None: 
+            model = load_model(path= path, model=model)
+        else:
+            print(f'using original model as input to this function')
         
-    for batch_idx, (sentences, labels) in enumerate(tqdm(representation_loader, desc=f"representation_loader")):
-
-        # breakpoint()
-        
-        for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+        classifier = Classifier(model=model)
+        representation_loader = DataLoader(experiment_set, batch_size = 64, shuffle = False, num_workers=0)
             
-            if do not in computing_embeddings.representations.keys():
+        for batch_idx, (sentences, labels) in enumerate(tqdm(representation_loader, desc=f"representation_loader")):
+            for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+                if do not in computing_embeddings[seed].representations.keys():
+                    if is_group_by_class:
+                        computing_embeddings[seed].representations[do] = {}
+                        computing_embeddings[seed].poolers[do] = {}
+                        computing_embeddings[seed].counter[do] = {}
 
-                if is_group_by_class:
+                        computing_embeddings[seed].acc[do] = {}
+                        computing_embeddings[seed].class_acc[do] = {}
+                        computing_embeddings[seed].confident[do] = {}
+                    else:
+                        computing_embeddings[seed].representations[do] = []
+                        computing_embeddings[seed].poolers[do] = 0
+                        computing_embeddings[seed].counter[do] = 0
                     
-                    computing_embeddings.representations[do] = {}
-                    computing_embeddings.poolers[do] = {}
-                    computing_embeddings.counter[do] = {}
+                        computing_embeddings[seed].acc[do] = []
+                        computing_embeddings[seed].class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
+                        computing_embeddings[seed].confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
 
-
-                    computing_embeddings.acc[do] = {}
-                    computing_embeddings.class_acc[do] = {}
-                    computing_embeddings.confident[do] = {}
-                    
-                    
+                if experiment_set.is_group_by_class:
+                    for class_name in sentences[do].keys():
+                        if class_name not in computing_embeddings[seed].representations[do].keys():
+                            computing_embeddings[seed].representations[do][class_name] = []
+                            computing_embeddings[seed].poolers[do][class_name] = 0
+                            computing_embeddings[seed].counter[do][class_name] = 0
+                        if class_name not in computing_embeddings[seed].confident[do].keys():
+                            computing_embeddings[seed].confident[do][class_name] =  0 #{"contradiction": 0, "entailment": 0, "neutral": 0}
+                        if class_name not in computing_embeddings[seed].class_acc[do].keys():
+                            computing_embeddings[seed].class_acc[do][class_name] =  [] #{"contradiction": [], "entailment" : [], "neutral" : []}
+                            # each set divide into class level
+                            #computing_embeddings[seed].acc[do] = 0
+                        forward_pair_sentences(sentences[do][class_name],  computing_embeddings[seed], labels[do][class_name], do, model, DEVICE, class_name)
                 else:
-                
-                    computing_embeddings.representations[do] = []
-                    computing_embeddings.poolers[do] = 0
-                    computing_embeddings.counter[do] = 0
-                
-                    computing_embeddings.acc[do] = []
-                    computing_embeddings.class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
-                    computing_embeddings.confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
-
-            if experiment_set.is_group_by_class:
-
-                for class_name in sentences[do].keys():
-
-                    if class_name not in computing_embeddings.representations[do].keys():
-
-                        computing_embeddings.representations[do][class_name] = []
-                        computing_embeddings.poolers[do][class_name] = 0
-                        computing_embeddings.counter[do][class_name] = 0
-
-
-                    if class_name not in computing_embeddings.confident[do].keys():
-                        
-                        computing_embeddings.confident[do][class_name] =  0 #{"contradiction": 0, "entailment": 0, "neutral": 0}
-
-                    if class_name not in computing_embeddings.class_acc[do].keys():
-
-                        computing_embeddings.class_acc[do][class_name] =  [] #{"contradiction": [], "entailment" : [], "neutral" : []}
-
-                        # each set divide into class level
-                        #computing_embeddings.acc[do] = 0
-                    
-
-                    forward_pair_sentences(sentences[do][class_name],  computing_embeddings, labels[do][class_name], do, model, DEVICE, class_name)
-            else:
-                    
-                forward_pair_sentences(sentences[do], computing_embeddings, labels[do], do, model, DEVICE)
-
-
-    print(f"==== Distributions of Averaging representations across each set =====")
-    
-    # # Forward sentence to get distribution
-    for do in ['High-overlap','Low-overlap']:
+                    forward_pair_sentences(sentences[do], computing_embeddings[seed], labels[do], do, model, DEVICE)
         
-        print(f"++++++++++++++++++  {do} ++++++++++++++++++")
-
-        if experiment_set.is_group_by_class:
-                
-            for class_name in ["contradiction", "entailment", "neutral"]:
+        print(f"==== Distributions of Averaging representations across each set =====")
+        
+        # **************** for Compiled Buffers ****************
+        for do in ['High-overlap','Low-overlap']:
             
-                computing_embeddings.representations[do][class_name] = torch.stack(computing_embeddings.representations[do][class_name], dim=0)
-                average_representation = torch.mean(computing_embeddings.representations[do][class_name], dim=0 ).unsqueeze(dim=0)
-
+            print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+            if experiment_set.is_group_by_class:
+                for class_name in ["contradiction", "entailment", "neutral"]:
+                    computing_embeddings[seed].representations[do][class_name] = torch.stack(computing_embeddings[seed].representations[do][class_name], dim=0)
+                    average_representation = torch.mean(computing_embeddings[seed].representations[do][class_name], dim=0 ).unsqueeze(dim=0)
+                    out = classifier(average_representation).squeeze(dim=0)
+                    cur_distribution = F.softmax(out, dim=-1)
+                    # print(f"{class_name} set: {cur_distribution[label_maps[class_name]]}")
+                    print(f"{class_name} set: {cur_distribution}")
+            else:
+                computing_embeddings[seed].representations[do] = torch.stack(computing_embeddings[seed].representations[do], dim=0)
+                average_representation = torch.mean(computing_embeddings[seed].representations[do], dim=0 ).unsqueeze(dim=0)
                 out = classifier(average_representation).squeeze(dim=0)
-                
                 cur_distribution = F.softmax(out, dim=-1)
 
-                # print(f"{class_name} set: {cur_distribution[label_maps[class_name]]}")
-                print(f"{class_name} set: {cur_distribution}")
+                print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
+                print(f"entailment : {cur_distribution[label_maps['entailment']]}")
+                print(f"neutral : {cur_distribution[label_maps['neutral']]}")
 
-        else:
+            # print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
+            # print(f"entailment : {cur_distribution[label_maps['entailment']]}")
+            # print(f"neutral : {cur_distribution[label_maps['neutral']]}")
 
-            computing_embeddings.representations[do] = torch.stack(computing_embeddings.representations[do], dim=0)
-            average_representation = torch.mean(computing_embeddings.representations[do], dim=0 ).unsqueeze(dim=0)
+        print(f"====  Expected distribution of each set =====")
+        # **************** for Compiled Buffers ****************
+        for do in ['High-overlap','Low-overlap']:
+            if is_group_by_class:
+                #print(f"Overall accuray : {sum(computing_embeddings[seed].acc[do]) / len(computing_embeddings[seed].acc[do])}")
+                print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+                for class_name in ["contradiction", "entailment", "neutral"]:
+                    computing_embeddings[seed].confident[do][class_name] = computing_embeddings[seed].confident[do][class_name].squeeze(dim=0)
+                    print(f"{class_name} set ; confident: {computing_embeddings[seed].confident[do][class_name] / computing_embeddings[seed].counter[do][class_name]}")
+            else:
+                print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+                print(f"Overall accuray : {sum(computing_embeddings[seed].acc[do]) / len(computing_embeddings[seed].acc[do])}")
+                print(f"entail acc: {sum(computing_embeddings[seed].class_acc[do]['entailment']) / len(computing_embeddings[seed].class_acc[do]['entailment'])} ")   
+                print(f"contradiction acc: {sum(computing_embeddings[seed].class_acc[do]['contradiction']) / len(computing_embeddings[seed].class_acc[do]['contradiction'])} ")
+                print(f"neutral acc: {sum(computing_embeddings[seed].class_acc[do]['neutral']) / len(computing_embeddings[seed].class_acc[do]['neutral'])} ")
+                print(f"******* expected distribution of golden answers ************")
+                computing_embeddings[seed].confident[do]['entailment'] = computing_embeddings[seed].confident[do]['entailment'].squeeze(dim=0)
+                computing_embeddings[seed].confident[do]['contradiction'] = computing_embeddings[seed].confident[do]['contradiction'].squeeze(dim=0) 
+                computing_embeddings[seed].confident[do]['neutral'] = computing_embeddings[seed].confident[do]['neutral'].squeeze(dim=0)
+                print(f"entail confident: {computing_embeddings[seed].confident[do]['entailment'][computing_embeddings[seed].label_maps['entailment']] / len(computing_embeddings[seed].class_acc[do]['entailment'])} ")   
+                print(f"contradiction confident: {computing_embeddings[seed].confident[do]['contradiction'][computing_embeddings[seed].label_maps['contradiction']] / len(computing_embeddings[seed].class_acc[do]['contradiction'])} ")
+                print(f"neutral confident: {computing_embeddings[seed].confident[do]['neutral'][computing_embeddings[seed].label_maps['neutral']]   / len(computing_embeddings[seed].class_acc[do]['neutral'])}") 
 
-            out = classifier(average_representation).squeeze(dim=0)
-            
-            cur_distribution = F.softmax(out, dim=-1)
-
-            print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
-            print(f"entailment : {cur_distribution[label_maps['entailment']]}")
-            print(f"neutral : {cur_distribution[label_maps['neutral']]}")
-
-        # print(f"contradiction : {cur_distribution[label_maps['contradiction']]}")
-        # print(f"entailment : {cur_distribution[label_maps['entailment']]}")
-        # print(f"neutral : {cur_distribution[label_maps['neutral']]}")
-
-    print(f"====  Expected distribution of each set =====")
-
-    for do in ['High-overlap','Low-overlap']:
-
-        if is_group_by_class:
-                
-            #print(f"Overall accuray : {sum(computing_embeddings.acc[do]) / len(computing_embeddings.acc[do])}")
-            print(f"++++++++++++++++++  {do} ++++++++++++++++++")
-            
-            for class_name in ["contradiction", "entailment", "neutral"]:
-
-                computing_embeddings.confident[do][class_name] = computing_embeddings.confident[do][class_name].squeeze(dim=0)
-
-                print(f"{class_name} set ; confident: {computing_embeddings.confident[do][class_name] / computing_embeddings.counter[do][class_name]}")
-
-        else:
-            
-            print(f"++++++++++++++++++  {do} ++++++++++++++++++")
-            print(f"Overall accuray : {sum(computing_embeddings.acc[do]) / len(computing_embeddings.acc[do])}")
-            print(f"entail acc: {sum(computing_embeddings.class_acc[do]['entailment']) / len(computing_embeddings.class_acc[do]['entailment'])} ")   
-            print(f"contradiction acc: {sum(computing_embeddings.class_acc[do]['contradiction']) / len(computing_embeddings.class_acc[do]['contradiction'])} ")
-            print(f"neutral acc: {sum(computing_embeddings.class_acc[do]['neutral']) / len(computing_embeddings.class_acc[do]['neutral'])} ")
-            
-            print(f"******* expected distribution of golden answers ************")
-            
-            computing_embeddings.confident[do]['entailment'] = computing_embeddings.confident[do]['entailment'].squeeze(dim=0)
-            computing_embeddings.confident[do]['contradiction'] = computing_embeddings.confident[do]['contradiction'].squeeze(dim=0) 
-            computing_embeddings.confident[do]['neutral'] = computing_embeddings.confident[do]['neutral'].squeeze(dim=0)
-
-            print(f"entail confident: {computing_embeddings.confident[do]['entailment'][computing_embeddings.label_maps['entailment']] / len(computing_embeddings.class_acc[do]['entailment'])} ")   
-            print(f"contradiction confident: {computing_embeddings.confident[do]['contradiction'][computing_embeddings.label_maps['contradiction']] / len(computing_embeddings.class_acc[do]['contradiction'])} ")
-            print(f"neutral confident: {computing_embeddings.confident[do]['neutral'][computing_embeddings.label_maps['neutral']]   / len(computing_embeddings.class_acc[do]['neutral'])}") 
-
-    
 def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
     
     representations = {}
