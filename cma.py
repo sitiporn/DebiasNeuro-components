@@ -224,8 +224,6 @@ def get_top_k(config, treatments, debug=False):
             cur_top_neurons = pickle.load(handle)
             print(f"loading top neurons from pickles !") 
 
-        # breakpoint()
-
 def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_maps, DEVICE, is_group_by_class, LOAD_MODEL_PATH=None):
     """ To see the difference between High-overlap and Low-overlap score whether our counterfactuals have huge different."""
     computing_embeddings = {}
@@ -283,11 +281,9 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
                 else:
                     forward_pair_sentences(sentences[do], computing_embeddings[seed], labels[do], do, model, DEVICE)
         
-        print(f"==== Model Output distributions of Averaging representations =====")
-        
-        # **************** Comparing model output (High vs Low bias as input) probs  ****************
+        # **************** Comparing classifier output distributions given avg representation(High vs Low bias as input) to use as counterfactuals ****************
+        print(f"==== Classifier Output Distributions Given Averaging representations  as Input =====")
         for do in ['High-overlap','Low-overlap']:
-            
             print(f"++++++++++++++++++  {do} ++++++++++++++++++")
             if experiment_set.is_group_by_class:
                 for class_name in ["contradiction", "entailment", "neutral"]:
@@ -309,30 +305,29 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
                     print(f"seed :{seed} {cur_class}: {cur_distribution[label_maps[cur_class]]}")
                     average_distributions[do][cur_class] += cur_distribution[label_maps[cur_class]]
 
-        # print(f"====  Expected distribution of each set =====")
-        # # **************** for Compiled Buffers ****************
-        # for do in ['High-overlap','Low-overlap']:
-        #     if is_group_by_class:
-        #         #print(f"Overall accuray : {sum(computing_embeddings[seed].acc[do]) / len(computing_embeddings[seed].acc[do])}")
-        #         print(f"++++++++++++++++++  {do} ++++++++++++++++++")
-        #         for class_name in ["contradiction", "entailment", "neutral"]:
-        #             computing_embeddings[seed].confident[do][class_name] = computing_embeddings[seed].confident[do][class_name].squeeze(dim=0)
-        #             print(f"{class_name} set ; confident: {computing_embeddings[seed].confident[do][class_name] / computing_embeddings[seed].counter[do][class_name]}")
-        #     else:
-        #         print(f"++++++++++++++++++  {do} ++++++++++++++++++")
-        #         print(f"Overall accuray : { sum(computing_embeddings[seed].acc[do]) / len(computing_embeddings[seed].acc[do])}")
-        #         for cur_class in label_maps.keys():
-        #             cur_score = sum(computing_embeddings[seed].class_acc[do][cur_class]) / len(computing_embeddings[seed].class_acc[do][cur_class])
-        #             print(f"{cur_class} acc: {cur_score} ")   
+        print(f"==== Computing scores Given Whole NIE Set =====")
+        # **************** Compute ****************
+        for do in ['High-overlap','Low-overlap']:
+            if is_group_by_class:
+                print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+                for cur_class in label_maps.keys():
+                    computing_embeddings[seed].confident[do][class_name] = computing_embeddings[seed].confident[do][class_name].squeeze(dim=0)
+                    print(f"{class_name} set ; confident: {computing_embeddings[seed].confident[do][class_name] / computing_embeddings[seed].counter[do][class_name]}")
+            else:
+                print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+                print(f'Accuracies:')
+                print(f"avg over all acc: {sum(computing_embeddings[seed].acc[do]) / len(computing_embeddings[seed].acc[do])}")
+                for cur_class in label_maps.keys():
+                    cur_score = sum(computing_embeddings[seed].class_acc[do][cur_class]) / len(computing_embeddings[seed].class_acc[do][cur_class])
+                    print(f"{cur_class} acc: {cur_score} ")   
                 
-        #         print(f"******* expected distribution of golden answers ************")
-        #         for cur_class in label_maps.keys():
-        #             computing_embeddings[seed].confident[do][cur_class] = computing_embeddings[seed].confident[do][cur_class].squeeze(dim=0)
-        #             confident_score = computing_embeddings[seed].confident[do][cur_class][computing_embeddings[seed].label_maps[cur_class]] / len(computing_embeddings[seed].class_acc[do][cur_class]) 
-        #             print(f"{cur_class} confident: {confident_score}")
-
-                    
-
+                print(f"Distributions:")
+                for cur_class in label_maps.keys():
+                    computing_embeddings[seed].confident[do][cur_class] = computing_embeddings[seed].confident[do][cur_class].squeeze(dim=0)
+                    class_ind = computing_embeddings[seed].label_maps[cur_class]
+                    confident_score = computing_embeddings[seed].confident[do][cur_class][class_ind] / len(computing_embeddings[seed].class_acc[do][cur_class]) 
+                    print(f"average {cur_class} confident: {confident_score}")
+                
 def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
     
     representations = {}
