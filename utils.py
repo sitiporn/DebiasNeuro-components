@@ -658,7 +658,7 @@ def get_activation(layer, do, component, activation, is_averaged_embeddings, cla
   return hook
 
 def collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer, DEVICE): 
-    """ getting all neurons used as mediators(Z) later """
+    """ getting all activation's neurons used as mediators(Z) to compute NIE scores later """
     layers = config["layers"] 
     heads = config["heads"]
     is_averaged_embeddings = config["is_averaged_embeddings"]
@@ -1067,6 +1067,10 @@ def get_nie_set_path(config, experiment_set, save_nie_set_path):
         pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving NIE set  into {save_nie_set_path} !")
 
+def load_model(path, model):
+    print(f'Loading model from {path}')
+    model.load_state_dict(torch.load(path))
+    return model
 
 def compute_acc(raw_distribution_path, label_maps):
 
