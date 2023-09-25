@@ -32,12 +32,12 @@ class Classifier(nn.Module):
         logits = self.classifier(pooled_output)
         return logits
 
-def collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer, DEVICE): 
+def collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer, DEVICE, all_seeds=False): 
     """ getting all activation's neurons used as mediators(Z) to compute NIE scores later """
     layers = config["layers"] 
     heads = config["heads"]
     is_averaged_embeddings = config["is_averaged_embeddings"]
-    counterfactual_paths = config["counterfactual_paths"]
+    counterfactual_paths = config["counterfactual_paths"] 
     # "NIE_paths": [],
     # "is_NIE_exist": [],
     # "is_counterfactual_exist": [],
@@ -195,10 +195,10 @@ def test_mask(neuron_candidates =[]):
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
 
-def geting_counterfactual_paths(config):
+def geting_counterfactual_paths(config, seed=None):
 
     path = f'../counterfactuals/'
-    path = os.path.join(path, "seed_"+ str(config['seed']))
+    path = os.path.join(path, "seed_"+ str( config['seed'] if seed is None else seed ) ) 
     if not os.path.exists(path): os.mkdir(path) 
     
     for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
@@ -226,7 +226,6 @@ def geting_counterfactual_paths(config):
 
         config['counterfactual_paths'].append(os.path.join(path, cur_path))
         config['is_counterfactual_exist'].append(os.path.isfile(os.path.join(path, cur_path)))
-
 
 def get_overlap_thresholds(df, upper_bound, lower_bound):
     
@@ -505,7 +504,6 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
         counter = pickle.load(handle)
         # experiment_set = pickle.load(handle)
         # dataloader, handle = pickle.load(handle)
-
     if is_averaged_embeddings:
         # get average of [CLS] activations
         counterfactual_representations = {}
@@ -571,8 +569,10 @@ def get_single_representation(cur_path, do = None, class_name = None):
 
     return hidden_representations
 
-def geting_NIE_paths(config, mode):
-
+def geting_NIE_paths(config, mode, seed=None):
+    path = f'../NIE/'
+    path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
+    if not os.path.exists(path): os.mkdir(path) 
 
     if -1 in [config['layer']]: layers = [*range(0, 12, 1)]
 
@@ -583,7 +583,8 @@ def geting_NIE_paths(config, mode):
             if not isinstance(layer, list):
                 cur_layer = [layer]
             
-            NIE_path = f'../pickles/NIE/NIE_avg_high_level_{cur_layer}_{mode[0]}.pickle'
+            NIE_path = os.path.join(path, f'avg_high_level_{cur_layer}_{mode[0]}.pickle') 
+    
             config["NIE_paths"].append(NIE_path)
             config['is_NIE_exist'].append(os.path.isfile(NIE_path))
     else:
@@ -594,8 +595,7 @@ def geting_NIE_paths(config, mode):
             component = sorted(cur_path.split("_"), key=len)[0]  
             class_name = None
             
-            NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layer}_{mode[0]}.pickle'
-            
+            NIE_path = os.path.join(path, f'avg_high_level_{layer}_{mode[0]}.pickle') 
             print(f"current path: {NIE_path} , is_exist : {os.path.isfile(cur_path)}")
 
             config['NIE_paths'].append(NIE_path)
