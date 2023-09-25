@@ -229,12 +229,11 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
     computing_embeddings = {}
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     # To see the change of probs comparing between High bias and Low bias inputs
-    average_distributions = {}
+    average_all_seed_distributions = {}
 
     for path in all_paths:
         seed = path.split('/')[3].split('_')[-1]
         computing_embeddings[seed] = ComputingEmbeddings(label_maps, tokenizer=tokenizer)
-        average_all_seed_distributions = {}
         if path is not None: 
             model = load_model(path= path, model=model)
         else:
