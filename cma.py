@@ -75,8 +75,9 @@ def cma_analysis(config, save_nie_set_path, model, treatments, tokenizer, experi
         NIE = {}
         counter = {}
         
-        cls = get_hidden_representations(config['counterfactual_paths'], config['layer'], config['heads'], config['is_group_by_class'], config['is_averaged_embeddings'])
-
+        cls = get_hidden_representations(config['counterfactual_paths'], config['layers'], config['heads'], config['is_group_by_class'], config['is_averaged_embeddings'])
+        breakpoint()
+        
         high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, config['layer'], model, config['label_maps'], tokenizer, treatments, DEVICE)
                 
         NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layers}_{treatments[0]}.pickle'

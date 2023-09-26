@@ -498,7 +498,10 @@ def trace_counterfactual(do,
             print(f'saving NIE scores into : {dist_path}')
 
 def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings):
-    paths = { k : v for k, v in zip(["Q","K","V","AO","I","O"], counterfactual_paths)}
+    # Todo: fixing this  to work with all seeds
+    # eg. ../counterfactuals/seed_3990/avg_Q_counterfactual_representation.pickle
+    # fixing layers as still -1 
+    # paths = { k : v for k, v in zip(["Q","K","V","AO","I","O"], counterfactual_paths)}
     with open('../pickles/utilizer_components.pickle', 'rb') as handle: 
         attention_data = pickle.load(handle)
         counter = pickle.load(handle)
@@ -509,7 +512,8 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
         counterfactual_representations = {}
         avg_counterfactual_representations = {}
         
-        for component, cur_path in paths.items():
+        for cur_path in counterfactual_paths:
+            component = cur_path.split('/')[-1].split('_')[1]
             avg_counterfactual_representations[component] = {}
             # load all output components 
             with open(cur_path, 'rb') as handle:
