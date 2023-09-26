@@ -1093,8 +1093,7 @@ def get_all_model_paths(LOAD_MODEL_PATH):
         clean_model_files.append(checkpoint[-1])
 
     assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
-
-    return clean_model_files
+    return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
 def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
