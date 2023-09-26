@@ -498,10 +498,6 @@ def trace_counterfactual(do,
             print(f'saving NIE scores into : {dist_path}')
 
 def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings):
-    # Todo: fixing this  to work with all seeds
-    # eg. ../counterfactuals/seed_3990/avg_Q_counterfactual_representation.pickle
-    # fixing layers as still -1 
-    # paths = { k : v for k, v in zip(["Q","K","V","AO","I","O"], counterfactual_paths)}
     with open('../pickles/utilizer_components.pickle', 'rb') as handle: 
         attention_data = pickle.load(handle)
         counter = pickle.load(handle)
@@ -514,27 +510,31 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
         
         for cur_path in counterfactual_paths:
             component = cur_path.split('/')[-1].split('_')[1]
-            avg_counterfactual_representations[component] = {}
+            seed = cur_path.split('/')[2].split('_')[-1]
+            if seed not in counterfactual_representations.keys(): counterfactual_representations[seed] = {}
+            if seed not in avg_counterfactual_representations.keys(): avg_counterfactual_representations[seed] = {}
+            
+            avg_counterfactual_representations[seed][component] = {}
             # load all output components 
             with open(cur_path, 'rb') as handle:
                 # get [CLS] activation 
-                counterfactual_representations[component] = pickle.load(handle)
+                counterfactual_representations[seed][component] = pickle.load(handle)
                 # attention_data = pickle.load(handle)
                 # counter = pickle.load(handle)
             for do in ["High-overlap", "Low-overlap"]:
-                avg_counterfactual_representations[component][do] = {}
+                avg_counterfactual_representations[seed][component][do] = {}
                 # concate all batches
                 for layer in layers:
                     # compute average over samples
                     if is_group_by_class:
-                        for class_name in counterfactual_representations[component][do].keys():
-                            if class_name not in avg_counterfactual_representations[component][do].keys():
-                                avg_counterfactual_representations[component][do][class_name] = {}
-                            avg_counterfactual_representations[component][do][class_name][layer] = counterfactual_representations[component][do][class_name][layer] / counter[do][class_name]
+                        for class_name in counterfactual_representations[seed][component][do].keys():
+                            if class_name not in avg_counterfactual_representations[seed][component][do].keys():
+                                avg_counterfactual_representations[seed][component][do][class_name] = {}
+                            avg_counterfactual_representations[seed][component][do][class_name][layer] = counterfactual_representations[seed][component][do][class_name][layer] / counter[do][class_name]
 
                     else:
-                            avg_counterfactual_representations[component][do][layer] = counterfactual_representations[component][do][layer] / counter[do]
-
+                            avg_counterfactual_representations[seed][component][do][layer] = counterfactual_representations[seed][component][do][layer] / counter[do]
+        
         return  avg_counterfactual_representations
 
 def get_single_representation(cur_path, do = None, class_name = None):
