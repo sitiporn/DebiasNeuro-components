@@ -641,7 +641,7 @@ def get_nie_set_path(config, experiment_set, save_nie_set_path):
         pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving NIE set  into {save_nie_set_path} !")
 
-def all_cma_paths(config, all_model_paths, mode, compute_all_seeds = False):
+def get_all_cma_paths(config, all_model_paths, mode, compute_all_seeds = False):
     if compute_all_seeds:
         for path in all_model_paths:
             seed = path.split('/')[3].split('_')[-1]
@@ -654,3 +654,10 @@ def all_cma_paths(config, all_model_paths, mode, compute_all_seeds = False):
         geting_counterfactual_paths(config)
         # path to save NIE scores
         geting_NIE_paths(config,mode)
+
+def summary_eval_counterfactual(average_all_seed_distributions, label_maps, all_paths):
+    print('==== Summary ===')
+    for do in ['High-overlap','Low-overlap']:
+        print(f'>> {do}')
+        for cur_class in label_maps.keys():
+            print(f" {cur_class} acc : {average_all_seed_distributions[do][cur_class]/ len(all_paths)}")
