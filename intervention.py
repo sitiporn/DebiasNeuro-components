@@ -129,11 +129,11 @@ def high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counte
                         counter[do][component][layer] = {}
                         
                     Z = cls[component][do][layer]
-                
                     for neuron_id in range(Z.shape[0]):
                         hooks = [] 
                         hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], 
-                                                                                                            DEVICE = DEVICE ,
+                                                                                                            component=component,
+                                                                                                            DEVICE = DEVICE,
                                                                                                             intervention_type='weaken')))
                         with torch.no_grad(): 
                             intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
