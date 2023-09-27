@@ -44,7 +44,7 @@ class ComputingEmbeddings:
         self.label_remaps = {v:k for k, v in self.label_maps.items()}
         self.tokenizer = tokenizer
 
-def cma_analysis(config, save_nie_set_path, model, treatments, tokenizer, experiment_set, DEVICE, DEBUG=False):
+def cma_analysis(config, model_path, seed, save_nie_set_path, model, treatments, tokenizer, experiment_set, DEVICE, DEBUG=False):
 
     mediators = {}
     counter = None
@@ -54,6 +54,11 @@ def cma_analysis(config, save_nie_set_path, model, treatments, tokenizer, experi
     layers = [config['layer']]
     
     print(f"perform Causal Mediation analysis...")
+
+    if model_path is not None: 
+        _model = load_model(path= model_path, model=model)
+    else:
+        print(f'using original model as input to this function')
     
     with open(save_nie_set_path, 'rb') as handle:
         
@@ -61,24 +66,27 @@ def cma_analysis(config, save_nie_set_path, model, treatments, tokenizer, experi
          nie_dataloader = pickle.load(handle)
         
          print(f"loading nie sets from pickle {save_nie_set_path} !")        
+
+    # Todo: Load model accodring to seed
     
     # mediator used to intervene
-    mediators["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
-    mediators["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
-    mediators["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
-    mediators["AO"]  = lambda layer : model.bert.encoder.layer[layer].attention.output
-    mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
-    mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
+    mediators["Q"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
+    mediators["K"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.key
+    mediators["V"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.value
+    mediators["AO"]  = lambda layer : _model.bert.encoder.layer[layer].attention.output
+    mediators["I"]  = lambda layer : _model.bert.encoder.layer[layer].intermediate
+    mediators["O"]  = lambda layer : _model.bert.encoder.layer[layer].output
 
     if config['is_averaged_embeddings']: 
         NIE = {}
         counter = {}
-        
-        cls = get_hidden_representations(config['counterfactual_paths'], config['layers'], config['heads'], config['is_group_by_class'], config['is_averaged_embeddings'])
-        high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, config['layers'], model, config['label_maps'], tokenizer, treatments, DEVICE)
-                
+        breakpoint() 
+        cls = get_hidden_representations(config['counterfactual_paths'], config['layers'], config['heads'], config['is_group_by_class'], 
+                                         config['is_averaged_embeddings'])
+        high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, config['layers'], _model, 
+                                         config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
         NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layers}_{treatments[0]}.pickle'
-            
+        
         with open(NIE_path, 'wb') as handle: 
             pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -113,7 +121,7 @@ def cma_analysis(config, save_nie_set_path, model, treatments, tokenizer, experi
                 
                 NIE_path = f'../pickles/individual_class_level/{layers}_{component}_{treatments[0]}.pickle'
 
-            intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, probs,counter_predictions, layers, model, config['label_maps'], tokenizer, treatments, DEVICE)
+            intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, probs,counter_predictions, layers, _model, config['label_maps'], tokenizer, treatments, DEVICE)
             
             with open(NIE_path, 'wb') as handle: 
                 
