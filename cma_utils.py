@@ -32,12 +32,20 @@ class Classifier(nn.Module):
         logits = self.classifier(pooled_output)
         return logits
 
-def collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer, DEVICE, all_seeds=False): 
+def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE, all_seeds=False): 
     """ getting all activation's neurons used as mediators(Z) to compute NIE scores later """
+    from utils import load_model
+    if model_path is not None: 
+        _model = load_model(path= model_path, model=model)
+    else:
+        print(f'using original model as input to this function')
+    
     layers = config["layers"] 
     heads = config["heads"]
     is_averaged_embeddings = config["is_averaged_embeddings"]
-    counterfactual_paths = config["counterfactual_paths"] 
+    # getting counterfactual of all components(eg. Q, K) for specific seed
+    _counterfactual_paths = counterfactual_paths
+    
     # "NIE_paths": [],
     # "is_NIE_exist": [],
     # "is_counterfactual_exist": [],
@@ -65,12 +73,12 @@ def collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer
     hooks =  {"High-overlap" : None, "Low-overlap": None}
 
     # linear layer
-    layer_modules["Q"] = lambda layer : model.bert.encoder.layer[layer].attention.self.query
-    layer_modules["K"] = lambda layer : model.bert.encoder.layer[layer].attention.self.key
-    layer_modules["V"] = lambda layer : model.bert.encoder.layer[layer].attention.self.value
-    layer_modules["AO"] = lambda layer : model.bert.encoder.layer[layer].attention.output
-    layer_modules["I"] = lambda layer : model.bert.encoder.layer[layer].intermediate
-    layer_modules["O"] = lambda layer : model.bert.encoder.layer[layer].output
+    layer_modules["Q"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
+    layer_modules["K"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.key
+    layer_modules["V"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.value
+    layer_modules["AO"] = lambda layer : _model.bert.encoder.layer[layer].attention.output
+    layer_modules["I"] = lambda layer : _model.bert.encoder.layer[layer].intermediate
+    layer_modules["O"] = lambda layer : _model.bert.encoder.layer[layer].output
 
     for component in (["Q","K","V","AO","I","O"]):
         hidden_representations[component] = {}
@@ -109,7 +117,7 @@ def collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer
                     counter[do][class_name] += inputs['input_ids'].shape[0]
             
                     with torch.no_grad():    
-                        outputs = model(**inputs)
+                        outputs = _model(**inputs)
 
                     # detach the hooks
                     for layer in layers:
@@ -132,7 +140,7 @@ def collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer
                 counter[do] += inputs['input_ids'].shape[0]
         
                 with torch.no_grad():    
-                    outputs = model(**inputs)
+                    outputs = _model(**inputs)
 
             del outputs
             inputs = {k: v.to('cpu') for k,v in inputs.items()} 
@@ -140,7 +148,7 @@ def collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer
         batch_idx += 1
    
     # **** Writing the all counterfactual representations into pickles ****
-    for cur_path in counterfactual_paths:
+    for cur_path in _counterfactual_paths:
         component = sorted(cur_path.split("_"), key=len)[0]  
         if component == "I" and not is_averaged_embeddings:
             do = cur_path.split("_")[4]
@@ -158,10 +166,10 @@ def collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer
                 print(f"saving to {cur_path} done ! ")
                 
     with open('../pickles/utilizer_components.pickle', 'wb') as handle: 
-        pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(experiment_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # pickle.dump(experiment_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"save utilizer to ../pickles/utilizer_components.pickle  ! ")
 
 def test_mask(neuron_candidates =[]):
@@ -200,6 +208,9 @@ def geting_counterfactual_paths(config, seed=None):
     path = f'../counterfactuals/'
     path = os.path.join(path, "seed_"+ str( config['seed'] if seed is None else seed ) ) 
     if not os.path.exists(path): os.mkdir(path) 
+
+    counterfactual_paths = []
+    is_counterfactual_exist = []
     
     for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
         if config["is_averaged_embeddings"]:
@@ -213,19 +224,21 @@ def geting_counterfactual_paths(config, seed=None):
                     for  do in ['High-overlap','Low-overlap']:
                         for class_name in ["contradiction","entailment","neutral"]:
                             cur_path = f'individual_class_level_{component}_{do}_{class_name}_counterfactual_representation.pickle'
-                            config["counterfactual_paths"].append(os.path.join(path, cur_path))
-                            config['is_counterfactual_exist'].append(os.path.isfile(os.path.join(path, cur_path)))
+                            counterfactual_paths.append(os.path.join(path, cur_path))
+                            is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
                 else: 
                     cur_path = f'individual_class_level_{component}_counterfactual_representation.pickle'
-                    config['counterfactual_paths'].append(os.path.join(path, cur_path))
-                    config['is_counterfactual_exist'].append(os.path.isfile(os.path.join(path, cur_path)))
+                    counterfactual_paths.append(os.path.join(path, cur_path))
+                    is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
 
                 continue
             else:
                 cur_path = f'individual_{component}_counterfactual_representation.pickle'
 
-        config['counterfactual_paths'].append(os.path.join(path, cur_path))
-        config['is_counterfactual_exist'].append(os.path.isfile(os.path.join(path, cur_path)))
+        counterfactual_paths.append(os.path.join(path, cur_path))
+        is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
+
+    return counterfactual_paths, is_counterfactual_exist
 
 def get_overlap_thresholds(df, upper_bound, lower_bound):
     
@@ -499,7 +512,7 @@ def trace_counterfactual(do,
 
 def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings):
     with open('../pickles/utilizer_components.pickle', 'rb') as handle: 
-        attention_data = pickle.load(handle)
+        # attention_data = pickle.load(handle)
         counter = pickle.load(handle)
         # experiment_set = pickle.load(handle)
         # dataloader, handle = pickle.load(handle)
@@ -574,10 +587,11 @@ def get_single_representation(cur_path, do = None, class_name = None):
     return hidden_representations
 
 def geting_NIE_paths(config, mode, seed=None):
+    NIE_paths = []
+    is_NIE_exist = []
     path = f'../NIE/'
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
     if not os.path.exists(path): os.mkdir(path) 
-
     if -1 in [config['layer']]: layers = [*range(0, 12, 1)]
 
     if config['is_averaged_embeddings']:
@@ -589,8 +603,8 @@ def geting_NIE_paths(config, mode, seed=None):
             
             NIE_path = os.path.join(path, f'avg_high_level_{cur_layer}_{mode[0]}.pickle') 
     
-            config["NIE_paths"].append(NIE_path)
-            config['is_NIE_exist'].append(os.path.isfile(NIE_path))
+            NIE_paths.append(NIE_path)
+            is_NIE_exist.append(os.path.isfile(NIE_path))
     else:
     
         for cur_path in config['counterfactual_paths']:
@@ -602,8 +616,9 @@ def geting_NIE_paths(config, mode, seed=None):
             NIE_path = os.path.join(path, f'avg_high_level_{layer}_{mode[0]}.pickle') 
             print(f"current path: {NIE_path} , is_exist : {os.path.isfile(cur_path)}")
 
-            config['NIE_paths'].append(NIE_path)
-            config['is_NIE_exist'].append(os.path.isfile(cur_path))
+            NIE_paths.append(NIE_path)
+            is_NIE_exist.append(os.path.isfile(cur_path))
+    return NIE_paths, is_NIE_exist
 
 def get_nie_set_path(config, experiment_set, save_nie_set_path):
     combine_types = []
@@ -640,20 +655,6 @@ def get_nie_set_path(config, experiment_set, save_nie_set_path):
         pickle.dump(nie_dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving NIE set  into {save_nie_set_path} !")
-
-def get_all_cma_paths(config, all_model_paths, mode, compute_all_seeds = False):
-    if compute_all_seeds:
-        for path in all_model_paths:
-            seed = path.split('/')[3].split('_')[-1]
-            # path to save counterfactuals 
-            geting_counterfactual_paths(config, seed=seed)
-            # path to save NIE scores
-            geting_NIE_paths(config, mode, seed=seed)
-    else:
-        # path to save counterfactuals 
-        geting_counterfactual_paths(config)
-        # path to save NIE scores
-        geting_NIE_paths(config,mode)
 
 def summary_eval_counterfactual(average_all_seed_distributions, label_maps, all_paths):
     print('==== Summary ===')
