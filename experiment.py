@@ -23,7 +23,7 @@ from pprint import pprint
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-from data import ExperimentDataset, Dev, get_condition_inferences, get_inference_based, print_config, trace_optimized_params
+from data import ExperimentDataset, Dev, get_condition_inferences, eval_model, print_config, trace_optimized_params
 from data import rank_losses, initial_partition_params, restore_original_weight, partition_param_train
 from intervention import intervene, high_level_intervention
 from cma import cma_analysis, evalutate_counterfactual, get_distribution, get_top_k
@@ -37,17 +37,16 @@ from data import exclude_grad, get_all_model_paths
 
 def main():
 
-    with open("config.yaml", "r") as yamlfile:
+    # ******************** LOAD STUFF ********************
+    with open("experiment_config.yaml", "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(config)
-    
     DEBUG = True
     debug = False # for tracing top counterfactual 
     group_path_by_seed = {}
     # torch.manual_seed(config['seed'])
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # ******************** LOAD STUFF ********************
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
     model = BertForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
@@ -58,6 +57,7 @@ def main():
     LOAD_MODEL_PATH = '../models/recent_baseline/'
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
+    # ******************** Identifying Bias: Causal Mediation Analysis ********************
     if config['eval_counterfactual'] and config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
             evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True)
@@ -79,17 +79,19 @@ def main():
     if config['compute_nie_scores']:  cma_analysis(config, all_model_paths[str(config['seed'])], config['seed'], counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     if config['topk']: get_top_k(config, treatments=mode) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
-    if config['debias_test']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
-    if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
-    if config["diag"]: get_diagnosis(config)
     if config['rank_losses']: rank_losses(config=config, do=mode[0])
+    # Eval scores on test and challenge sets for all seeds
+    if config['eval_model']: eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= True, is_optimized_set=False)
+    # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
+    # ******************** Unlearn Bias ********************
     if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], DEVICE)
     if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
-    # Eval scores on test and challenge sets for all seeds
-    if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= True, is_optimized_set=False)
+    # ******************** test  stuff ********************
+    if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
     if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
+    if config["diag"]: get_diagnosis(config)
     if config['test_traced_params']: test_restore_weight(model, config, DEVICE)
-    # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
+    if config['debias_test']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
     # get_analysis(config)
     
 if __name__ == "__main__":
