@@ -60,6 +60,7 @@ def main():
     # ******************** Identifying Bias: Causal Mediation Analysis ********************
     if config['eval_counterfactual'] and config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
+            # see the result of the counterfactual of modifying proportional bias
             evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True)
     if config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
@@ -76,15 +77,16 @@ def main():
         # path to save NIE scores
         NIE_paths, _ = geting_NIE_paths(config, mode)
     # dont forget to select model eg. High or Low overlap
-    if config['compute_nie_scores']:  cma_analysis(config, all_model_paths[str(config['seed'])], config['seed'], counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
+    # if config['compute_nie_scores']:  cma_analysis(config, all_model_paths[str(config['seed'])], config['seed'], counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     if config['topk']: get_top_k(config, treatments=mode) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['rank_losses']: rank_losses(config=config, do=mode[0])
-    # Eval scores on test and challenge sets for all seeds
+    # eval models on test and challenge sets for all seeds
     if config['eval_model']: eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= True, is_optimized_set=False)
     # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
     # ******************** Unlearn Bias ********************
     if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], DEVICE)
+    # Tune hyperparameters for soft masking method
     if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
     # ******************** test  stuff ********************
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)

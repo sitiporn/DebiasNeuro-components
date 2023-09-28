@@ -1,5 +1,35 @@
 {
-  # +++++++++++ read  CLI configs ++++++++++
+  # ******************** LOAD STUFF ********************
+  # "model_name": "../bert-base-uncased/",
+  "is_group_by_class": False,
+  "is_averaged_embeddings": True,
+  "intervention_type": "weaken",
+  "collect_representation": True,
+  "DEBUG": True,
+  "debug": False, 
+  "num_samples": 300,
+  "upper_bound": 95,
+  "lower_bound": 5,
+  "label_maps": {"entailment": 0, "contradiction": 1, "neutral": 2},
+  "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  
+  # ******************** PATH ********************
+  # experiment set 
+  "k":  null, 
+  "num_top_neurons": null, 
+  "range_percents": True, 
+  'neurons': True, 
+  "model_name": "../bert-base-uncased-mnli/",
+  "dev_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
+  "exp_json": "multinli_1.0_dev_matched.jsonl",
+  "dev_json": {},
+  # data settings
+  "counterfactual_paths": [],
+  "NIE_paths": [],
+  "is_NIE_exist": [],
+  "is_counterfactual_exist": [],
+  # ************ Identifying Bias: Causal Mediation Analysis *************
   "layer": 0,
   "treatment": True,
   "compute_nie_scores": True,
@@ -12,15 +42,18 @@
   "compute_all_seeds": False,
   "eval_counterfactual": False,
   "getting_counterfactual": True,
-  # --------------------
-  "traced": False, 
-  "debias_test": False,
+  # compute nie scores
+  # ******************** Unlearn Bias ********************
   "partition_params": False,
   "get_condition_inferences": False,
-  # "get_inference_based": True,
-  "get_inference_based": False,
+  # ******************** test  stuff ********************
+  "traced": False, 
   "traced_params": False,
-  "test_traced_params": False,
+  "diag": False,
+  # "diag": True,
+  "debias_test": False,
+  "eval_model": True,
+  # "eval_model": False,
   # "dev-name": "mismatched",
   # "dev-name": "hans",
   # this set uses matched dataset
@@ -36,45 +69,10 @@
   "masking_rate": 0.05, 
   # number of neurons to mask
   "neuron_group": null,
-  "diag": False,
-  # "diag": True,
   "rank_losses": False, 
   # "rank_losses": True, 
-  
-  "model_name": "../bert-base-uncased-mnli/",
-  # "model_name": "../bert-base-uncased/",
-  "is_group_by_class": False,
-  "is_averaged_embeddings": True,
-  "intervention_type": "weaken",
-  "upper_bound": 95,
-  "lower_bound": 5,
-  "collect_representation": True,
-  "DEBUG": True,
-  "debug": False, 
-  
-  # compute nie scores
-  "num_samples": 300,
-  "label_maps": {"entailment": 0, "contradiction": 1, "neutral": 2},
-  "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-  "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-
   # training 
   "training_json":  multinli_1.0_train.jsonl, 
-  # experiment set 
-  "k":  null, 
-  "num_top_neurons": null, 
-  "range_percents": True, 
-  'neurons': True, 
-  "dev_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
-  "exp_json": "multinli_1.0_dev_matched.jsonl",
-  "dev_json": {},
-
-  # data settings
-  "counterfactual_paths": [],
-  "NIE_paths": [],
-  "is_NIE_exist": [],
-  "is_counterfactual_exist": [],
-  
   # optimizer settings
   # range 0.0 to 0.10, step = 0.01
   "percent": {
@@ -85,7 +83,6 @@
     "mode": 0o666,
     "acc": {}
     },
-
   # range 0 to 1, step = 0.1
   "epsilons": {
     "low": 0.81, 
@@ -98,9 +95,7 @@
     "mode": 0o666,
     "acc": {}
     },
-  
   "single_neuron": False,
-
   # evaluate hans
   "eval": {
     "do": 'High-overlap',
@@ -111,7 +106,6 @@
     },
 
   # uppper bound test on test set
-  
   # use to read prediction txt files
   "prediction_path": '../pickles/prediction/',
   "evaluations":  {},
@@ -125,7 +119,6 @@
   "nums": {}
 }
 
-#current jobs : 23185
 
 
 
