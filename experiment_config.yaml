@@ -51,6 +51,7 @@
   "traced_params": False,
   "diag": False,
   # "diag": True,
+  "test_traced_params": False,
   "debias_test": False,
   "eval_model": True,
   # "eval_model": False,
