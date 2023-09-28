@@ -44,8 +44,8 @@ class ComputingEmbeddings:
         self.label_remaps = {v:k for k, v in self.label_maps.items()}
         self.tokenizer = tokenizer
 
-def cma_analysis(config, model_path, seed, save_nie_set_path, model, treatments, tokenizer, experiment_set, DEVICE, DEBUG=False):
-
+def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save_nie_set_path, model, treatments, tokenizer, experiment_set, DEVICE, DEBUG=False):
+    # checking model and counterfactual_paths whether it change corresponding to seeds
     mediators = {}
     counter = None
     nie_dataset = None
@@ -61,15 +61,10 @@ def cma_analysis(config, model_path, seed, save_nie_set_path, model, treatments,
         print(f'using original model as input to this function')
     
     with open(save_nie_set_path, 'rb') as handle:
-        
-         nie_dataset = pickle.load(handle)
-         nie_dataloader = pickle.load(handle)
-        
-         print(f"loading nie sets from pickle {save_nie_set_path} !")        
-
-    # Todo: Load model accodring to seed
-    
-    # mediator used to intervene
+        nie_dataset = pickle.load(handle)
+        nie_dataloader = pickle.load(handle)
+        print(f"loading nie sets from pickle {save_nie_set_path} !")        
+    # mediator used to intervene corresponding to changing _model's seed
     mediators["Q"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
     mediators["K"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.key
     mediators["V"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.value
@@ -80,9 +75,13 @@ def cma_analysis(config, model_path, seed, save_nie_set_path, model, treatments,
     if config['is_averaged_embeddings']: 
         NIE = {}
         counter = {}
-        breakpoint() 
-        cls = get_hidden_representations(config['counterfactual_paths'], config['layers'], config['heads'], config['is_group_by_class'], 
-                                         config['is_averaged_embeddings'])
+        # Done checking counterfactual_paths change according to seed
+        # Dont need model as input because we load counterfactual from -> counterfactual_paths
+        # dont need head to specify components
+        # cls shape: [seed][component][do][layer][neuron_ids]
+        cls = get_hidden_representations(counterfactual_paths, config['layers'], config['is_group_by_class'], config['is_averaged_embeddings'])
+        # mediators:change respect to seed
+        # cls: change respect to seed
         high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, config['layers'], _model, 
                                          config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
         NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layers}_{treatments[0]}.pickle'

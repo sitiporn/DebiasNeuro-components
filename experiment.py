@@ -30,10 +30,10 @@ from cma import cma_analysis, evalutate_counterfactual, get_distribution, get_to
 from utils import debias_test
 from cma_utils import get_nie_set_path
 import yaml
-from utils import get_num_neurons, get_params, get_diagnosis
+from utils import get_num_neurons, get_params, get_diagnosis, load_model
 from data import get_analysis 
 from transformers import AutoTokenizer, BertForSequenceClassification
-from data import exclude_grad
+from data import exclude_grad, get_all_model_paths
 
 def main():
 
@@ -43,43 +43,40 @@ def main():
     
     DEBUG = True
     debug = False # for tracing top counterfactual 
-    torch.manual_seed(config['seed'])
+    group_path_by_seed = {}
+    # torch.manual_seed(config['seed'])
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
-    
-    if config["dev-name"] == 'mismatched': config["dev_json"]['mismatched'] = 'multinli_1.0_dev_mismatched.jsonl'
-    elif config["dev-name"] == 'hans': config["dev_json"]['hans'] = 'heuristics_evaluation_set.jsonl' 
-    elif config["dev-name"] == 'matched': config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
-    elif config["dev-name"] == 'reweight': config["dev_json"]['reweight'] = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
-
-    geting_counterfactual_paths(config)
-    geting_NIE_paths(config,mode)
-
+    # ******************** LOAD STUFF ********************
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
     model = BertForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
-
-    seed = config['seed'] #random.randint(0,10000)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    LOAD_MODEL_PATH = '../models/recent_baseline/'
-    if os.path.exists(LOAD_MODEL_PATH): print(f'random seed : {seed}')
-    
-    # Todo: find all the components used for to clasisfiy our tasks
-    # Custom model to be able to custom grad when perform brackpropagation
-    # Todo: generalize for every model 
-    # using same seed everytime we create HOL and LOL sets 
     experiment_set = ExperimentDataset(config, encode = tokenizer)                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
-    
-    # Todo: test on 
-    if config['print_config']: print_config(config)
-    if config['embedding_summary']: evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], LOAD_MODEL_PATH=LOAD_MODEL_PATH)
-    if config['getting_counterfactual']: collect_counterfactuals(model, config, experiment_set, dataloader, tokenizer, DEVICE) 
+    # ******************** PATH ********************
+    save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
+    LOAD_MODEL_PATH = '../models/recent_baseline/'
+    if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
-    if config['analysis']:  cma_analysis(config, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
+    if config['eval_counterfactual'] and config["compute_all_seeds"]:
+        for seed, model_path in all_model_paths.items():
+            evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True)
+    if config["compute_all_seeds"]:
+        for seed, model_path in all_model_paths.items():
+            # path to save
+            # Done checking path 
+            counterfactual_paths, _ = geting_counterfactual_paths(config, seed=seed)
+            NIE_paths, _ = geting_NIE_paths(config, mode, seed=seed)
+            if config['getting_counterfactual']: 
+                # Done checking model counterfactual_path and specific model
+                collect_counterfactuals(model, model_path, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
+            if config['analysis']:  
+                cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
+    else:
+        # path to save counterfactuals 
+        counterfactual_paths, _ = geting_counterfactual_paths(config)
+        # path to save NIE scores
+        NIE_paths, _ = geting_NIE_paths(config, mode)
     # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
     if config['topk']: get_top_k(config, treatments=mode) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)

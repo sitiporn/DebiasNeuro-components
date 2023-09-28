@@ -41,7 +41,6 @@ def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, conf
         print(f'using original model as input to this function')
     
     layers = config["layers"] 
-    heads = config["heads"]
     is_averaged_embeddings = config["is_averaged_embeddings"]
     # getting counterfactual of all components(eg. Q, K) for specific seed
     _counterfactual_paths = counterfactual_paths
@@ -79,10 +78,9 @@ def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, conf
     layer_modules["AO"] = lambda layer : _model.bert.encoder.layer[layer].attention.output
     layer_modules["I"] = lambda layer : _model.bert.encoder.layer[layer].intermediate
     layer_modules["O"] = lambda layer : _model.bert.encoder.layer[layer].output
-
+    
     for component in (["Q","K","V","AO","I","O"]):
         hidden_representations[component] = {}
-    
     # **** collecting all counterfactual representations ****    
     for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"Intervene_set_loader")):
         for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
@@ -147,27 +145,25 @@ def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, conf
 
         batch_idx += 1
    
-    # **** Writing the all counterfactual representations into pickles ****
+    # **** Writing all counterfactual representations into pickles ****
     for cur_path in _counterfactual_paths:
         component = sorted(cur_path.split("_"), key=len)[0]  
         if component == "I" and not is_averaged_embeddings:
             do = cur_path.split("_")[4]
             class_name = cur_path.split("_")[5]
-
             # hidden_representations[component][do][class_name][layer][sample_idx]
             with open(cur_path,'wb') as handle: 
                 pickle.dump(hidden_representations[component][do][class_name], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving to {cur_path} done ! ")
         else:
-
             with open(cur_path, 'wb') as handle: 
                 # nested dict : [component][do][class_name][layer][sample_idx]
                 pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving to {cur_path} done ! ")
                 
     with open('../pickles/utilizer_components.pickle', 'wb') as handle: 
-        # pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         # pickle.dump(experiment_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
         # pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"save utilizer to ../pickles/utilizer_components.pickle  ! ")
@@ -268,7 +264,8 @@ def get_activation(layer, do, component, activation, is_averaged_embeddings, cla
   # the hook signature
   def hook(model, input, output):
     
-    # print(f"layer : {layer}, do : {do}, {output.shape} ")
+    # bz, seq_len, hid_dim
+    # print(f"layer : {layer}, do:{do}, inp:{input[0].shape}, out:{output.shape} ")
 
     if class_name is None:
     
@@ -406,7 +403,7 @@ def trace_counterfactual(do,
     mediators["I"]  = lambda layer : model.bert.encoder.layer[layer].intermediate
     mediators["O"]  = lambda layer : model.bert.encoder.layer[layer].output
 
-    cls = get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings)
+    cls = get_hidden_representations(counterfactual_paths, layers, is_group_by_class, is_averaged_embeddings)
     
     # why Z value is not the same as trace counterfactual ?
     Z = cls[component][do][layer]
@@ -510,7 +507,7 @@ def trace_counterfactual(do,
             pickle.dump(median, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f'saving NIE scores into : {dist_path}')
 
-def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_class, is_averaged_embeddings):
+def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, is_averaged_embeddings):
     with open('../pickles/utilizer_components.pickle', 'rb') as handle: 
         # attention_data = pickle.load(handle)
         counter = pickle.load(handle)
@@ -520,17 +517,15 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
         # get average of [CLS] activations
         counterfactual_representations = {}
         avg_counterfactual_representations = {}
-        
         for cur_path in counterfactual_paths:
             component = cur_path.split('/')[-1].split('_')[1]
             seed = cur_path.split('/')[2].split('_')[-1]
             if seed not in counterfactual_representations.keys(): counterfactual_representations[seed] = {}
             if seed not in avg_counterfactual_representations.keys(): avg_counterfactual_representations[seed] = {}
-            
             avg_counterfactual_representations[seed][component] = {}
             # load all output components 
             with open(cur_path, 'rb') as handle:
-                # get [CLS] activation 
+                # get [CLS] activation [do][layer]
                 counterfactual_representations[seed][component] = pickle.load(handle)
                 # attention_data = pickle.load(handle)
                 # counter = pickle.load(handle)
@@ -546,7 +541,7 @@ def get_hidden_representations(counterfactual_paths, layers, heads, is_group_by_
                             avg_counterfactual_representations[seed][component][do][class_name][layer] = counterfactual_representations[seed][component][do][class_name][layer] / counter[do][class_name]
 
                     else:
-                            avg_counterfactual_representations[seed][component][do][layer] = counterfactual_representations[seed][component][do][layer] / counter[do]
+                        avg_counterfactual_representations[seed][component][do][layer] = counterfactual_representations[seed][component][do][layer] / counter[do]
         
         return  avg_counterfactual_representations
 
