@@ -86,6 +86,7 @@ def main():
     if config['rank_losses']: rank_losses(config=config, do=mode[0])
     if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], DEVICE)
     if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
+    # Eval score on test and challenge sets for all seeds
     if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= True, is_optimized_set=False)
     if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
     if config['test_traced_params']: test_restore_weight(model, config, DEVICE)

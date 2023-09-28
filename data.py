@@ -1120,7 +1120,7 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is
     
     for cur_json in json_sets:
         name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
-        for path in all_paths:
+        for seed, path in all_paths.items():
             if is_load_model:
                 from utils import load_model
                 model = load_model(path=path, model=model)
