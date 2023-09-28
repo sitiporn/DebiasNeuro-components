@@ -1133,18 +1133,14 @@ def get_inference_based(model, config, tokenizer, DEVICE, is_load_model=True, is
             dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
             
             for batch_idx, (inputs) in enumerate( t := tqdm(dev_loader)):
-                
                 model.eval()
                 cur_inputs = {} 
                 t.set_description(f'{name_set} batch_idx {batch_idx}/{len(dev_loader)}')
-                
                 for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
-
                 # get the inputs 
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
                 pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
                 pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
-
                 # ignore label_ids when running experiment on hans
                 label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if  'heuristics' not in cur_json  else None
                 # ignore label_ids when running experiment on hans

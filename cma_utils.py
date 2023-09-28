@@ -226,7 +226,6 @@ def geting_counterfactual_paths(config, seed=None):
                     cur_path = f'individual_class_level_{component}_counterfactual_representation.pickle'
                     counterfactual_paths.append(os.path.join(path, cur_path))
                     is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
-
                 continue
             else:
                 cur_path = f'individual_{component}_counterfactual_representation.pickle'
@@ -587,30 +586,24 @@ def geting_NIE_paths(config, mode, seed=None):
     path = f'../NIE/'
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
     if not os.path.exists(path): os.mkdir(path) 
-    if -1 in [config['layer']]: layers = [*range(0, 12, 1)]
-
+    if -1 in [config['layer']]: 
+        layers = [*range(0, 12, 1)]
+    else:
+        layers = [config['layer']]
     if config['is_averaged_embeddings']:
-
         for layer in layers:
-
-            if not isinstance(layer, list):
-                cur_layer = [layer]
-            
-            NIE_path = os.path.join(path, f'avg_high_level_{cur_layer}_{mode[0]}.pickle') 
-    
+            # if not isinstance(layer, list): cur_layer = [layer]
+            NIE_path = os.path.join(path, f'avg_embeddings_{mode[0]}_layer_{layer}_.pickle') 
             NIE_paths.append(NIE_path)
             is_NIE_exist.append(os.path.isfile(NIE_path))
     else:
-    
         for cur_path in config['counterfactual_paths']:
-            
             # extract infor from current path 
             component = sorted(cur_path.split("_"), key=len)[0]  
             class_name = None
-            
-            NIE_path = os.path.join(path, f'avg_high_level_{layer}_{mode[0]}.pickle') 
+            # NIE_path = os.path.join(path, f'avg_high_level_{layer}_{mode[0]}.pickle') 
+            NIE_path = os.path.join(path, f'avg_embeddings_{mode[0]}_layer_{layer}_.pickle') 
             print(f"current path: {NIE_path} , is_exist : {os.path.isfile(cur_path)}")
-
             NIE_paths.append(NIE_path)
             is_NIE_exist.append(os.path.isfile(cur_path))
     return NIE_paths, is_NIE_exist

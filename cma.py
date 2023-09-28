@@ -51,15 +51,15 @@ def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save
     nie_dataset = None
     nie_dataloader = None
     counter_predictions  = {} 
+    # single layer
     layers = [config['layer']]
-    
+    NIE_path = { sorted(path.split('_'),key=len)[0]: path for path in NIE_paths} 
+    NIE_path = NIE_path[str(config['layer'])]
     print(f"perform Causal Mediation analysis...")
-
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
     else:
         print(f'using original model as input to this function')
-    
     with open(save_nie_set_path, 'rb') as handle:
         nie_dataset = pickle.load(handle)
         nie_dataloader = pickle.load(handle)
@@ -82,53 +82,37 @@ def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save
         cls = get_hidden_representations(counterfactual_paths, config['layers'], config['is_group_by_class'], config['is_averaged_embeddings'])
         # mediators:change respect to seed
         # cls: change respect to seed
-        high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, config['layers'], _model, 
-                                         config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
-        NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layers}_{treatments[0]}.pickle'
-        
+        high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, config['layers'], _model, config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
+        # save single layers
+        # NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layers}_{treatments[0]}.pickle'
         with open(NIE_path, 'wb') as handle: 
             pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f'saving NIE scores into : {NIE_path}')
-
     else:
-        
         for cur_path in (t := tqdm(config['counterfactual_paths'])):
             counter = {}
             NIE = {}
             probs = {}
-
             # extract infor from current path 
             component = sorted(cur_path.split("_"), key=len)[0]  
             do = cur_path.split("_")[4]
             class_name = cur_path.split("_")[5]
             counterfactual_components = None
-            
             t.set_description(f"Component : {component}")
-
             if do not in treatments and  component == "I": continue
-             
             if component == "I":
-
                 counterfactual_components = get_single_representation(cur_path, do = do, class_name = class_name)
-
                 NIE_path = f'../pickles/individual_class_level/{layers}_{component}_{do}_{class_name}.pickle'
-            
             else:
-
                 counterfactual_components = get_single_representation(cur_path = cur_path)
-                
                 NIE_path = f'../pickles/individual_class_level/{layers}_{component}_{treatments[0]}.pickle'
-
             intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, probs,counter_predictions, layers, _model, config['label_maps'], tokenizer, treatments, DEVICE)
-            
             with open(NIE_path, 'wb') as handle: 
-                
                 pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(probs, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving NIE scores into : {NIE_path}')
-            
             del counterfactual_components
             report_gpu()
      

@@ -70,14 +70,13 @@ def main():
             if config['getting_counterfactual']: 
                 # Done checking model counterfactual_path and specific model
                 collect_counterfactuals(model, model_path, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
-            if config['analysis']:  
-                cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     else:
         # path to save counterfactuals 
         counterfactual_paths, _ = geting_counterfactual_paths(config)
         # path to save NIE scores
         NIE_paths, _ = geting_NIE_paths(config, mode)
-    # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
+    # dont forget to select model eg. High or Low overlap
+    if config['compute_nie_scores']:  cma_analysis(config, all_model_paths[str(config['seed'])], config['seed'], counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     if config['topk']: get_top_k(config, treatments=mode) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['debias_test']: debias_test(config, model, experiment_set, tokenizer, DEVICE)
@@ -86,10 +85,11 @@ def main():
     if config['rank_losses']: rank_losses(config=config, do=mode[0])
     if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], DEVICE)
     if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
-    # Eval score on test and challenge sets for all seeds
+    # Eval scores on test and challenge sets for all seeds
     if config['get_inference_based']:  get_inference_based(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= True, is_optimized_set=False)
     if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
     if config['test_traced_params']: test_restore_weight(model, config, DEVICE)
+    # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
     # get_analysis(config)
     
 if __name__ == "__main__":
