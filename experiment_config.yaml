@@ -31,7 +31,7 @@
   "treatment": True,
   "is_group_by_class": False,
   "is_averaged_embeddings": True,
-  "intervention_type": "weaken",
+  "intervention_type": "replace",
   "print_config": False,
   #  [42, 3099, 3785, 3990,  409] for experiments
   "seed": 3099,

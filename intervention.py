@@ -42,51 +42,39 @@ def get_mediators(model):
     
     return mediators
 
-def neuron_intervention(neuron_ids, 
-                       component,
-                       DEVICE,
-                       value=None,
-                       epsilon=0,
-                       intervention_type='replace',
-                       debug=False):
-    
-    # Hook for changing representation during forward pass
-    def intervention_hook(module,
-                            input,
-                            output):
-        
+def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, intervention_type='replace', debug=False):
+    def intervention_hook(module, input, output):
+        """ Hook for changing representation during forward pass """
         CLS_TOKEN = 0
-        
         # define mask where to overwrite
         scatter_mask = torch.zeros_like(output, dtype = torch.bool)
-
         # where to intervene
         # bz, seq_len, hidden_dim
         scatter_mask[:, CLS_TOKEN, neuron_ids] = 1
-        
         if debug:
-            print(f"before interventoin on {intervention_type}")
-            print(output[:5,:3, neuron_ids])
-
-        breakpoint() 
-        # replace values
+            print(f'******** Before Intervention *************')
+            print(f"intervention type:{intervention_type} on neuron_ids: {neuron_ids}")
+            print(output[:2,:3, neuron_ids])
+            # print(output[:2,:3, :2])
+        # ******************** soft masking on on valid set ********************
         if intervention_type == "weaken": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * epsilon
-        if intervention_type == "neg": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * -1
-        
-        if intervention_type ==  'remove':
-            
+        elif intervention_type == "neg": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * -1
+        elif intervention_type ==  'remove':
             value[neuron_ids] = 0 + epsilon
             neuron_values = value[neuron_ids]
             neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1).to(DEVICE)
             # broadcast values
             output.masked_scatter_(scatter_mask, neuron_values)
-
+        # ******************** CMA: identifying bias ********************
+        elif intervention_type == 'replace':
+            neuron_values = value[neuron_ids]
+            neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1)
+            output.masked_scatter_(scatter_mask, neuron_values)
         if debug:
-            print(f"Intervention hook:")
-            print(f"component-neuron : {component}-{neuron_ids}")
-            print(output[:5,:3, neuron_ids])
-
-
+            print(f'******** After Intervention Hook  *************')
+            print(f"component-neuron_ids: {component}-{neuron_ids}")
+            print(output[:2,:3, neuron_ids])
+            # print(output[:2,:3, :2])
     return intervention_hook
 
 # ************  intervention  *******************
@@ -118,7 +106,6 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
                 NIE[do] = {}
                 counter[do]  = {} 
                 probs['intervene'][do] = {}
-
             # cover all components
             for component in components: 
                 if  component not in NIE[do].keys():
@@ -138,7 +125,8 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
                                                                                                             component=component,
                                                                                                             DEVICE = DEVICE,
                                                                                                             value=Z,
-                                                                                                            intervention_type=config['intervention_type'])))
+                                                                                                            intervention_type=config['intervention_type'],
+                                                                                                            debug=True)))
                         with torch.no_grad(): 
                             intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
                             entail_probs = intervene_probs[:, label_maps["entailment"]]
