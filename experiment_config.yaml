@@ -1,9 +1,6 @@
 {
   # ******************** LOAD STUFF ********************
   # "model_name": "../bert-base-uncased/",
-  "is_group_by_class": False,
-  "is_averaged_embeddings": True,
-  "intervention_type": "weaken",
   "collect_representation": True,
   "DEBUG": True,
   "debug": False, 
@@ -30,9 +27,14 @@
   "is_NIE_exist": [],
   "is_counterfactual_exist": [],
   # ************ Identifying Bias: Causal Mediation Analysis *************
-  "layer": 0,
+  "layer": 2,
   "treatment": True,
-  "print_config": True,
+  "is_group_by_class": False,
+  "is_averaged_embeddings": True,
+  "intervention_type": "weaken",
+  "print_config": False,
+  #  [42, 3099, 3785, 3990,  409] for experiments
+  "seed": 3099,
   # default
   # "topk": True,
   "topk": False,
@@ -41,7 +43,7 @@
   "compute_all_seeds": False,
   "eval_counterfactual": False,
   "getting_counterfactual": False,
-  "compute_nie_scores": False,
+  "compute_nie_scores": True,
   # ******************** Unlearn Bias ********************
   "partition_params": False,
   "get_condition_inferences": False,
@@ -59,8 +61,6 @@
   # this set uses matched dataset
   "dev-name": "reweight",
   # "dev-name": "matched",
-  #  [42, 3099, 3785, 3990,  409] for experiments
-  "seed": 3099,
   # if know best params
   # "weaken": null,
   "weaken": 0.97,

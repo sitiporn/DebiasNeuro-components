@@ -40,12 +40,10 @@ def main():
     # ******************** LOAD STUFF ********************
     with open("experiment_config.yaml", "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
-        print(config)
     DEBUG = True
     debug = False # for tracing top counterfactual 
     group_path_by_seed = {}
     # torch.manual_seed(config['seed'])
-    mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
     model = BertForSequenceClassification.from_pretrained(config["model_name"])
@@ -58,6 +56,9 @@ def main():
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     # ******************** Identifying Bias: Causal Mediation Analysis ********************
+    mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
+    print(f'Counterfactual type: {mode}')
+    print(f'Intervention type : {config["intervention_type"]}')
     if config['eval_counterfactual'] and config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
             # see the result of the counterfactual of modifying proportional bias
@@ -76,8 +77,12 @@ def main():
         counterfactual_paths, _ = geting_counterfactual_paths(config)
         # path to save NIE scores
         NIE_paths, _ = geting_NIE_paths(config, mode)
-    # dont forget to select model eg. High or Low overlap
-    # if config['compute_nie_scores']:  cma_analysis(config, all_model_paths[str(config['seed'])], config['seed'], counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
+        print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
+        for path in counterfactual_paths: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
+        print(f'NIE_paths: {NIE_paths}')
+    # dont forget to select mode eg. High or Low overlap
+    # recheck intervention type
+    if config['compute_nie_scores']:  cma_analysis(config, all_model_paths[str(config['seed'])], config['seed'], counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     if config['topk']: get_top_k(config, treatments=mode) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['rank_losses']: rank_losses(config=config, do=mode[0])
