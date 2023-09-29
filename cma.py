@@ -79,10 +79,11 @@ def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save
         # Dont need model as input because we load counterfactual from -> counterfactual_paths
         # dont need head to specify components
         # cls shape: [seed][component][do][layer][neuron_ids]
-        cls = get_hidden_representations(counterfactual_paths, config['layers'], config['is_group_by_class'], config['is_averaged_embeddings'])
+        cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
         # mediators:change respect to seed
         # cls: change respect to seed
-        high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, config['layers'], _model, config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
+        # breakpoint()
+        high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter , counter_predictions, layers, _model, config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
         # save single layers
         # NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layers}_{treatments[0]}.pickle'
         with open(NIE_path, 'wb') as handle: 

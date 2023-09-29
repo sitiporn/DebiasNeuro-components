@@ -90,13 +90,15 @@ def neuron_intervention(neuron_ids,
     return intervention_hook
 
 # ************  intervention  *******************
-def high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE, seed=None):
+def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter ,counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE, seed=None):
     """ computation take many hours, running single seed is better"""
     if seed is not None:
         print(f'high level intervention seed:{seed}')
         if isinstance(seed, int): seed = str(seed)
         cls = cls[seed]
-    components = cls.keys()
+    components = cls.keys() # 
+    assert len(components) == 6, f"don't cover all component types of transformer modules" 
+    assert len(layers) == 1, f"the computation is cover only single layer at a time."
     for batch_idx, (sentences, labels) in (t := tqdm(enumerate(nie_dataloader))):
         t.set_description(f"NIE_dataloader, batch_idx : {batch_idx}")
         premise, hypo = sentences
@@ -117,14 +119,17 @@ def high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counte
                 counter[do]  = {} 
                 probs['intervene'][do] = {}
 
+            # cover all components
             for component in components: 
                 if  component not in NIE[do].keys():
                     NIE[do][component] = {}
                     counter[do][component] = {}
+                # cover single components
                 for layer in layers:
                     if  layer not in NIE[do][component].keys(): 
                         NIE[do][component][layer] = {}
                         counter[do][component][layer] = {}
+                    # loading Z scale
                     Z = cls[component][do][layer]
                     for neuron_id in (c := tqdm(range(Z.shape[0]))):
                         c.set_description(f"component: {component}, neuron_id:{neuron_id}")
@@ -132,7 +137,8 @@ def high_level_intervention(nie_dataloader, mediators, cls, NIE, counter ,counte
                         hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], 
                                                                                                             component=component,
                                                                                                             DEVICE = DEVICE,
-                                                                                                            intervention_type='weaken')))
+                                                                                                            value=Z,
+                                                                                                            intervention_type=config['intervention_type'])))
                         with torch.no_grad(): 
                             intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
                             entail_probs = intervene_probs[:, label_maps["entailment"]]

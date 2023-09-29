@@ -538,10 +538,8 @@ def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, 
                             if class_name not in avg_counterfactual_representations[seed][component][do].keys():
                                 avg_counterfactual_representations[seed][component][do][class_name] = {}
                             avg_counterfactual_representations[seed][component][do][class_name][layer] = counterfactual_representations[seed][component][do][class_name][layer] / counter[do][class_name]
-
                     else:
                         avg_counterfactual_representations[seed][component][do][layer] = counterfactual_representations[seed][component][do][layer] / counter[do]
-        
         return  avg_counterfactual_representations
 
 def get_single_representation(cur_path, do = None, class_name = None):
