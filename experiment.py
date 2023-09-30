@@ -86,14 +86,19 @@ def main():
     if config['topk']: get_top_k(config, treatments=mode) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['rank_losses']: rank_losses(config=config, do=mode[0])
-    # eval models on test and challenge sets for all seeds
-    if config['eval_model']: eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= True, is_optimized_set=False)
     # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
-    # ******************** Unlearn Bias ********************
-    if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], DEVICE)
-    # Tune hyperparameters for soft masking method
+    # ******************** Debias ********************
+    if config["dev-name"] == 'mismatched': config["dev_json"]['mismatched'] = 'multinli_1.0_dev_mismatched.jsonl'
+    elif config["dev-name"] == 'hans': config["dev_json"]['hans'] = 'heuristics_evaluation_set.jsonl' 
+    elif config["dev-name"] == 'matched': config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
+    elif config["dev-name"] == 'reweight': config["dev_json"]['reweight'] = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
+    # find hyperparameters for soft masking method
     if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
+    # PCGU: optimization 
+    if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], DEVICE)
     # ******************** test  stuff ********************
+    # Eval models on test and challenge sets for all seeds
+    if config['eval_model']: eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= True, is_optimized_set=False)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
     if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
     if config["diag"]: get_diagnosis(config)

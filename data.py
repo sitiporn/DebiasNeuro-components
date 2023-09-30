@@ -197,22 +197,19 @@ class Dev(Dataset):
         self.inputs = {}
         # dev_path = "../debias_fork_clean/debias_nlu_clean/data/nli/"
         # dev_path = os.path.join(os.path.join(dev_path, file))
+        breakpoint()
         self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
-        
         data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
         self.df = pd.read_json(data_path, lines=True)
             
         if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
-
         if '-' in self.df.gold_label.unique(): 
             self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
-        
         if self.dev_name == 'hans' or self.dev_name == 'heuristics_set': 
             self.df['sentence1'] = self.df.premise 
             self.df['sentence2'] = self.df.hypothesis
         
         for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
-
         # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
         # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
         # self.labels = self.df.gold_label.tolist()
@@ -804,50 +801,40 @@ def rank_losses(config, do):
 
             print(f"curret loss : {average_losses} on weaken rate : {epsilon}")
 
-def initial_partition_params(config, model, do, debug=True):
+def initial_partition_params(config, model, do, counterfactual_paths, dataloader,debug=True):
     """partition candidate parameters used to train main model """
-    
     component_mappings = {}
     freeze_params = {}
     train_params = {}
     total_params = {}
-    
     mediators  = get_mediators(model)
-    dev_set = Dev(config['dev_path'], config['dev_json'])
-    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-    layer = config['layer']
+    # dev_set = Dev(config['dev_path'], config['dev_json'])
+    # dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
-    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
-    
+    if config['computed_all_layers']:
+        path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' 
+        layers = config['layers']
+    else: 
+        path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
+        layer = config['layer']
     # candidate neurons existed bias 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
-
-    cls = get_hidden_representations(config['counterfactual_paths'], 
-                                    config['layers'], 
-                                    config['heads'], 
-                                    config['is_group_by_class'], 
-                                    config['is_averaged_embeddings'])
-    
+    cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
-    
     # unfreeze all parameters
     for param in model.parameters(): param.requires_grad = True
-    
     # select masking_rate : 0.05
     for value in (n:= tqdm(num_neuron_groups)):
         # encoder parameter collectors
         freeze_params[value] = {'weight': {}, 'bias': {}}
         train_params[value]  = {'weight': {}, 'bias': {}}
         total_params[value]  = {'weight': {}, 'bias': {}}
-
         count_param =  0
-
         #  if 'encoder' not in splited_name: continue
         #  if 'LayerNorm' in splited_name: continue
-        
         for name, param in model.named_parameters():
             cur_name = name.split('.')
             #  To load and save model's parameters
@@ -855,19 +842,15 @@ def initial_partition_params(config, model, do, debug=True):
                 component = None
                 layer_id = int(cur_name[3])
                 count_param  += param.shape[0]
-                
                 if 'self' in cur_name:  
                     component = component_mappings[cur_name[-2]]  # to get Q, K, V
                 elif 'attention' in cur_name and 'output' in cur_name: 
                     component = component_mappings['attention.output']  
                 else:
                     component = component_mappings[cur_name[-3]]
-
                 for neuron_id in range(param.data.shape[0]):
-
                     cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
                     total_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
-
                     # preparing to restore weight that are not in partition gradients
                     if cur_combine not in list(top_neuron[value].keys()):
                         freeze_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
@@ -876,8 +859,7 @@ def initial_partition_params(config, model, do, debug=True):
             else:
                 print(f'freeze whole tensor: {name}')
                 param.requires_grad = False
-                
-
+        
         for child in ['weight', 'bias']:
             assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
             assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
@@ -891,10 +873,8 @@ def initial_partition_params(config, model, do, debug=True):
                 assert param.requires_grad == True, f' Error : {name}'
             else: 
                 assert param.requires_grad == False, f' Error : {name}'
-
         # Todo: rolling out memory
         layer_param = [] 
-        
         for layer_id in range(model.config.num_hidden_layers): 
             layer_param.append(EncoderParams(layer_id, len(train_params[value]['weight']), len(freeze_params[value]['weight']) ))
         
@@ -903,15 +883,10 @@ def initial_partition_params(config, model, do, debug=True):
             layer_param[int(pos.split('-')[1])].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
         
         restore_path = f'../pickles/restore_weight/'
-
         for layer in range(len(layer_param)): 
-
             cur_restore_path = os.path.join(restore_path, f'v-{value}')
-            
             if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
-
             cur_restore_path = os.path.join(cur_restore_path,f'layer{layer}_components.pickle')
-        
             with open(cur_restore_path, 'wb') as handle:
                 pickle.dump(layer_param[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving layer {layer}'s components into pickle files")
@@ -957,11 +932,11 @@ def restore_original_weight(model, DEBUG = False):
     return model
 
 def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
-
     epochs = 3
     learning_rate = 2e-5
     grad_direction = None # should be matrix to perform elemense wise by sample 
     model = initial_partition_params(config, model, do)
+    breakpoint()
     hooks = []
     # when performing back propagation model it seems register o  ?
     model, hooks = exclude_grad(model, hooks=hooks)
