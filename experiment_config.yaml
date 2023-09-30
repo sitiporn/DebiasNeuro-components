@@ -27,11 +27,12 @@
   "is_NIE_exist": [],
   "is_counterfactual_exist": [],
   # ************ Identifying Bias: Causal Mediation Analysis *************
-  "layer": 2,
-  "treatment": True,
+  "layer": 11,
+  "treatment": False,
   "is_group_by_class": False,
   "is_averaged_embeddings": True,
   "intervention_type": "replace",
+  "computed_all_layers": True,
   "print_config": False,
   #  [42, 3099, 3785, 3990,  409] for experiments
   "seed": 3099,
@@ -48,14 +49,13 @@
   "partition_params": False,
   "get_condition_inferences": False,
   # ******************** test  stuff ********************
+  "eval_model": False,
   "traced": False, 
   "traced_params": False,
   "diag": False,
   # "diag": True,
   "test_traced_params": False,
   "debias_test": False,
-  "eval_model": True,
-  # "eval_model": False,
   # "dev-name": "mismatched",
   # "dev-name": "hans",
   # this set uses matched dataset

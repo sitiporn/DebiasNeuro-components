@@ -51,10 +51,10 @@ def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save
     nie_dataset = None
     nie_dataloader = None
     counter_predictions  = {} 
-    # single layer
-    layers = [config['layer']]
+    layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
+    assert len(layers) == 12, f"This doesn't cover all layers"
     NIE_path = { sorted(path.split('_'),key=len)[0]: path for path in NIE_paths} 
-    NIE_path = NIE_path[str(config['layer'])]
+    NIE_path =  NIE_path['all'] if 'all' in NIE_path.keys() else NIE_path[str(config['layer'])]
     print(f"perform Causal Mediation analysis...")
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
@@ -82,10 +82,8 @@ def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save
         cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
         # mediators:change respect to seed
         # cls: change respect to seed
-        # breakpoint()
         high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter , counter_predictions, layers, _model, config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
-        # save single layers
-        # NIE_path = f'../pickles/NIE/NIE_avg_high_level_{layers}_{treatments[0]}.pickle'
+        
         with open(NIE_path, 'wb') as handle: 
             pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)

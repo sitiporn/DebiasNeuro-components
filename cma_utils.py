@@ -584,16 +584,19 @@ def geting_NIE_paths(config, mode, seed=None):
     path = f'../NIE/'
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
     if not os.path.exists(path): os.mkdir(path) 
-    if -1 in [config['layer']]: 
-        layers = [*range(0, 12, 1)]
-    else:
-        layers = [config['layer']]
+    layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
+    
     if config['is_averaged_embeddings']:
-        for layer in layers:
-            # if not isinstance(layer, list): cur_layer = [layer]
-            NIE_path = os.path.join(path, f'avg_embeddings_{mode[0]}_layer_{layer}_.pickle') 
+        if config['computed_all_layers']: 
+            NIE_path = os.path.join(path, f'avg_embeddings_{mode[0]}_computed_all_layers_.pickle') 
             NIE_paths.append(NIE_path)
             is_NIE_exist.append(os.path.isfile(NIE_path))
+        else:
+            for layer in layers:
+                # if not isinstance(layer, list): cur_layer = [layer]
+                NIE_path = os.path.join(path, f'avg_embeddings_{mode[0]}_layer_{layer}_.pickle') 
+                NIE_paths.append(NIE_path)
+                is_NIE_exist.append(os.path.isfile(NIE_path))
     else:
         for cur_path in config['counterfactual_paths']:
             # extract infor from current path 
