@@ -115,14 +115,7 @@ def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save
             del counterfactual_components
             report_gpu()
      
-def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
-    # select candidates  based on percentage
-    k = config['k']
-    # select candidates based on the number of neurons
-    num_top_neurons = config['num_top_neurons']
-    top_neurons = {}
-    num_neurons = None
-    
+def get_topk(config, k=None, num_top_neurons=None):
     if config['eval_candidates']:
         topk = {'percent': k / 100}
     else: # ******************** Hyperparameter search ********************
@@ -133,7 +126,17 @@ def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
             topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()} 
         else: 
             topk = {'percent': [config['masking_rate']] if config['masking_rate'] else params['percent']}
+    return topk
 
+def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
+    # select candidates  based on percentage
+    k = config['k']
+    # select candidates based on the number of neurons
+    num_top_neurons = config['num_top_neurons']
+    top_neurons = {}
+    num_neurons = None
+
+    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
     key = list(topk.keys())[0]
     # rank for NIE
     layers = config['layers'] if config['computed_all_layers'] else config['layer']
