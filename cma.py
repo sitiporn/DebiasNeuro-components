@@ -115,92 +115,72 @@ def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save
             del counterfactual_components
             report_gpu()
      
-def get_top_k(config, treatments, debug=False):
-    
-    NIE_paths = config['NIE_paths']
-    layers = [config['layer']]
+def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
+    # select candidates  based on percentage
     k = config['k']
+    # select candidates based on the number of neurons
     num_top_neurons = config['num_top_neurons']
-
-    if k is not None: topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
-    
-    params, digits = get_params(config)
-    total_neurons = get_num_neurons(config)
-
-    topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()} if num_top_neurons is not None else {'percent': [config['masking_rate']] if config['masking_rate'] else params['percent']}
-
-    key = list(topk.keys())[0]
-   
     top_neurons = {}
     num_neurons = None
+    
+    if config['eval_candidates']:
+        topk = {'percent': k / 100}
+    else: # ******************** Hyperparameter search ********************
+        params, digits = get_params(config)
+        total_neurons = get_num_neurons(config)
+        if k is not None: topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
+        if num_top_neurons is not None:
+            topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()} 
+        else: 
+            topk = {'percent': [config['masking_rate']] if config['masking_rate'] else params['percent']}
 
-    if -1 in layers: layers = [*range(0, 12, 1)]
-        
+    key = list(topk.keys())[0]
+    # rank for NIE
+    layers = config['layers'] if config['computed_all_layers'] else config['layer']
     # compute average NIE
     for do in treatments:
-        
             ranking_nie = {}
-        
             for cur_path in NIE_paths:
-            
                 with open(cur_path, 'rb') as handle:
-                    
                     NIE = pickle.load(handle)
                     counter = pickle.load(handle)
-                    
                     print(f"current : {cur_path}")
-
-                layer = int(cur_path.split('_')[-2][1:-1])
-                
-                for component in NIE[do].keys():
-                
-                    for neuron_id in NIE[do][component][layer].keys():
-                        
-                        NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter[do][component][layer][neuron_id]
-
-                        if len(layers) == 1:
-                            ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
-                        else:
-                            ranking_nie[f"L-{layer}-"+component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
-            
-                    # Todo: get component and neuron_id and value 
-
+                for layer in layers:
+                    # layer = int(cur_path.split('_')[-2][1:-1])
+                    for component in NIE[do].keys():
+                        for neuron_id in NIE[do][component][layer].keys():
+                            NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter[do][component][layer][neuron_id]
+                            if config['computed_all_layers']:
+                                ranking_nie[f"L-{layer}-"+component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+                            else:
+                                ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+                        # Todo: get component and neuron_id and value 
             # top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
-            if len(layers) == 1: 
-                
+            if not config['computed_all_layers']: 
                 all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
-
                 for value in topk[key]:
-                    
                     num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
                     num_neurons = int(num_neurons)
-
                     print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
-                    
                     top_neurons[round(value, 2) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
 
                 with open(f'../pickles/top_neurons/top_neuron_{key}_{do}_{layer}.pickle', 'wb') as handle:
                     pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     print(f"Done saving top neurons into pickle !") 
-
-
-    if len(layers) == 12:
-        
+    
+    if config['computed_all_layers']:
         all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
-        
+        if not isinstance(topk[key], list): topk[key] = [topk[key]]
         for value in topk[key]:
-            
             num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
             num_neurons = int(num_neurons)
-
             print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
-            
             top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
-
+        
         with open(f'../pickles/top_neurons/top_neuron_{key}_{do}_all_layers.pickle', 'wb') as handle:
             pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Done saving top neurons into pickle !") 
-
+        
         if debug:
             print(f"neurons:")
             print(list(top_neurons[0.01].keys())[:20])
@@ -211,9 +191,9 @@ def get_top_k(config, treatments, debug=False):
             cur_top_neurons = pickle.load(handle)
             print(f"loading top neurons from pickles !") 
 
+
 average_all_seed_distributions = {}
 count_num_seed = 0
-
 def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_maps, DEVICE, is_group_by_class, seed=None, model_path=None, DEBUG=False, summarize=False):
     """ To see the difference between High-overlap and Low-overlap score whether our counterfactuals have huge different."""
     computing_embeddings = {}

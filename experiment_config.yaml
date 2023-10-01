@@ -12,8 +12,6 @@
   "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   
   # ******************** PATH ********************
-  # experiment set 
-  "k":  null, 
   "num_top_neurons": null, 
   "range_percents": True, 
   'neurons': True, 
@@ -27,6 +25,10 @@
   "is_NIE_exist": [],
   "is_counterfactual_exist": [],
   # ************ Identifying Bias: Causal Mediation Analysis *************
+  # experiment set 
+  "k":  5, 
+  # rank based on nie scores 
+  "eval_candidates": True,
   "layer": 11,
   "treatment": False,
   "is_group_by_class": False,
@@ -35,34 +37,21 @@
   "computed_all_layers": True,
   "print_config": False,
   #  [42, 3099, 3785, 3990,  409] for experiments
-  "seed": 3099,
+  "seed": 409,
   # default
-  # "topk": True,
-  "topk": False,
+  # "topk_neurons": True,
+  "get_candidate_neurons": True,
   "distribution": False,
   # To get counterfactual
   "compute_all_seeds": False,
   "eval_counterfactual": False,
   "getting_counterfactual": False,
-  "compute_nie_scores": True,
+  "compute_nie_scores": False,
   # ******************** Unlearn Bias ********************
-  "partition_params": False,
+  "training_json":  multinli_1.0_train.jsonl, 
+  "partition_params": True,
   "get_condition_inferences": False,
-  # ******************** test  stuff ********************
-  "eval_model": False,
-  "traced": False, 
-  "traced_params": False,
-  "diag": False,
-  # "diag": True,
-  "test_traced_params": False,
-  "debias_test": False,
-  # "dev-name": "mismatched",
-  # "dev-name": "hans",
-  # this set uses matched dataset
-  "dev-name": "reweight",
-  # "dev-name": "matched",
-  # if know best params
-  # "weaken": null,
+  # ******************** soft masking neurons ********************
   "weaken": 0.97,
   # "weaken": 0.9,
   # percent of neurons to mask
@@ -72,7 +61,6 @@
   "rank_losses": False, 
   # "rank_losses": True, 
   # training 
-  "training_json":  multinli_1.0_train.jsonl, 
   # optimizer settings
   # range 0.0 to 0.10, step = 0.01
   "percent": {
@@ -96,6 +84,22 @@
     "acc": {}
     },
   "single_neuron": False,
+  # ******************** test  stuff ********************
+  "eval_model": False,
+  "traced": False, 
+  "traced_params": False,
+  "diag": False,
+  # "diag": True,
+  "test_traced_params": False,
+  "debias_test": False,
+  # "dev-name": "mismatched",
+  # "dev-name": "hans",
+  # this set uses matched dataset
+  # "dev-name": "reweight",
+  # "dev-name": "matched",
+  # if know best params
+  # "weaken": null,
+
   # evaluate hans
   "eval": {
     "do": 'High-overlap',

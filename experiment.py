@@ -26,7 +26,7 @@ from pprint import pprint
 from data import ExperimentDataset, Dev, get_condition_inferences, eval_model, print_config, trace_optimized_params
 from data import rank_losses, initial_partition_params, restore_original_weight, partition_param_train
 from intervention import intervene, high_level_intervention
-from cma import cma_analysis, evalutate_counterfactual, get_distribution, get_top_k
+from cma import cma_analysis, evalutate_counterfactual, get_distribution, get_candidate_neurons #get_top_k
 from utils import debias_test
 from cma_utils import get_nie_set_path
 import yaml
@@ -83,7 +83,7 @@ def main():
     # dont forget to select mode eg. High or Low overlap
     # recheck intervention type
     if config['compute_nie_scores']:  cma_analysis(config, all_model_paths[str(config['seed'])], config['seed'], counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
-    if config['topk']: get_top_k(config, treatments=mode) 
+    if config['get_candidate_neurons']: get_candidate_neurons(config, NIE_paths, treatments=mode, debug=False) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['rank_losses']: rank_losses(config=config, do=mode[0])
     # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
