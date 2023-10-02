@@ -1,0 +1,30 @@
+{'layer': -1, 'treatment': True, 'analysis': False, 'print_config': True, 'topk': False, 'distribution': False, 'embedding_summary': False, 'getting_counterfactual': False, 'traced': False, 'debias': False, 'get_prediction': True, 'dev-name': 'mismatched', 'weaken': 0.9, 'masking_rate': 0.05, 'neuron_group': None, 'diag': False, 'rank_losses': False, 'model_name': '../bert-base-uncased-mnli/', 'is_group_by_class': False, 'is_averaged_embeddings': True, 'intervention_type': 'weaken', 'upper_bound': 95, 'lower_bound': 5, 'seed': 42, 'collect_representation': True, 'DEBUG': True, 'debug': False, 'num_samples': 300, 'label_maps': {'contradiction': 0, 'entailment': 1, 'neutral': 2}, 'layers': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 'heads': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 'k': None, 'num_top_neurons': None, 'range_percents': True, 'neurons': True, 'dev_path': '../debias_fork_clean/debias_nlu_clean/data/nli/', 'exp_json': 'multinli_1.0_dev_matched.jsonl', 'dev_json': {}, 'counterfactual_paths': [], 'NIE_paths': [], 'is_NIE_exist': [], 'is_counterfactual_exist': [], 'percent': {'low': 0.0, 'high': 0.1, 'step': 0.01, 'size': 50, 'mode': '0o666', 'acc': {}}, 'epsilons': {'low': 0, 'high': 1, 'step': 0.1, 'size': 50, 'mode': '0o666', 'acc': {}}, 'single_neuron': False, 'eval': {'do': 'High-overlap', 'layer': 1, 'debug': False, 'all_layers': True, 'intervention_mode': 'Intervene'}, 'prediction_path': '../pickles/prediction/', 'evaluations': {}, 'to_text': True, 'get_result': True, 'save_rank': True, 'attention_components': 3, 'nums': {}}
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+=========== Configs  ===============
+current experiment set :multinli_1.0_dev_matched.jsonl
+current dev set: {'mismatched': 'multinli_1.0_dev_mismatched.jsonl'}
+is_group_by_class : False
+is_averaged_embeddings : True
++percent threshold of overlap score
+upper_bound : 95
+lower_bound : 5
+samples used to compute nie scores : 300
+Intervention type : weaken
+HOL and LOL representation in the following paths 
+current: ../pickles/avg_Q_counterfactual_representation.pickle ,  : True 
+current: ../pickles/avg_K_counterfactual_representation.pickle ,  : True 
+current: ../pickles/avg_V_counterfactual_representation.pickle ,  : True 
+current: ../pickles/avg_AO_counterfactual_representation.pickle ,  : True 
+current: ../pickles/avg_I_counterfactual_representation.pickle ,  : True 
+current: ../pickles/avg_O_counterfactual_representation.pickle ,  : True 
+=========== End configs  =========
+current datapath : ../debias_fork_clean/debias_nlu_clean/data/nli/
+current json files : {'mismatched': 'multinli_1.0_dev_mismatched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/v0.9/raw_distribution_0.9_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+loading distributions and labels from : ../pickles/prediction/v0.9/raw_distribution_0.9_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+saving all accuracies into ../pickles/evaluations/v0.9/0.9_0.05_High-overlap_weaken_mismatched.pickle 
+overall acc : 0.8427074857607811
+contradiction acc : 0.8584876543209876
+entailment acc : 0.8261622870343632
+neutral acc : 0.8446788111217641
