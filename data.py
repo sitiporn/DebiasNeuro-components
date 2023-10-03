@@ -197,7 +197,6 @@ class Dev(Dataset):
         self.inputs = {}
         # dev_path = "../debias_fork_clean/debias_nlu_clean/data/nli/"
         # dev_path = os.path.join(os.path.join(dev_path, file))
-        breakpoint()
         self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
         data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
         self.df = pd.read_json(data_path, lines=True)
@@ -931,16 +930,14 @@ def restore_original_weight(model, DEBUG = False):
                     
     return model
 
-def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
+def partition_param_train(model, tokenizer, config, do, counterfactual_paths, DEVICE, DEBUG=False):
     epochs = 3
     learning_rate = 2e-5
     grad_direction = None # should be matrix to perform elemense wise by sample 
     model = initial_partition_params(config, model, do)
-    breakpoint()
     hooks = []
     # when performing back propagation model it seems register o  ?
     model, hooks = exclude_grad(model, hooks=hooks)
-    
     print(f'Epochs : {epochs}, with learning rate at : {learning_rate}')
 
     if DEBUG: 
@@ -1063,10 +1060,10 @@ def get_all_model_paths(LOAD_MODEL_PATH):
 
     for seed in all_model_files.keys():
         checkpoint_paths = [ (checkpoint.split("/")[4].split('_')[-1], checkpoint) for checkpoint in all_model_files[seed]]
-        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[-1]
-        # checkpoint = sorted(checkpoint_paths, key=take_second )[0]
+        # load best model is trained up to the end
+        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
         clean_model_files.append(checkpoint[-1])
-
+    
     assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
@@ -1090,7 +1087,6 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
     neutral_avg = 0
     hans_avg = 0
     count = 0
-    
     for cur_json in json_sets:
         name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
         for seed, path in all_paths.items():
