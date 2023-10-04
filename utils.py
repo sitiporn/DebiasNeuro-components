@@ -374,31 +374,45 @@ def get_num_neurons(config):
 
     return total_neurons
 
-def get_params(config):
-
+def get_params(config, soft_masking_value_search:bool=False, masking_rate_search:bool=False):
+    """hyperparameters to modify neuron's activations tuned on validation sets
+       Args:
+          config: config for experiment
+          soft_masking_value_search: do hyperparameter search on value used modify neurons's activations
+          masking_rate_search: do hyperparameter search on the percentage of neurons to mask
+    """
     params = {}
     digits = {}
-
-    for op in ['epsilons', 'percent']:
-    
+    search_hyper_types = []
+    if soft_masking_value_search: search_hyper_types.append('epsilons')
+    if masking_rate_search: search_hyper_types.append('percent')
+    """
+    if intervention_type == "weaken": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * epsilon
+    elif intervention_type == "neg": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * -1
+    elif intervention_type ==  'remove':
+    """
+    # masking rate : known, seach not epsilons
+    # epsilons 1. weaken 2. remove
+    for op in ['epsilons','percent']:
         low  =  config[op]['low'] 
         high =  config[op]['high']  
         step =  config[op]['step'] 
         digits[op] = len(str(step).split('.')[-1])
         size= config[op]['size']
         mode = config[op]['mode']
-
-        if op == 'epsilons':
-            if config['intervention_type'] == "remove": params[op] = (low - high) * torch.rand(size) + high  # the interval (low, high)
-            if config['intervention_type'] == "weaken": params[op] = [config['weaken']] if config['weaken'] is not None else [round(val, digits[op])for val in np.arange(low, high, step).tolist()]
-            if config['intervention_type'] not in ["remove","weaken"]: params[op] = [0]
+        # hyperparam search
+        if op in search_hyper_types: 
+            if op == 'epsilons':
+                if config['intervention_type'] == "remove": params[op] = (low - high) * torch.rand(size) + high  # the interval (low, high)
+                elif config['intervention_type'] == "weaken": params[op] = [round(val, digits[op]) for val in np.arange(low, high, step).tolist()]
+            else:
+                pass# search hyperparam on masking rate
+        # know hyperparameters
         else:
-            # if config['intervention_type'] == "weaken": params[op] = [config['weaken']] if config['weaken'] is not None else [round(val, digits[op])for val in np.arange(low, high, step).tolist()]
-            # Todo: generalize this statement 
-            if config['intervention_type'] == "weaken": params[op] = [config['masking_rate']] 
-
-
-    return  params, digits
+            if op == 'percent': params[op] = [config['masking_rate']] 
+            elif op == 'epsilons' and config['weaken'] is not None: params[op] = [config['weaken']]
+            elif config['intervention_type'] not in ["remove","weaken"]: params[op] = [0]
+    return  params
 
 def get_diagnosis(config):
     """ This function is used to find upper bound of our methods"""
