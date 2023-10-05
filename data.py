@@ -299,6 +299,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         # where to save modifying activation results
         prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, max_num_digits)}')
+        if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         t.set_description(f"epsilon : {epsilon} , prediction path : {prediction_path}")
         
         for value in (n:= tqdm(num_neuron_groups)):
@@ -396,8 +397,9 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
             if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
 
         eval_path =  f'../pickles/evaluations/seed_{seed}/'
-        if not os.path.isdir(eval_path): os.mkdir(eval_path) 
+        if not os.path.isdir(eval_path): os.mkdir(eval_path)
         eval_path =  os.path.join(eval_path, f'v{round(epsilon, max_num_digits)}')
+        if not os.path.isdir(eval_path): os.mkdir(eval_path)
         eval_path = os.path.join(eval_path, 
                                 f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
                                 else f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
