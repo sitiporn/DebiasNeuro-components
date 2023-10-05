@@ -28,6 +28,7 @@ from utils import get_num_neurons, get_params, relabel, give_weight
 from torch.optim import Adam
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
+from utils import load_model
 
 class ExperimentDataset(Dataset):
     def __init__(self, config, encode, DEBUG=False) -> None: 
@@ -252,7 +253,7 @@ class CustomDataset(Dataset):
         return self.tokenized_datasets[idx]
 
 
-def get_condition_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
+def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
     """ getting inference while modifiying activation values"""
     acc = {}
     layer = config['layer']
@@ -260,7 +261,6 @@ def get_condition_inferences(config, do,  model_path, model, counterfactual_path
     seed = config['seed']
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
     max_num_digits = 3
-    from utils import load_model
     # load model
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
@@ -283,10 +283,16 @@ def get_condition_inferences(config, do,  model_path, model, counterfactual_path
     # get position of top neurons 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
+    
     # Todo: changing neuron group correspond to percent
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
     cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
+    
+    if seed is not None:
+        print(f'high level intervention seed:{seed}')
+        if isinstance(seed, int): seed = str(seed)
+        cls = cls[seed]
 
     for epsilon in (t := tqdm(epsilons)): 
         prediction_path = f'../pickles/prediction/seed_{seed}/' 
@@ -345,7 +351,6 @@ def get_condition_inferences(config, do,  model_path, model, counterfactual_path
                     if mode == "Intervene": 
                         hooks = []
                         for layer_id, component, neuron_id in zip(layer_ids, components, neuron_ids):
-                            breakpoint()
                             Z = cls[component][do][int(layer_id)]
                             hooks.append(mediators[component](int(layer_id)).register_forward_hook(neuron_intervention(
                                                                                         neuron_ids = [int(neuron_id)], 
