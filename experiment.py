@@ -38,8 +38,11 @@ from data import exclude_grad, get_all_model_paths
 def main():
 
     # ******************** LOAD STUFF ********************
-    with open("experiment_config.yaml", "r") as yamlfile:
+    config_path = "./configs/masking_representation.yaml"
+    # config_path = "./configs/experiment_config.yaml"
+    with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
+        print(f'config: {config_path}')
     DEBUG = True
     debug = False # for tracing top counterfactual 
     group_path_by_seed = {}
@@ -53,6 +56,7 @@ def main():
     # ******************** PATH ********************
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
     LOAD_MODEL_PATH = '../models/recent_baseline/'
+    NIE_paths = []
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     # ******************** Identifying Bias: Causal Mediation Analysis ********************
@@ -68,7 +72,8 @@ def main():
             # path to save
             # Done checking path 
             counterfactual_paths, _ = geting_counterfactual_paths(config, seed=seed)
-            NIE_paths, _ = geting_NIE_paths(config, mode, seed=seed)
+            NIE_path, _ = geting_NIE_paths(config, mode, seed=seed)
+            NIE_paths.extend(NIE_path)
             if config['getting_counterfactual']: 
                 # Done checking model counterfactual_path and specific model
                 collect_counterfactuals(model, model_path, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
@@ -82,6 +87,8 @@ def main():
         print(f'NIE_paths: {NIE_paths}')
     # dont forget to select mode eg. High or Low overlap
     # recheck intervention type
+    # this computation should be run single seed at a time
+    # set config -> compute_all_seeds: false
     if config['compute_nie_scores']:  cma_analysis(config, all_model_paths[str(config['seed'])], config['seed'], counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
     if config['get_candidate_neurons']: get_candidate_neurons(config, NIE_paths, treatments=mode, debug=False) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
@@ -93,9 +100,9 @@ def main():
     elif config["dev-name"] == 'matched': config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
     elif config["dev-name"] == 'reweight': config["dev_json"]['reweight'] = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
     # find hyperparameters for soft masking method
-    if config['get_condition_inferences']: get_condition_inferences(config, mode[0], model, tokenizer, DEVICE)
+    if config['get_condition_inferences']: get_condition_inferences(config, mode[0], all_model_paths[str(config['seed'])], model, counterfactual_paths, tokenizer, DEVICE, debug = False)
     # PCGU: optimization 
-    if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], DEVICE)
+    if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], counterfactual_paths, DEVICE)
     # ******************** test  stuff ********************
     # Eval models on test and challenge sets for all seeds
     if config['eval_model']: eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, is_load_model= True, is_optimized_set=False)

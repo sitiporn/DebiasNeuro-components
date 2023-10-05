@@ -135,64 +135,71 @@ def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
     num_top_neurons = config['num_top_neurons']
     top_neurons = {}
     num_neurons = None
-
     topk = get_topk(config, k=k, num_top_neurons=num_neurons)
     key = list(topk.keys())[0]
     # rank for NIE
     layers = config['layers'] if config['computed_all_layers'] else config['layer']
     # compute average NIE
-    for do in treatments:
-            ranking_nie = {}
-            for cur_path in NIE_paths:
-                with open(cur_path, 'rb') as handle:
-                    NIE = pickle.load(handle)
-                    counter = pickle.load(handle)
-                    print(f"current : {cur_path}")
-                for layer in layers:
-                    # layer = int(cur_path.split('_')[-2][1:-1])
-                    for component in NIE[do].keys():
-                        for neuron_id in NIE[do][component][layer].keys():
-                            NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter[do][component][layer][neuron_id]
-                            if config['computed_all_layers']:
-                                ranking_nie[f"L-{layer}-"+component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
-                            else:
-                                ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
-                        # Todo: get component and neuron_id and value 
-            # top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
-            if not config['computed_all_layers']: 
-                all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
-                for value in topk[key]:
-                    num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
-                    num_neurons = int(num_neurons)
-                    print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
-                    top_neurons[round(value, 2) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
-
-                with open(f'../pickles/top_neurons/top_neuron_{key}_{do}_{layer}.pickle', 'wb') as handle:
-                    pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    print(f"Done saving top neurons into pickle !") 
-    
-    if config['computed_all_layers']:
-        all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
-        if not isinstance(topk[key], list): topk[key] = [topk[key]]
-        for value in topk[key]:
-            num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
-            num_neurons = int(num_neurons)
-            print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
-            top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+    # ranking_nie = {} if config['compute_all_seeds'] else None
+    for cur_path in (t:=tqdm(NIE_paths)):
+        # if ranking_nie is None: 
+        ranking_nie = {}
+        with open(cur_path, 'rb') as handle:
+            NIE = pickle.load(handle)
+            counter = pickle.load(handle)
+            print(f"loading NIE : {cur_path}")
+        # get seed number
+        seed = cur_path.split('/')[2].split('_')[-1]
+        # get treatment type
+        do = cur_path.split('/')[-1].split('_')[2]
+        t.set_description(f"{seed}, {do} : {cur_path}")
+        # if seed not in ranking_nie.keys(): ranking_nie[seed] = {}
+        for layer in layers:
+            # layer = int(cur_path.split('_')[-2][1:-1])
+            for component in NIE[do].keys():
+                for neuron_id in NIE[do][component][layer].keys():
+                    NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter[do][component][layer][neuron_id]
+                    # if config['computed_all_layers']:
+                    #     ranking_nie[f"L-{layer}-"+ component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+                    # else:
+                    #     ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+                    ranking_nie[(f"L-{layer}-" if config['computed_all_layers'] else "") + component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+            # Todo: get component and neuron_id and value 
+        # top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
+        # sort layer each
+        if not config['computed_all_layers']: 
+            all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
+            for value in topk[key]:
+                num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
+                num_neurons = int(num_neurons)
+                print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
+                top_neurons[round(value, 2) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+            with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_{layer}.pickle', 'wb') as handle:
+                pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f"Done saving top neurons into pickle !") 
+        # sort whole layers
+        if config['computed_all_layers']:
+            all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
+            if not isinstance(topk[key], list): topk[key] = [topk[key]]
+            for value in topk[key]:
+                num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
+                num_neurons = int(num_neurons)
+                print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
+                top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+            
+            with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle:
+                pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f"Done saving top neurons into pickle !") 
+            
+            if debug:
+                print(f"neurons:")
+                print(list(top_neurons[0.01].keys())[:20])
+                print(f"NIE values :")
+                print(list(top_neurons[0.01].values())[:20])
         
-        with open(f'../pickles/top_neurons/top_neuron_{key}_{do}_all_layers.pickle', 'wb') as handle:
-            pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f"Done saving top neurons into pickle !") 
-        
-        if debug:
-            print(f"neurons:")
-            print(list(top_neurons[0.01].keys())[:20])
-            print(f"NIE values :")
-            print(list(top_neurons[0.01].values())[:20])
-        
-        with open(f'../pickles/top_neurons/top_neuron_{key}_{do}_all_layers.pickle', 'rb') as handle:
-            cur_top_neurons = pickle.load(handle)
-            print(f"loading top neurons from pickles !") 
+        # with open(f'../pickles/top_neurons/top_neuron_{}_{key}_{do}_all_layers.pickle', 'rb') as handle:
+        #     cur_top_neurons = pickle.load(handle)
+        #     print(f"loading top neurons from pickles !") 
 
 
 average_all_seed_distributions = {}
@@ -302,11 +309,11 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
                     print(f"average {cur_class} confident: {confident_score}")
     
     if summarize and count_num_seed == 5:
-        print('==== Summary ===')
+        print('********** Counterfactual Model Output Distribution Summary **********')
         for do in ['High-overlap','Low-overlap']:
             print(f'>> {do}')
             for cur_class in label_maps.keys():
-                print(f" {cur_class} acc : {average_all_seed_distributions[do][cur_class]/ count_num_seed}")
+                print(f" {cur_class}: {average_all_seed_distributions[do][cur_class]/ count_num_seed}")
 
 def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
     
