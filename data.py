@@ -252,99 +252,70 @@ class CustomDataset(Dataset):
         return self.tokenized_datasets[idx]
 
 
-def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = False):
-
+def get_condition_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
+    """ getting inference while modifiying activation values"""
     acc = {}
-
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
-
-    torch.manual_seed(42)
-
-    params, digits = get_params(config)
+    seed = config['seed']
+    layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
+    max_num_digits = 3
+    from utils import load_model
+    # load model
+    if model_path is not None: 
+        _model = load_model(path= model_path, model=model)
+    else:
+        print(f'using original model as input to this function')
+    # torch.manual_seed(42)
+    # modified activations of top 5 percent of all neurons
+    mediators  = get_mediators(_model)
+    params  = get_params(config, soft_masking_value_search=True)
     total_neurons = get_num_neurons(config)
-
-    epsilons = params['epsilons'] if config["weaken"] is None else [ config["weaken"]]
-
+    epsilons = params['epsilons']
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
-
     epsilons = sorted(epsilons)
-    mediators  = get_mediators(model)
     dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-
-    key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
-
-    """
-    if layer == -1:
-        raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
-    else:
-        raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
-    """
-    # there are three modes (percent, k, neurons)
-    # percent; custom ranges of percent to search 
-    # k; specify percents to search
-    # neurons; the range group of neuron from to neurons
-    # top_k_mode =  'percent' if config['k'] is not None  else 'neurons' 
+    key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    
-    # from validation(dev matched) set
-    path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
-
+    path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
     # why top neurons dont chage according to get_top_k
     # get position of top neurons 
-    with open(path, 'rb') as handle: top_neuron = pickle.load(handle) 
-    # with open(f'../pickles/top_neurons/top_neuron_percent_High-overlap_all_layers.pickle', 'rb') as handle:
-        # top_neuron = pickle.load(handle)
-        # print(f"loading top neurons from pickles !") 
-    
+    with open(path, 'rb') as handle: 
+        top_neuron = pickle.load(handle) 
     # Todo: changing neuron group correspond to percent
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
-    
-    cls = get_hidden_representations(config['counterfactual_paths'], 
-                                    config['layers'], 
-                                    config['heads'], 
-                                    config['is_group_by_class'], 
-                                    config['is_averaged_embeddings'])
+    cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
 
     for epsilon in (t := tqdm(epsilons)): 
-        
-        prediction_path = '../pickles/prediction/' 
-        
-        prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, digits["epsilons"])}')
-
+        prediction_path = f'../pickles/prediction/seed_{seed}/' 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
-        
+        # where to save modifying activation results
+        prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, max_num_digits)}')
         t.set_description(f"epsilon : {epsilon} , prediction path : {prediction_path}")
         
         for value in (n:= tqdm(num_neuron_groups)):
-
-            if layer == -1:
+            if config['computed_all_layers']:
+                layer_ids  = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
                 components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
                 neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[value].items()]
-                layer_ids  = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
-            
             else:
                 components = [neuron.split('-')[0] for neuron, v in top_neuron[value].items()]
                 neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
                 layer_ids  =  [layer] * len(components)
-
+            
             if config['single_neuron']: 
-                
                 layer_ids  =  [layer]
                 components = [components[0]]
                 neuron_ids = [neuron_ids[0]]
-                
-                raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{component}_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
-
+                raw_distribution_path = f'raw_distribution_{do}_L{layer}_{component}_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
             else:
-                
-                if layer == -1:
-                    raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
+                if config['computed_all_layers']:
+                    raw_distribution_path = f'raw_distribution_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
                 else:
-                    raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
-                
+                    raw_distribution_path = f'raw_distribution_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
+            
             distributions = {}
             losses = {}
             golden_answers = {}
@@ -353,13 +324,9 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
                 distributions[mode] = []
                 golden_answers[mode] = []
                 losses[mode] = []
-            
             for batch_idx, (inputs) in enumerate(dev_loader):
-
                 cur_inputs = {} 
-
                 for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
-
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
                 pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
                 pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
@@ -371,21 +338,15 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
                 # ignore label_ids when running experiment on hans
                 if label_ids is not None: label_ids = label_ids.to(DEVICE)
                 if config['dev-name'] == 'reweight': scalers = scalers.to(DEVICE)
-                 
                 # mediator used to intervene
                 cur_dist = {}
                 cur_loss = {}
-
                 for mode in ["Null", "Intervene"]:
-
                     if mode == "Intervene": 
-
                         hooks = []
-                        
                         for layer_id, component, neuron_id in zip(layer_ids, components, neuron_ids):
-
+                            breakpoint()
                             Z = cls[component][do][int(layer_id)]
-
                             hooks.append(mediators[component](int(layer_id)).register_forward_hook(neuron_intervention(
                                                                                         neuron_ids = [int(neuron_id)], 
                                                                                         component=component,
@@ -394,26 +355,20 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
                                                                                         epsilon=epsilon,
                                                                                         intervention_type=config["intervention_type"],
                                                                                         debug=debug)))
-
                     with torch.no_grad(): 
-                        
                         # Todo: generalize to distribution if the storage is enough
-                        outs =  model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
+                        outs =  _model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
 
                         cur_dist[mode] = F.softmax(outs.logits , dim=-1)
                         cur_loss[mode] = outs.loss
 
                         if config['dev-name'] != 'hans':
-
                             loss = criterion(outs.logits, label_ids)
                             test_loss = torch.mean(loss)
-
                             assert (test_loss - cur_loss[mode]) < 1e-6
-
                             if debug: print(f"test loss : {test_loss},  BERT's loss : {cur_loss[mode]}")
-
                             if debug: print(f"Before reweight : {test_loss}")
-
+                            
                             loss =  scalers * loss
                             
                             if debug: print(f"After reweight : {torch.mean(loss)}")
@@ -423,7 +378,6 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
 
                     distributions[mode].extend(cur_dist[mode])
                     golden_answers[mode].extend(label_ids if label_ids is not None else cur_inputs['gold_label']) 
-                    
                     if config['dev-name'] != 'hans': losses[mode].extend(loss) 
 
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
@@ -436,11 +390,9 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
 
             if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
 
-        eval_path =  f'../pickles/evaluations/'
-        eval_path =  os.path.join(eval_path, f'v{round(epsilon, digits["epsilons"])}')
-
+        eval_path =  f'../pickles/evaluations/seed_{seed}/'
         if not os.path.isdir(eval_path): os.mkdir(eval_path) 
-
+        eval_path =  os.path.join(eval_path, f'v{round(epsilon, max_num_digits)}')
         eval_path = os.path.join(eval_path, 
                                 f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
                                 else f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
@@ -449,8 +401,7 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
         
-        if config['weaken'] is not None and config['masking_rate'] is not None:
-
+        if config['weaken_rate'] is not None and config['masking_rate'] is not None:
             print(f"overall acc : {acc[config['masking_rate']]['all']}")
             print(f"contradiction acc : {acc[config['masking_rate']]['contradiction']}")
             print(f"entailment acc : {acc[config['masking_rate']]['entailment']}")
