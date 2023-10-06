@@ -53,8 +53,8 @@ def main():
     experiment_set = ExperimentDataset(config, encode = tokenizer)                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     # ******************** PATH ********************
-    save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
-    LOAD_MODEL_PATH = '../models/recent_baseline/'
+    save_nie_set_path = f'pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'pickles/nie_{config["num_samples"]}_samples.pickle'
+    LOAD_MODEL_PATH = 'models/reweight/'
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     # ******************** Identifying Bias: Causal Mediation Analysis ********************

@@ -195,7 +195,7 @@ class Dev(Dataset):
         
         # Todo: generalize dev apth and json file to  mateched
         self.inputs = {}
-        # dev_path = "../debias_fork_clean/debias_nlu_clean/data/nli/"
+        # dev_path = "debias_fork_clean/debias_nlu_clean/data/nli/"
         # dev_path = os.path.join(os.path.join(dev_path, file))
         self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
         
@@ -235,7 +235,10 @@ class CustomDataset(Dataset):
     def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
         df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
         df = preprocss(df)
-        df_new = df[['sentence1', 'sentence2', 'gold_label']]
+        if "bias_probs" in df.columns:
+          df_new = df[['sentence1', 'sentence2', 'gold_label','bias_probs']]  
+        else:
+            df_new = df[['sentence1', 'sentence2', 'gold_label']]
         df_new.rename(columns = {'gold_label':'label'}, inplace = True)
         self.label_maps = label_maps
         df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
@@ -293,12 +296,12 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     
     # from validation(dev matched) set
-    path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
+    path = f'pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
 
     # why top neurons dont chage according to get_top_k
     # get position of top neurons 
     with open(path, 'rb') as handle: top_neuron = pickle.load(handle) 
-    # with open(f'../pickles/top_neurons/top_neuron_percent_High-overlap_all_layers.pickle', 'rb') as handle:
+    # with open(f'pickles/top_neurons/top_neuron_percent_High-overlap_all_layers.pickle', 'rb') as handle:
         # top_neuron = pickle.load(handle)
         # print(f"loading top neurons from pickles !") 
     
@@ -314,7 +317,7 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
 
     for epsilon in (t := tqdm(epsilons)): 
         
-        prediction_path = '../pickles/prediction/' 
+        prediction_path = 'pickles/prediction/' 
         
         prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, digits["epsilons"])}')
 
@@ -440,7 +443,7 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
 
             if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
 
-        eval_path =  f'../pickles/evaluations/'
+        eval_path =  f'pickles/evaluations/'
         eval_path =  os.path.join(eval_path, f'v{round(epsilon, digits["epsilons"])}')
 
         if not os.path.isdir(eval_path): os.mkdir(eval_path) 
@@ -461,7 +464,7 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
             print(f"neutral acc : {acc[config['masking_rate']]['neutral']}")
 
         # 
-        # ../pickles/evaluations/v0.9/0.9_0.05_High-overlap_weaken_mismatched.pickle 
+        # pickles/evaluations/v0.9/0.9_0.05_High-overlap_weaken_mismatched.pickle 
 
         # if config["masking_rate"] is not None:
         #     print(f"all acc : {acc[value]['all']}")
@@ -496,7 +499,7 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
     layer = config['layer']
     
     rank_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
-    prediction_path = '../pickles/prediction/' 
+    prediction_path = 'pickles/prediction/' 
 
     if config['intervention_type'] == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
     if config['intervention_type'] == "weaken": epsilons = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
@@ -649,7 +652,7 @@ def get_condition_inference_hans_result(config, eval_path, prediction_path, neur
                     guess_dict[parts[0]] = format_label(parts[1])
 
             # load from hans set up
-            fi = open("../hans/heuristics_evaluation_set.txt", "r")
+            fi = open("hans/heuristics_evaluation_set.txt", "r")
 
             correct_dict = {}
             first = True
@@ -771,13 +774,13 @@ def rank_losses(config, do):
 
     for epsilon in epsilons:
 
-        prediction_path = '../pickles/prediction/' 
+        prediction_path = 'pickles/prediction/' 
         
         prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, digits["epsilons"])}')
 
         for value in num_neuron_groups:
     
-            # dum_path = '../pickles/prediction/v0.5/raw_distribution_neurons_High-overlap_all_layers_0.05-k_weaken_reweight.pickle'
+            # dum_path = 'pickles/prediction/v0.5/raw_distribution_neurons_High-overlap_all_layers_0.05-k_weaken_reweight.pickle'
             
 
             if layer == -1:
@@ -818,7 +821,7 @@ def initial_partition_params(config, model, do, debug=True):
     layer = config['layer']
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
+    path = f'pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     
     # candidate neurons existed bias 
@@ -902,7 +905,7 @@ def initial_partition_params(config, model, do, debug=True):
         for pos in list(freeze_params[value]['weight'].keys()):
             layer_param[int(pos.split('-')[1])].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
         
-        restore_path = f'../pickles/restore_weight/'
+        restore_path = f'pickles/restore_weight/'
 
         for layer in range(len(layer_param)): 
 
@@ -922,7 +925,7 @@ def restore_original_weight(model, DEBUG = False):
     value = 0.05
     count_freeze_params = 0
     component_mappings = {}
-    restore_path = f'../pickles/restore_weight/'
+    restore_path = f'pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
@@ -1041,7 +1044,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
                 print(f'[{epoch + 1}, {batch_idx + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
 
-        SAVE_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{epoch}.pth'
+        SAVE_MODEL_PATH = f'pickles/models/reweight_model_partition_params_epoch{epoch}.pth'
         torch.save(model.state_dict(), SAVE_MODEL_PATH)
         print(f'save model into {SAVE_MODEL_PATH}')
     
@@ -1049,12 +1052,12 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
         print(f'After optimize model {model.bert.pooler.dense.weight[:3, :3]}')
         print(f'pooler requires grad {model.bert.pooler.dense.weight.requires_grad}')
 
-    with open(f'../pickles/losses/{config["dev-name"]}.pickle', 'wb') as handle: 
+    with open(f'pickles/losses/{config["dev-name"]}.pickle', 'wb') as handle: 
         pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving losses into pickle files')
 
 def get_analysis(config):
-    RESULT_PATH = f'../pickles/performances/'
+    RESULT_PATH = f'pickles/performances/'
     name_set = list(config['dev_json'])[0] 
     raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
     key = 'reweight'
@@ -1082,16 +1085,21 @@ def get_all_model_paths(LOAD_MODEL_PATH):
         if  key not in all_model_files.keys(): all_model_files[key] = []
         if 'pytorch_model' not in str(f): continue
         all_model_files[key].append(str(f))
+    
 
     def take_second(elem):
         return elem[1]
 
     for seed in all_model_files.keys():
         checkpoint_paths = [ (checkpoint.split("/")[4].split('_')[-1], checkpoint) for checkpoint in all_model_files[seed]]
-        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[-1]
-        # checkpoint = sorted(checkpoint_paths, key=take_second )[0]
-        clean_model_files.append(checkpoint[-1])
-
+        print(checkpoint_paths)
+        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[-1] #ori
+        # checkpoint = checkpoint_paths #can
+        # checkpoint = [i[1] for i in checkpoint] #cam
+        # checkpoint = sorted(checkpoint_paths, key=take_second )[0] #cam
+        clean_model_files.append(checkpoint[-1]) #ori
+        # clean_model_files.extend(checkpoint) #can
+    print(clean_model_files)
     assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
@@ -1101,13 +1109,13 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
     losses = {}
     golden_answers = {}
 
-    LOAD_MODEL_PATH = '../models/recent_baseline/'
+    LOAD_MODEL_PATH = 'models/recent_baseline/'
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
     IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
-    RESULT_PATH = f'../pickles/performances/'
+    RESULT_PATH = f'pickles/performances/'
     json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
     acc_avg = 0
     entail_avg = 0
@@ -1232,7 +1240,7 @@ def get_hans_result(raw_distribution_path, config):
             guess_dict[parts[0]] = format_label(parts[1])
 
     # load from hans set up
-    fi = open("../hans/heuristics_evaluation_set.txt", "r")
+    fi = open("hans/heuristics_evaluation_set.txt", "r")
 
     correct_dict = {}
     first = True
@@ -1389,13 +1397,13 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
     debug_count = 0
     count_frozen_whole_encoder_params = 0 
     component_mappings = {}
-    restore_path = f'../pickles/restore_weight/'
+    restore_path = f'pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     
-    LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
+    LOAD_MODEL_PATH = f'pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     NUM_PARAM_TYPES = 2
     
     # load optimized model
@@ -1455,7 +1463,7 @@ def test_restore_weight(model, config, DEVICE):
 def exclude_grad(model, hooks, value = 0.05):
     DEBUG = True
     component_mappings = {}
-    restore_path = f'../pickles/restore_weight/'
+    restore_path = f'pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']

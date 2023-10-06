@@ -1,6 +1,6 @@
 {
   # ******************** LOAD STUFF ********************
-  # "model_name": "../bert-base-uncased/",
+  # "model_name": "bert-base-uncased/",
   "is_group_by_class": False,
   "is_averaged_embeddings": True,
   "intervention_type": "weaken",
@@ -20,8 +20,8 @@
   "num_top_neurons": null, 
   "range_percents": True, 
   'neurons': True, 
-  "model_name": "../bert-base-uncased-mnli/",
-  "dev_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
+  "model_name": "/ist-project/scads/can/DebiasNeuro-components/models/recent_baseline/seed_409/checkpoint-36500",
+  "dev_path": "data/nli/",
   "exp_json": "multinli_1.0_dev_matched.jsonl",
   "dev_json": {},
   # data settings
@@ -107,7 +107,7 @@
 
   # uppper bound test on test set
   # use to read prediction txt files
-  "prediction_path": '../pickles/prediction/',
+  "prediction_path": 'pickles/prediction/',
   "evaluations":  {},
   "to_text": True,
   # "get_result": False,
