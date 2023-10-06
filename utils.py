@@ -339,27 +339,23 @@ def compute_acc(raw_distribution_path, label_maps):
 
     label_remaps = {v:k for k, v in label_maps.items()}
     
-    acc = {k: [] for k in (['all'] + list(label_maps.keys())) }
-
     with open(raw_distribution_path, 'rb') as handle: 
         
         distributions = pickle.load(handle)
         golden_answers = pickle.load(handle)
         print(f'loading distributions and labels from : {raw_distribution_path}')
-
+    
+    acc = {} 
     for mode in distributions.keys():
-        
+        acc[mode] = {k: [] for k in (['all'] + list(label_maps.keys()))}
         for dist, label in zip(distributions[mode], golden_answers[mode]):
-
             prediction = int(torch.argmax(dist))
-
-            acc['all'].append(prediction == int(label))
-            
+            acc[mode]['all'].append(prediction == int(label))
             # acc[label_remaps[label]].append(label_remaps[prediction] == label) 
-            acc[label_remaps[int(label)]].append(prediction == int(label))
-
-    return { k: sum(acc[k]) / len(acc[k]) for k in list(acc.keys()) }
-
+            acc[mode][label_remaps[int(label)]].append(prediction == int(label))
+        acc[mode] = { k: sum(acc[mode][k]) / len(acc[mode][k]) for k in list(acc[mode].keys()) }
+    
+    return acc
 
 def get_num_neurons(config):
 
