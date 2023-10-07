@@ -30,14 +30,14 @@
   # rank based on nie scores 
   "eval_candidates": False,
   "layer": 11,
-  "treatment": False,
+  "treatment": True,
   "is_group_by_class": False,
   "is_averaged_embeddings": True,
   "intervention_type": "weaken",
   "computed_all_layers": True,
   "print_config": False,
   #  [42, 3099, 3785, 3990,  409] for experiments
-  "seed": 3099,
+  "seed": 409,
   # default
   # "topk_neurons": True,
   # together with compute all seeds
@@ -55,6 +55,7 @@
   # ******************** soft masking neurons ********************
   # we mask top 5% neurons
   "weaken_rate": null,
+  "get_masking_value": True,
   # "weaken_rate": 0.97,
   # "weaken": 0.9,
   # percent of neurons to mask
@@ -78,9 +79,9 @@
     # "low": 0.81, 
     # "high": 0.98,
     # "step": 0.01,
-    "low": 0, 
-    "high": 1,
-    "step": 0.1,
+    "low":  0.94, #0.85, 0, 
+    "high": 1, #0.95,  1,
+    "step": 0.0001, #0.01, 0.1,
     "size": 50,
     "mode": 0o666,
     "acc": {}
