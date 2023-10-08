@@ -406,7 +406,7 @@ def get_params(config, soft_masking_value_search:bool=False, masking_rate_search
         # know hyperparameters
         else:
             if op == 'percent': params[op] = [config['masking_rate']] 
-            elif op == 'epsilons' and config['weaken'] is not None: params[op] = [config['weaken']]
+            elif op == 'epsilons' and config['weaken_rate'] is not None: params[op] = [config['weaken_rate']]
             elif config['intervention_type'] not in ["remove","weaken"]: params[op] = [0]
     return  params
 
