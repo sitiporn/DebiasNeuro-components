@@ -50,12 +50,12 @@
   "compute_nie_scores": False,
   # ******************** Unlearn Bias ********************
   "training_json":  multinli_1.0_train.jsonl, 
-  "partition_params": False,
-  "get_condition_inferences": True,
+  "partition_params": True,
+  "get_condition_inferences": False,
   # ******************** soft masking neurons ********************
   # we mask top 5% neurons
   "weaken_rate": null,
-  "get_masking_value": True,
+  "get_masking_value": False,
   # "weaken_rate": 0.97,
   # "weaken": 0.9,
   # percent of neurons to mask
