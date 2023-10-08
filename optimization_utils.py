@@ -20,6 +20,7 @@ from torch.optim import Adam
 from data import get_mediators, get_hidden_representations, EncoderParams, get_specific_component, Dev, group_layer_params
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
+from cma import get_topk
 
 def initial_partition_params(config, model, do, counterfactual_paths, dataloader,debug=True):
     """partition candidate parameters used to train main model """
@@ -27,6 +28,11 @@ def initial_partition_params(config, model, do, counterfactual_paths, dataloader
     freeze_params = {}
     train_params = {}
     total_params = {}
+    seed = config['seed']
+    k = config['k']
+    num_neurons = None
+    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    key = list(topk.keys())[0]
     mediators  = get_mediators(model)
     # dev_set = Dev(config['dev_path'], config['dev_json'])
     # dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
@@ -34,11 +40,12 @@ def initial_partition_params(config, model, do, counterfactual_paths, dataloader
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     if config['computed_all_layers']:
-        path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' 
+        path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle'
         layers = config['layers']
     else: 
-        path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
+        path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
         layer = config['layer']
+
     # candidate neurons existed bias 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
