@@ -24,7 +24,7 @@ from optimization_utils import masking_grad, reverse_grad, initial_partition_par
 
 
 def exclude_grad(model, hooks, value = 0.05):
-    DEBUG = True
+    DEBUG = False
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
@@ -108,7 +108,11 @@ def partition_param_train(model, tokenizer, config, do, counterfactual_paths, DE
     epochs = 3
     learning_rate = 2e-5
     grad_direction = None # should be matrix to perform elemense wise by sample 
-    model = initial_partition_params(config, model, do)
+    criterion = nn.CrossEntropyLoss(reduction = 'none') 
+    optimizer = Adam(model.parameters(), lr= learning_rate)
+    dev_set = Dev(config['dev_path'], config['dev_json'])
+    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+    model = initial_partition_params(config, model, do, counterfactual_paths, dev_loader)
     hooks = []
     # when performing back propagation model it seems register o  ?
     model, hooks = exclude_grad(model, hooks=hooks)
@@ -119,10 +123,6 @@ def partition_param_train(model, tokenizer, config, do, counterfactual_paths, DE
             if param.requires_grad == False: 
                 print(f'freeze params state : {name}')
     
-    criterion = nn.CrossEntropyLoss(reduction = 'none') 
-    optimizer = Adam(model.parameters(), lr= learning_rate)
-    dev_set = Dev(config['dev_path'], config['dev_json'])
-    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
     
     if DEBUG: 
         print(f'Before optimize model {model.bert.pooler.dense.weight[:3, :3]}')
@@ -149,12 +149,10 @@ def partition_param_train(model, tokenizer, config, do, counterfactual_paths, DE
             pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
 
             # ignore label_ids when running experiment on hans
-            label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if config['dev-name'] != 'hans' else None
-            scalers = cur_inputs['weight_score'] if config["dev-name"] == 'reweight' else 1
-
+            label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if config['dev-name'] != 'hans' else None 
+            
             # ignore label_ids when running experiment on hans
             if label_ids is not None: label_ids = label_ids.to(DEVICE)
-            if config['dev-name'] == 'reweight': scalers = scalers.to(DEVICE)
             
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -165,6 +163,9 @@ def partition_param_train(model, tokenizer, config, do, counterfactual_paths, DE
 
             loss = criterion(outs.logits, label_ids)
             test_loss = torch.mean(loss)
+            
+            scalers = cur_inputs['weight_score'] if config["dev-name"] == 'reweight' else torch.ones_like(loss)
+            scalers = scalers.to(DEVICE)
 
             assert abs(outs.loss - test_loss) < 1e-6
             assert scalers.shape == loss.shape
@@ -175,7 +176,7 @@ def partition_param_train(model, tokenizer, config, do, counterfactual_paths, DE
 
             optimizer.step()                
             
-            trace_optimized_params(model, config, DEVICE, DEBUG=False)
+            trace_optimized_params(model, config, DEVICE, DEBUG=True)
 
             if DEBUG: print(f'{model.bert.pooler.dense.weight[:3, :3]}')
 
