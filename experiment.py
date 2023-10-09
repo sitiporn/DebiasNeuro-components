@@ -23,7 +23,7 @@ from pprint import pprint
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-from data import ExperimentDataset, Dev, eval_model, print_config, trace_optimized_params
+from data import ExperimentDataset, Dev, get_condition_inferences, eval_model, print_config, trace_optimized_params
 from data import rank_losses, initial_partition_params, restore_original_weight, partition_param_train
 from intervention import intervene, high_level_intervention
 from cma import cma_analysis, evalutate_counterfactual, get_distribution, get_candidate_neurons #get_top_k
@@ -34,6 +34,7 @@ from utils import get_num_neurons, get_params, get_diagnosis, load_model
 from data import get_analysis 
 from transformers import AutoTokenizer, BertForSequenceClassification
 from data import exclude_grad, get_all_model_paths
+from data import get_masking_value 
 
 def main():
 
@@ -85,6 +86,8 @@ def main():
         print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
         for path in counterfactual_paths: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
         print(f'NIE_paths: {NIE_paths}')
+    
+    # breakpoint()
     # dont forget to select mode eg. High or Low overlap
     # recheck intervention type
     # this computation should be run single seed at a time
@@ -100,7 +103,8 @@ def main():
     elif config["dev-name"] == 'matched': config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
     elif config["dev-name"] == 'reweight': config["dev_json"]['reweight'] = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
     # find hyperparameters for soft masking method
-    if config['get_condition_inferences']: get_condition_inferences(config, mode[0], all_model_paths[str(config['seed'])], model, counterfactual_paths, tokenizer, DEVICE, debug = False)
+    if config['get_condition_inferences']: get_conditional_inferences(config, mode[0], all_model_paths[str(config['seed'])], model, counterfactual_paths, tokenizer, DEVICE, debug = False)
+    if config['get_masking_value']: get_masking_value(config=config)
     # PCGU: optimization 
     if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], counterfactual_paths, DEVICE)
     # ******************** test  stuff ********************

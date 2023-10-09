@@ -257,7 +257,7 @@ class CustomDataset(Dataset):
 
 
 def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
-    """ getting inference while modifiying activation values"""
+    """ getting inferences while modifiying activations """
     acc = {}
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
@@ -301,10 +301,9 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
         prediction_path = f'../pickles/prediction/seed_{seed}/' 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         # where to save modifying activation results
-        prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, max_num_digits)}')
+        prediction_path =  os.path.join(prediction_path, f'v-{round(epsilon, max_num_digits)}')
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         t.set_description(f"epsilon : {epsilon} , prediction path : {prediction_path}")
-        
         for value in (n:= tqdm(num_neuron_groups)):
             if config['computed_all_layers']:
                 layer_ids  = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
@@ -401,7 +400,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
 
         eval_path =  f'../pickles/evaluations/seed_{seed}/'
         if not os.path.isdir(eval_path): os.mkdir(eval_path)
-        eval_path =  os.path.join(eval_path, f'v{round(epsilon, max_num_digits)}')
+        eval_path =  os.path.join(eval_path, f'v-{round(epsilon, max_num_digits)}')
         if not os.path.isdir(eval_path): os.mkdir(eval_path)
         eval_path = os.path.join(eval_path, 
                                 f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
@@ -425,6 +424,40 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
         #     print(f"contradiction acc : {acc[value]['contradiction']}")
         #     print(f"entailment acc : {acc[value]['entailment']}")
         #     print(f"neutral acc : {acc[value]['neutral']}")
+
+def get_masking_value(config):
+    import glob
+    # seed = config['seed']
+    value = 0.05
+    
+    for seed in [42, 3099, 3785, 3990,  409]:
+        eval_paths = glob.glob(f"../pickles/evaluations/seed_{seed}/**/*.pickle")
+        print(len(eval_paths))
+        scores = {}
+        print(f'********** seed : {seed} ************')
+        for path in eval_paths:
+            with open(path,'rb') as handle:
+                acc = pickle.load(handle)
+            scores[path.split('/')[4]] = acc[value]['Intervene']['all']
+            # print(path)
+        sorted_scores = dict(sorted(scores.items()))
+        # for k,v in  sorted_scores.items():
+        #     print(f'{k}:{v*100:.2f}')
+        # print(f"Null : {acc[value]['Null']['all']*100:.2f}, Intervene :{acc[value]['Intervene']['all']*100:.2f}")
+        cur_best_key = list(sorted_scores)[-1]
+        best_val = float(cur_best_key.split('-')[-1])
+        # cur_digits = len(str(best_val).split('.')[-1])
+        print(f"Null : {acc[value]['Null']['all']*100:.2f}, Intervene at {best_val}:{scores[cur_best_key]*100:.2f}")
+    # get new high and low value unitil up to max_num_digits 
+    breakpoint()
+    # get digits
+    # get of new 
+    # add digits by one
+    # 0.1 / 2 #  -> diff 1 * 10e-cu_digits / 2
+    # 0.9 + diff , 
+    # 
+
+
 
 def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
     

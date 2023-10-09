@@ -214,6 +214,7 @@ class BucketIteratorAllennlp:
         instances_with_lengths = []
         for ind in range(len(self.lengths)):
             instances_with_lengths.append((add_noise_to_value(self.padding_lens[ind], self.padding_noise, seed=self.seed) , self.padding_lens[ind]))
+            # instances_with_lengths.append((add_noise_to_value(self.lengths[ind], self.padding_noise, seed=self.seed) , self.lengths[ind]))
 
         with_indices = [(x, i) for i, x in enumerate(instances_with_lengths)]
         with_indices.sort(key=lambda x: x[0][0])
