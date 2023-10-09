@@ -15,8 +15,8 @@
   "num_top_neurons": null, 
   "range_percents": True, 
   'neurons': True, 
-  # "model_name": "/ist-project/scads/can/sit/models/recent_baseline/seed_409/checkpoint-36500/",
-  "dev_path": "../data/nli/",
+  "model_name": "../bert-base-uncased-mnli/",
+  "dev_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
   "exp_json": "multinli_1.0_dev_matched.jsonl",
   "dev_json": {},
   # data settings
@@ -28,7 +28,7 @@
   # experiment set 
   "k":  5, 
   # rank based on nie scores 
-  "eval_candidates": True,
+  "eval_candidates": False,
   "layer": 11,
   "treatment": False,
   "is_group_by_class": False,
@@ -40,16 +40,17 @@
   "seed": 409,
   # default
   # "topk_neurons": True,
-  "get_candidate_neurons": True,
+  # together with compute all seeds
+  "get_candidate_neurons": False,
   "distribution": False,
   # To get counterfactual
   "compute_all_seeds": False,
-  "eval_counterfactual": False,
-  "getting_counterfactual": False,
-  "compute_nie_scores": False,
+  "eval_counterfactual": True,
+  "getting_counterfactual": True,
+  "compute_nie_scores": True,
   # ******************** Unlearn Bias ********************
   "training_json":  multinli_1.0_train.jsonl, 
-  "partition_params": True,
+  "partition_params": False,
   "get_condition_inferences": False,
   # ******************** soft masking neurons ********************
   "weaken": 0.97,
@@ -96,7 +97,7 @@
   # "dev-name": "hans",
   # this set uses matched dataset
   # "dev-name": "reweight",
-  # "dev-name": "matched",
+  "dev-name": "matched",
   # if know best params
   # "weaken": null,
 

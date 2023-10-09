@@ -28,6 +28,7 @@ from utils import get_num_neurons, get_params, relabel, give_weight
 from torch.optim import Adam
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
+from utils import load_model
 
 class ExperimentDataset(Dataset):
     def __init__(self, config, encode, DEBUG=False) -> None: 
@@ -198,21 +199,17 @@ class Dev(Dataset):
         # dev_path = "debias_fork_clean/debias_nlu_clean/data/nli/"
         # dev_path = os.path.join(os.path.join(dev_path, file))
         self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
-        
         data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
         self.df = pd.read_json(data_path, lines=True)
             
         if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
-
         if '-' in self.df.gold_label.unique(): 
             self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
-        
         if self.dev_name == 'hans' or self.dev_name == 'heuristics_set': 
             self.df['sentence1'] = self.df.premise 
             self.df['sentence2'] = self.df.hypothesis
         
         for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
-
         # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
         # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
         # self.labels = self.df.gold_label.tolist()
@@ -259,99 +256,76 @@ class CustomDataset(Dataset):
         return self.tokenized_datasets[idx]
 
 
-def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = False):
-
+def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
+    """ getting inference while modifiying activation values"""
     acc = {}
-
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
-
-    torch.manual_seed(42)
-
-    params, digits = get_params(config)
+    seed = config['seed']
+    layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
+    max_num_digits = 3
+    # load model
+    if model_path is not None: 
+        _model = load_model(path= model_path, model=model)
+    else:
+        print(f'using original model as input to this function')
+    # torch.manual_seed(42)
+    # modified activations of top 5 percent of all neurons
+    mediators  = get_mediators(_model)
+    params  = get_params(config, soft_masking_value_search=True)
     total_neurons = get_num_neurons(config)
-
-    epsilons = params['epsilons'] if config["weaken"] is None else [ config["weaken"]]
-
+    epsilons = params['epsilons']
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
-
     epsilons = sorted(epsilons)
-    mediators  = get_mediators(model)
     dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-
-    key = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
-
-    """
-    if layer == -1:
-        raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
-    else:
-        raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
-    """
-    # there are three modes (percent, k, neurons)
-    # percent; custom ranges of percent to search 
-    # k; specify percents to search
-    # neurons; the range group of neuron from to neurons
-    # top_k_mode =  'percent' if config['k'] is not None  else 'neurons' 
+    key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    
-    # from validation(dev matched) set
-    path = f'pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
-
+    path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
     # why top neurons dont chage according to get_top_k
     # get position of top neurons 
-    with open(path, 'rb') as handle: top_neuron = pickle.load(handle) 
-    # with open(f'pickles/top_neurons/top_neuron_percent_High-overlap_all_layers.pickle', 'rb') as handle:
-        # top_neuron = pickle.load(handle)
-        # print(f"loading top neurons from pickles !") 
+    with open(path, 'rb') as handle: 
+        top_neuron = pickle.load(handle) 
     
     # Todo: changing neuron group correspond to percent
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
+    cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     
-    cls = get_hidden_representations(config['counterfactual_paths'], 
-                                    config['layers'], 
-                                    config['heads'], 
-                                    config['is_group_by_class'], 
-                                    config['is_averaged_embeddings'])
+    if seed is not None:
+        print(f'high level intervention seed:{seed}')
+        if isinstance(seed, int): seed = str(seed)
+        cls = cls[seed]
 
     for epsilon in (t := tqdm(epsilons)): 
-        
-        prediction_path = 'pickles/prediction/' 
-        
-        prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, digits["epsilons"])}')
-
+        prediction_path = f'../pickles/prediction/seed_{seed}/' 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
-        
+        # where to save modifying activation results
+        prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, max_num_digits)}')
+        if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         t.set_description(f"epsilon : {epsilon} , prediction path : {prediction_path}")
         
         for value in (n:= tqdm(num_neuron_groups)):
-
-            if layer == -1:
+            if config['computed_all_layers']:
+                layer_ids  = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
                 components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
                 neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[value].items()]
-                layer_ids  = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
-            
             else:
                 components = [neuron.split('-')[0] for neuron, v in top_neuron[value].items()]
                 neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
                 layer_ids  =  [layer] * len(components)
-
+            
             if config['single_neuron']: 
-                
                 layer_ids  =  [layer]
                 components = [components[0]]
                 neuron_ids = [neuron_ids[0]]
-                
-                raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{component}_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
-
+                raw_distribution_path = f'raw_distribution_{do}_L{layer}_{component}_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
             else:
-                
-                if layer == -1:
-                    raw_distribution_path = f'raw_distribution_{key}_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
+                if config['computed_all_layers']:
+                    raw_distribution_path = f'raw_distribution_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
                 else:
-                    raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
-                
+                    raw_distribution_path = f'raw_distribution_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
+            
             distributions = {}
             losses = {}
             golden_answers = {}
@@ -360,13 +334,9 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
                 distributions[mode] = []
                 golden_answers[mode] = []
                 losses[mode] = []
-            
             for batch_idx, (inputs) in enumerate(dev_loader):
-
                 cur_inputs = {} 
-
                 for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
-
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
                 pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
                 pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
@@ -378,21 +348,14 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
                 # ignore label_ids when running experiment on hans
                 if label_ids is not None: label_ids = label_ids.to(DEVICE)
                 if config['dev-name'] == 'reweight': scalers = scalers.to(DEVICE)
-                 
                 # mediator used to intervene
                 cur_dist = {}
                 cur_loss = {}
-
                 for mode in ["Null", "Intervene"]:
-
                     if mode == "Intervene": 
-
                         hooks = []
-                        
                         for layer_id, component, neuron_id in zip(layer_ids, components, neuron_ids):
-
                             Z = cls[component][do][int(layer_id)]
-
                             hooks.append(mediators[component](int(layer_id)).register_forward_hook(neuron_intervention(
                                                                                         neuron_ids = [int(neuron_id)], 
                                                                                         component=component,
@@ -401,26 +364,20 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
                                                                                         epsilon=epsilon,
                                                                                         intervention_type=config["intervention_type"],
                                                                                         debug=debug)))
-
                     with torch.no_grad(): 
-                        
                         # Todo: generalize to distribution if the storage is enough
-                        outs =  model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
+                        outs =  _model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
 
                         cur_dist[mode] = F.softmax(outs.logits , dim=-1)
                         cur_loss[mode] = outs.loss
 
                         if config['dev-name'] != 'hans':
-
                             loss = criterion(outs.logits, label_ids)
                             test_loss = torch.mean(loss)
-
                             assert (test_loss - cur_loss[mode]) < 1e-6
-
                             if debug: print(f"test loss : {test_loss},  BERT's loss : {cur_loss[mode]}")
-
                             if debug: print(f"Before reweight : {test_loss}")
-
+                            
                             loss =  scalers * loss
                             
                             if debug: print(f"After reweight : {torch.mean(loss)}")
@@ -430,7 +387,6 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
 
                     distributions[mode].extend(cur_dist[mode])
                     golden_answers[mode].extend(label_ids if label_ids is not None else cur_inputs['gold_label']) 
-                    
                     if config['dev-name'] != 'hans': losses[mode].extend(loss) 
 
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
@@ -443,11 +399,10 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
 
             if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
 
-        eval_path =  f'pickles/evaluations/'
-        eval_path =  os.path.join(eval_path, f'v{round(epsilon, digits["epsilons"])}')
-
-        if not os.path.isdir(eval_path): os.mkdir(eval_path) 
-
+        eval_path =  f'../pickles/evaluations/seed_{seed}/'
+        if not os.path.isdir(eval_path): os.mkdir(eval_path)
+        eval_path =  os.path.join(eval_path, f'v{round(epsilon, max_num_digits)}')
+        if not os.path.isdir(eval_path): os.mkdir(eval_path)
         eval_path = os.path.join(eval_path, 
                                 f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
                                 else f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
@@ -456,8 +411,7 @@ def get_condition_inferences(config, do,  model, tokenizer, DEVICE, debug = Fals
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
         
-        if config['weaken'] is not None and config['masking_rate'] is not None:
-
+        if config['weaken_rate'] is not None and config['masking_rate'] is not None:
             print(f"overall acc : {acc[config['masking_rate']]['all']}")
             print(f"contradiction acc : {acc[config['masking_rate']]['contradiction']}")
             print(f"entailment acc : {acc[config['masking_rate']]['entailment']}")
@@ -499,7 +453,7 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
     layer = config['layer']
     
     rank_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
-    prediction_path = 'pickles/prediction/' 
+    prediction_path = '../pickles/prediction/' 
 
     if config['intervention_type'] == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
     if config['intervention_type'] == "weaken": epsilons = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
@@ -774,13 +728,13 @@ def rank_losses(config, do):
 
     for epsilon in epsilons:
 
-        prediction_path = 'pickles/prediction/' 
+        prediction_path = '../pickles/prediction/' 
         
         prediction_path =  os.path.join(prediction_path, f'v{round(epsilon, digits["epsilons"])}')
 
         for value in num_neuron_groups:
     
-            # dum_path = 'pickles/prediction/v0.5/raw_distribution_neurons_High-overlap_all_layers_0.05-k_weaken_reweight.pickle'
+            # dum_path = '../pickles/prediction/v0.5/raw_distribution_neurons_High-overlap_all_layers_0.05-k_weaken_reweight.pickle'
             
 
             if layer == -1:
@@ -807,50 +761,40 @@ def rank_losses(config, do):
 
             print(f"curret loss : {average_losses} on weaken rate : {epsilon}")
 
-def initial_partition_params(config, model, do, debug=True):
+def initial_partition_params(config, model, do, counterfactual_paths, dataloader,debug=True):
     """partition candidate parameters used to train main model """
-    
     component_mappings = {}
     freeze_params = {}
     train_params = {}
     total_params = {}
-    
     mediators  = get_mediators(model)
-    dev_set = Dev(config['dev_path'], config['dev_json'])
-    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-    layer = config['layer']
+    # dev_set = Dev(config['dev_path'], config['dev_json'])
+    # dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    path = f'pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' if layer == -1 else f'pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
-    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
-    
+    if config['computed_all_layers']:
+        path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_all_layers.pickle' 
+        layers = config['layers']
+    else: 
+        path = f'../pickles/top_neurons/top_neuron_{top_k_mode}_{do}_{layer}.pickle'
+        layer = config['layer']
     # candidate neurons existed bias 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
-
-    cls = get_hidden_representations(config['counterfactual_paths'], 
-                                    config['layers'], 
-                                    config['heads'], 
-                                    config['is_group_by_class'], 
-                                    config['is_averaged_embeddings'])
-    
+    cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
-    
     # unfreeze all parameters
     for param in model.parameters(): param.requires_grad = True
-    
     # select masking_rate : 0.05
     for value in (n:= tqdm(num_neuron_groups)):
         # encoder parameter collectors
         freeze_params[value] = {'weight': {}, 'bias': {}}
         train_params[value]  = {'weight': {}, 'bias': {}}
         total_params[value]  = {'weight': {}, 'bias': {}}
-
         count_param =  0
-
         #  if 'encoder' not in splited_name: continue
         #  if 'LayerNorm' in splited_name: continue
-        
         for name, param in model.named_parameters():
             cur_name = name.split('.')
             #  To load and save model's parameters
@@ -858,19 +802,15 @@ def initial_partition_params(config, model, do, debug=True):
                 component = None
                 layer_id = int(cur_name[3])
                 count_param  += param.shape[0]
-                
                 if 'self' in cur_name:  
                     component = component_mappings[cur_name[-2]]  # to get Q, K, V
                 elif 'attention' in cur_name and 'output' in cur_name: 
                     component = component_mappings['attention.output']  
                 else:
                     component = component_mappings[cur_name[-3]]
-
                 for neuron_id in range(param.data.shape[0]):
-
                     cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
                     total_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
-
                     # preparing to restore weight that are not in partition gradients
                     if cur_combine not in list(top_neuron[value].keys()):
                         freeze_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
@@ -879,8 +819,7 @@ def initial_partition_params(config, model, do, debug=True):
             else:
                 print(f'freeze whole tensor: {name}')
                 param.requires_grad = False
-                
-
+        
         for child in ['weight', 'bias']:
             assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
             assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
@@ -894,10 +833,8 @@ def initial_partition_params(config, model, do, debug=True):
                 assert param.requires_grad == True, f' Error : {name}'
             else: 
                 assert param.requires_grad == False, f' Error : {name}'
-
         # Todo: rolling out memory
         layer_param = [] 
-        
         for layer_id in range(model.config.num_hidden_layers): 
             layer_param.append(EncoderParams(layer_id, len(train_params[value]['weight']), len(freeze_params[value]['weight']) ))
         
@@ -905,16 +842,11 @@ def initial_partition_params(config, model, do, debug=True):
         for pos in list(freeze_params[value]['weight'].keys()):
             layer_param[int(pos.split('-')[1])].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
         
-        restore_path = f'pickles/restore_weight/'
-
+        restore_path = f'../pickles/restore_weight/'
         for layer in range(len(layer_param)): 
-
             cur_restore_path = os.path.join(restore_path, f'v-{value}')
-            
             if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
-
             cur_restore_path = os.path.join(cur_restore_path,f'layer{layer}_components.pickle')
-        
             with open(cur_restore_path, 'wb') as handle:
                 pickle.dump(layer_param[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving layer {layer}'s components into pickle files")
@@ -925,7 +857,7 @@ def restore_original_weight(model, DEBUG = False):
     value = 0.05
     count_freeze_params = 0
     component_mappings = {}
-    restore_path = f'pickles/restore_weight/'
+    restore_path = f'../pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
@@ -959,8 +891,7 @@ def restore_original_weight(model, DEBUG = False):
                     
     return model
 
-def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
-
+def partition_param_train(model, tokenizer, config, do, counterfactual_paths, DEVICE, DEBUG=False):
     epochs = 3
     learning_rate = 2e-5
     grad_direction = None # should be matrix to perform elemense wise by sample 
@@ -968,7 +899,6 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
     hooks = []
     # when performing back propagation model it seems register o  ?
     model, hooks = exclude_grad(model, hooks=hooks)
-    
     print(f'Epochs : {epochs}, with learning rate at : {learning_rate}')
 
     if DEBUG: 
@@ -1044,7 +974,7 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
                 print(f'[{epoch + 1}, {batch_idx + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
 
-        SAVE_MODEL_PATH = f'pickles/models/reweight_model_partition_params_epoch{epoch}.pth'
+        SAVE_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{epoch}.pth'
         torch.save(model.state_dict(), SAVE_MODEL_PATH)
         print(f'save model into {SAVE_MODEL_PATH}')
     
@@ -1052,12 +982,12 @@ def partition_param_train(model, tokenizer, config, do, DEVICE, DEBUG=False):
         print(f'After optimize model {model.bert.pooler.dense.weight[:3, :3]}')
         print(f'pooler requires grad {model.bert.pooler.dense.weight.requires_grad}')
 
-    with open(f'pickles/losses/{config["dev-name"]}.pickle', 'wb') as handle: 
+    with open(f'../pickles/losses/{config["dev-name"]}.pickle', 'wb') as handle: 
         pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving losses into pickle files')
 
 def get_analysis(config):
-    RESULT_PATH = f'pickles/performances/'
+    RESULT_PATH = f'../pickles/performances/'
     name_set = list(config['dev_json'])[0] 
     raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
     key = 'reweight'
@@ -1092,14 +1022,9 @@ def get_all_model_paths(LOAD_MODEL_PATH):
 
     for seed in all_model_files.keys():
         checkpoint_paths = [ (checkpoint.split("/")[4].split('_')[-1], checkpoint) for checkpoint in all_model_files[seed]]
-        print(checkpoint_paths)
-        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[-1] #ori
-        # checkpoint = checkpoint_paths #can
-        # checkpoint = [i[1] for i in checkpoint] #cam
-        # checkpoint = sorted(checkpoint_paths, key=take_second )[0] #cam
-        clean_model_files.append(checkpoint[-1]) #ori
-        # clean_model_files.extend(checkpoint) #can
-    print(clean_model_files)
+        # load best model is trained up to the end
+        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
+        clean_model_files.append(checkpoint[-1])
     assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
@@ -1109,13 +1034,13 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
     losses = {}
     golden_answers = {}
 
-    LOAD_MODEL_PATH = 'models/recent_baseline/'
+    LOAD_MODEL_PATH = '../models/recent_baseline/'
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
     IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
-    RESULT_PATH = f'pickles/performances/'
+    RESULT_PATH = f'../pickles/performances/'
     json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
     acc_avg = 0
     entail_avg = 0
@@ -1123,7 +1048,6 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
     neutral_avg = 0
     hans_avg = 0
     count = 0
-    
     for cur_json in json_sets:
         name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
         for seed, path in all_paths.items():
@@ -1170,15 +1094,15 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
                 
             if 'heuristics' not in cur_json: 
                 acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
-                print(f"overall acc : {acc['all']}")
-                print(f"contradiction acc : {acc['contradiction']}")
-                print(f"entailment acc : {acc['entailment']}")
-                print(f"neutral acc : {acc['neutral']}")
+                print(f"overall acc : {acc['multinli']['all']}")
+                print(f"contradiction acc : {acc['multinli']['contradiction']}")
+                print(f"entailment acc : {acc['multinli']['entailment']}")
+                print(f"neutral acc : {acc['multinli']['neutral']}")
 
-                acc_avg += acc['all']
-                entail_avg += acc['entailment']
-                neutral_avg += acc['neutral']
-                contradiction_avg += acc['contradiction']
+                acc_avg += acc['multinli']['all']
+                entail_avg += acc['multinli']['entailment']
+                neutral_avg += acc['multinli']['neutral']
+                contradiction_avg += acc['multinli']['contradiction']
 
             elif config['get_hans_result'] and 'heuristics'in cur_json: 
                 hans_avg += get_hans_result(cur_raw_distribution_path, config)
@@ -1397,13 +1321,13 @@ def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False 
     debug_count = 0
     count_frozen_whole_encoder_params = 0 
     component_mappings = {}
-    restore_path = f'pickles/restore_weight/'
+    restore_path = f'../pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     
-    LOAD_MODEL_PATH = f'pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
+    LOAD_MODEL_PATH = f'../pickles/models/reweight_model_partition_params_epoch{trained_epoch}.pth'
     NUM_PARAM_TYPES = 2
     
     # load optimized model
@@ -1463,7 +1387,7 @@ def test_restore_weight(model, config, DEVICE):
 def exclude_grad(model, hooks, value = 0.05):
     DEBUG = True
     component_mappings = {}
-    restore_path = f'pickles/restore_weight/'
+    restore_path = f'../pickles/restore_weight/'
     restore_path = os.path.join(restore_path, f'v-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
