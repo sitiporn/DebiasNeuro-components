@@ -22,7 +22,7 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from cma import get_topk
 
-def initial_partition_params(config, model, do, counterfactual_paths, dataloader,debug=True):
+def initial_partition_params(config, model, do, debug=True):
     """partition candidate parameters used to train main model """
     component_mappings = {}
     freeze_params = {}
@@ -49,7 +49,6 @@ def initial_partition_params(config, model, do, counterfactual_paths, dataloader
     # candidate neurons existed bias 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
-    cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     # unfreeze all parameters
     for param in model.parameters(): param.requires_grad = True

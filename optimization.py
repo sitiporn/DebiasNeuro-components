@@ -112,7 +112,7 @@ def partition_param_train(model, tokenizer, config, do, counterfactual_paths, DE
     optimizer = Adam(model.parameters(), lr= learning_rate)
     dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-    model = initial_partition_params(config, model, do, counterfactual_paths, dev_loader)
+    model = initial_partition_params(config, model, do) 
     hooks = []
     # when performing back propagation model it seems register o  ?
     model, hooks = exclude_grad(model, hooks=hooks)
