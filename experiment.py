@@ -23,10 +23,12 @@ from pprint import pprint
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
+
 from data import ExperimentDataset, Dev, get_conditional_inferences, eval_model, print_config
 from data import rank_losses
 from optimization_utils import initial_partition_params 
 from optimization import partition_param_train, restore_original_weight
+
 from intervention import intervene, high_level_intervention
 from cma import cma_analysis, evalutate_counterfactual, get_distribution, get_candidate_neurons #get_top_k
 from utils import debias_test
@@ -42,8 +44,8 @@ from optimization import exclude_grad
 def main():
 
     # ******************** LOAD STUFF ********************
-    config_path = "./configs/masking_representation.yaml"
-    # config_path = "./configs/experiment_config.yaml"
+    # config_path = "./configs/masking_representation.yaml"
+    config_path = "./configs/experiment_config.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(f'config: {config_path}')

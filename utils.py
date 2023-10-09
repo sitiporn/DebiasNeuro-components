@@ -9,7 +9,7 @@ import gc
 import os
 import os.path
 from intervention import neuron_intervention
-from tabulate import tabulate
+# from tabulate import tabulate
 import statistics 
 from collections import Counter
 from torch.utils.data import Dataset, DataLoader
@@ -147,7 +147,7 @@ def debias_test(do,
                 intervention_type,
                 debug = False):
 
-    path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
+    path = f'pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
 
     nie_dataloader = None
     hooks = None
@@ -433,12 +433,12 @@ def get_diagnosis(config):
         else:
             raw_distribution_path = f'raw_distribution_{key}_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{dev}.pickle'
 
-        prediction_path = '../pickles/prediction/' 
+        prediction_path = 'pickles/prediction/' 
         epsilon_path = f"v{round(params['epsilons'][0], digits['epsilons'])}"
         
         raw_distribution_path = os.path.join(os.path.join(prediction_path, epsilon_path),  raw_distribution_path)
 
-        # if dev == "hans": raw_distribution_path = '../pickles/prediction/v0.7/raw_distribution_0.7_High-overlap_all_layers_0.05-k_weaken_hans.pickle'
+        # if dev == "hans": raw_distribution_path = 'pickles/prediction/v0.7/raw_distribution_0.7_High-overlap_all_layers_0.05-k_weaken_hans.pickle'
         with open(raw_distribution_path, 'rb') as handle: 
             
             distributions = pickle.load(handle)
