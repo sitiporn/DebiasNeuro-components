@@ -119,7 +119,7 @@ def get_topk(config, k=None, num_top_neurons=None):
     if config['eval_candidates']:
         topk = {'percent': k / 100}
     else: # ******************** Hyperparameter search ********************
-        params, digits = get_params(config)
+        params  = get_params(config)
         total_neurons = get_num_neurons(config)
         if k is not None: topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
         if num_top_neurons is not None:
