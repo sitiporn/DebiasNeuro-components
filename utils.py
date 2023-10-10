@@ -350,6 +350,7 @@ def compute_acc(raw_distribution_path, label_maps):
         golden_answers = {'Null': golden_answers}
     
     print(f'compute_acc modes:{modes}') # Intervene, Null
+     
     for mode in modes:
         acc[mode] = {k: [] for k in (['all'] + list(label_maps.keys()))}
         for dist, label in zip(distributions[mode], golden_answers[mode]):

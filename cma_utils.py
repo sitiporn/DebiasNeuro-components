@@ -201,7 +201,7 @@ def test_mask(neuron_candidates =[]):
 
 def geting_counterfactual_paths(config, seed=None):
 
-    path = f'counterfactuals/'
+    path = f'../counterfactuals/'
     path = os.path.join(path, "seed_"+ str( config['seed'] if seed is None else seed ) ) 
     if not os.path.exists(path): os.mkdir(path) 
 
@@ -581,7 +581,7 @@ def get_single_representation(cur_path, do = None, class_name = None):
 def geting_NIE_paths(config, mode, seed=None):
     NIE_paths = []
     is_NIE_exist = []
-    path = f'NIE/'
+    path = f'../NIE/'
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
     if not os.path.exists(path): os.mkdir(path) 
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
