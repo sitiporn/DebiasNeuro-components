@@ -269,7 +269,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     # torch.manual_seed(42)
     # modified activations of top 5 percent of all neurons
     mediators  = get_mediators(_model)
-    params  = get_params(config, soft_masking_value_search=True)
+    params  = get_params(config, soft_masking_value_search=False)
     total_neurons = get_num_neurons(config)
     epsilons = params['epsilons']
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
@@ -406,12 +406,14 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
         with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
-        
+
         if config['weaken_rate'] is not None and config['masking_rate'] is not None:
-            print(f"overall acc : {acc[config['masking_rate']]['all']}")
-            print(f"contradiction acc : {acc[config['masking_rate']]['contradiction']}")
-            print(f"entailment acc : {acc[config['masking_rate']]['entailment']}")
-            print(f"neutral acc : {acc[config['masking_rate']]['neutral']}")
+            for mode in ['Null','Intervene']:
+                print(f'************** {mode} *****************')
+                print(f"overall acc : {acc[config['masking_rate']][mode]['all']}")
+                print(f"contradiction acc : {acc[config['masking_rate']][mode]['contradiction']}")
+                print(f"entailment acc : {acc[config['masking_rate']][mode]['entailment']}")
+                print(f"neutral acc : {acc[config['masking_rate']][mode]['neutral']}")
 
         # 
         # ../pickles/evaluations/v0.9/0.9_0.05_High-overlap_weaken_mismatched.pickle 
@@ -833,13 +835,13 @@ def get_all_model_paths(LOAD_MODEL_PATH):
     assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
-def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimized_set = False):
+def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
     golden_answers = {}
 
-    LOAD_MODEL_PATH = '../models/recent_baseline/'
+    
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
@@ -852,19 +854,19 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
     contradiction_avg = 0
     neutral_avg = 0
     hans_avg = 0
-    count = 0
-    for cur_json in json_sets:
-        name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
-        for seed, path in all_paths.items():
-            if is_load_model:
-                from utils import load_model
-                model = load_model(path=path, model=model)
-            else:
-                print(f'Using original model')
-
-            distributions[name_set] = []
-            losses[name_set] = []
-            golden_answers[name_set] = []
+    computed_acc_count = 0
+    computed_hans_count = 0
+    for seed, path in all_paths.items():
+        if is_load_model:
+            from utils import load_model
+            model = load_model(path=path, model=model)
+        else:
+            print(f'Using original model')
+        for cur_json in json_sets:
+            name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+            distributions = []
+            losses = []
+            golden_answers = []
             
             dev_set = Dev(config['dev_path'] , cur_json)
             dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
@@ -886,8 +888,8 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
                 with torch.no_grad(): 
                     # Todo: generalize to distribution if the storage is enough
                     outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
-                    distributions[name_set].extend(F.softmax(outs.logits.cpu() , dim=-1))
-                    golden_answers[name_set].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
+                    distributions.extend(F.softmax(outs.logits.cpu() , dim=-1))
+                    golden_answers.extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
 
             cur_raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
             
@@ -899,6 +901,8 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
                 
             if 'heuristics' not in cur_json: 
                 acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
+                if 'Null' in acc.keys():
+                    acc = acc['Null']
                 print(f"overall acc : {acc['all']}")
                 print(f"contradiction acc : {acc['contradiction']}")
                 print(f"entailment acc : {acc['entailment']}")
@@ -908,9 +912,13 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
                 entail_avg += acc['entailment']
                 neutral_avg += acc['neutral']
                 contradiction_avg += acc['contradiction']
+                computed_acc_count += 1
 
             elif config['get_hans_result'] and 'heuristics'in cur_json: 
-                hans_avg += get_hans_result(cur_raw_distribution_path, config)
+                cur_hans_score = get_hans_result(cur_raw_distribution_path, config)
+                hans_avg += cur_hans_score
+                computed_hans_count +=1
+                print(f'has score :{cur_hans_score}')
     
     print(f'==================== Avearge scores ===================')
     print(f"average overall acc : {acc_avg / len(all_paths)}")
@@ -926,10 +934,11 @@ def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path)
     with open(raw_distribution_path, 'rb') as handle: 
         distributions = pickle.load(handle)
         golden_answers = pickle.load(handle)
+        print(f'hans loading from : {raw_distribution_path}')
 
     # # convert answers_ids to text answers
-    for sample_id in range(len(distributions['heuristics'])):
-        text_prediction = get_ans(torch.argmax(distributions['heuristics'][sample_id], dim=-1))
+    for sample_id in range(len(distributions)):
+        text_prediction = get_ans(torch.argmax(distributions[sample_id], dim=-1))
         text_answers.append(text_prediction)
 
     # # write into text files
