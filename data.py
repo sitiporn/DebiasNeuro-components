@@ -196,7 +196,7 @@ class Dev(Dataset):
         
         # Todo: generalize dev apth and json file to  mateched
         self.inputs = {}
-        # dev_path = "../debias_fork_clean/debias_nlu_clean/data/nli/"
+        # dev_path = "debias_fork_clean/debias_nlu_clean/data/nli/"
         # dev_path = os.path.join(os.path.join(dev_path, file))
         self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
         data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
@@ -232,7 +232,10 @@ class CustomDataset(Dataset):
     def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
         df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
         df = preprocss(df)
-        df_new = df[['sentence1', 'sentence2', 'gold_label']]
+        if "bias_probs" in df.columns:
+          df_new = df[['sentence1', 'sentence2', 'gold_label','bias_probs']]  
+        else:
+            df_new = df[['sentence1', 'sentence2', 'gold_label']]
         df_new.rename(columns = {'gold_label':'label'}, inplace = True)
         self.label_maps = label_maps
         df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
@@ -416,7 +419,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
                 print(f"neutral acc : {acc[config['masking_rate']][mode]['neutral']}")
 
         # 
-        # ../pickles/evaluations/v0.9/0.9_0.05_High-overlap_weaken_mismatched.pickle 
+        # pickles/evaluations/v0.9/0.9_0.05_High-overlap_weaken_mismatched.pickle 
 
         # if config["masking_rate"] is not None:
         #     print(f"all acc : {acc[value]['all']}")
@@ -638,7 +641,7 @@ def get_condition_inference_hans_result(config, eval_path, prediction_path, neur
                     guess_dict[parts[0]] = format_label(parts[1])
 
             # load from hans set up
-            fi = open("../hans/heuristics_evaluation_set.txt", "r")
+            fi = open("hans/heuristics_evaluation_set.txt", "r")
 
             correct_dict = {}
             first = True
@@ -822,6 +825,7 @@ def get_all_model_paths(LOAD_MODEL_PATH):
         if  key not in all_model_files.keys(): all_model_files[key] = []
         if 'pytorch_model' not in str(f): continue
         all_model_files[key].append(str(f))
+    
 
     def take_second(elem):
         return elem[1]
@@ -831,7 +835,6 @@ def get_all_model_paths(LOAD_MODEL_PATH):
         # load best model is trained up to the end
         checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
         clean_model_files.append(checkpoint[-1])
-    
     assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
@@ -978,7 +981,7 @@ def get_hans_result(raw_distribution_path, config):
             guess_dict[parts[0]] = format_label(parts[1])
 
     # load from hans set up
-    fi = open("../hans/heuristics_evaluation_set.txt", "r")
+    fi = open("hans/heuristics_evaluation_set.txt", "r")
 
     correct_dict = {}
     first = True

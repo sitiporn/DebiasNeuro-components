@@ -9,7 +9,7 @@ import gc
 import os
 import os.path
 from intervention import neuron_intervention
-from tabulate import tabulate
+# from tabulate import tabulate
 import statistics 
 from collections import Counter
 from torch.utils.data import Dataset, DataLoader
@@ -161,12 +161,12 @@ def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, conf
                 pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving to {cur_path} done ! ")
                 
-    with open('../pickles/utilizer_components.pickle', 'wb') as handle: 
+    with open('pickles/utilizer_components.pickle', 'wb') as handle: 
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
         # pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         # pickle.dump(experiment_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
         # pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"save utilizer to ../pickles/utilizer_components.pickle  ! ")
+        print(f"save utilizer to pickles/utilizer_components.pickle  ! ")
 
 def test_mask(neuron_candidates =[]):
     x  = torch.tensor([[ [1,2,3], 
@@ -201,7 +201,7 @@ def test_mask(neuron_candidates =[]):
 
 def geting_counterfactual_paths(config, seed=None):
 
-    path = f'../counterfactuals/'
+    path = f'counterfactuals/'
     path = os.path.join(path, "seed_"+ str( config['seed'] if seed is None else seed ) ) 
     if not os.path.exists(path): os.mkdir(path) 
 
@@ -351,7 +351,7 @@ def trace_counterfactual(do,
                         intervention_type, 
                         debug = False):
 
-    path = f'../pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
+    path = f'pickles/top_neurons/top_neuron_{do}_{layer}.pickle'
 
     nie_dataloader = None
     hooks = None
@@ -371,7 +371,7 @@ def trace_counterfactual(do,
     
     component = list(top_neuron.keys())[0].split('-')[0]
     neuron_id  = int(list(top_neuron.keys())[0].split('-')[1])
-    dist_path = f'../pickles/distributions/L{layer}_{do}_{component}_{neuron_id}.pickle'
+    dist_path = f'pickles/distributions/L{layer}_{do}_{component}_{neuron_id}.pickle'
     
     print(f"component : {component}")
     print(f"neuron_id : {neuron_id}")
@@ -507,7 +507,7 @@ def trace_counterfactual(do,
             print(f'saving NIE scores into : {dist_path}')
 
 def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, is_averaged_embeddings):
-    with open('../pickles/utilizer_components.pickle', 'rb') as handle: 
+    with open('pickles/utilizer_components.pickle', 'rb') as handle: 
         # attention_data = pickle.load(handle)
         counter = pickle.load(handle)
         # experiment_set = pickle.load(handle)
@@ -551,20 +551,20 @@ def get_single_representation(cur_path, do = None, class_name = None):
         hidden_representations[component][do] = {}
         
         """
-        saving to ../pickles/individual_class_level_Q_counterfactual_representation.pickle done ! 
-        saving to ../pickles/individual_class_level_K_counterfactual_representation.pickle done ! 
-        saving to ../pickles/individual_class_level_V_counterfactual_representation.pickle done ! 
-        saving to ../pickles/individual_class_level_AO_counterfactual_representation.pickle done ! 
-        saving to ../pickles/individual_class_level_I_High-overlap_contradiction_counterfactual_representation.pickle done ! 
-        saving to ../pickles/individual_class_level_I_High-overlap_entailment_counterfactual_representation.pickle done ! 
-        saving to ../pickles/individual_class_level_I_High-overlap_neutral_counterfactual_representation.pickle done ! 
-        saving to ../pickles/individual_class_level_I_Low-overlap_contradiction_counterfactual_representation.pickle done ! 
-        saving to ../pickles/individual_class_level_I_Low-overlap_entailment_counterfactual_representation.pickle done ! 
-        saving to ../pickles/individual_class_level_I_Low-overlap_neutral_counterfactual_representation.pickle done ! 
-        saving to ../pickles/individual_class_level_O_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_Q_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_K_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_V_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_AO_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_I_High-overlap_contradiction_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_I_High-overlap_entailment_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_I_High-overlap_neutral_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_I_Low-overlap_contradiction_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_I_Low-overlap_entailment_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_I_Low-overlap_neutral_counterfactual_representation.pickle done ! 
+        saving to pickles/individual_class_level_O_counterfactual_representation.pickle done ! 
         """
         
-        cur_path = f'../pickles/individual_class_level_{component}_{do}_{class_name}_counterfactual_representation.pickle'
+        cur_path = f'pickles/individual_class_level_{component}_{do}_{class_name}_counterfactual_representation.pickle'
         
         # nested dict : [component][do][class_name][layer][sample_idx]
         with open(cur_path, 'rb') as handle:
@@ -581,7 +581,7 @@ def get_single_representation(cur_path, do = None, class_name = None):
 def geting_NIE_paths(config, mode, seed=None):
     NIE_paths = []
     is_NIE_exist = []
-    path = f'../NIE/'
+    path = f'NIE/'
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
     if not os.path.exists(path): os.mkdir(path) 
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]

@@ -1,0 +1,130 @@
+{
+  # ******************** LOAD STUFF ********************
+  # "model_name": "../bert-base-uncased/",
+  "collect_representation": True,
+  "DEBUG": True,
+  "debug": False, 
+  "num_samples": 300,
+  "upper_bound": 95,
+  "lower_bound": 5,
+  "label_maps": {"entailment": 0, "contradiction": 1, "neutral": 2},
+  "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  
+  # ******************** PATH ********************
+  "num_top_neurons": null, 
+  "range_percents": True, 
+  'neurons': True, 
+  # "model_name": "/ist-project/scads/can/sit/models/recent_baseline/seed_409/checkpoint-36500/",
+  "dev_path": "../data/nli/",
+  "exp_json": "multinli_1.0_dev_matched.jsonl",
+  "dev_json": {},
+  # data settings
+  "counterfactual_paths": [],
+  "NIE_paths": [],
+  "is_NIE_exist": [],
+  "is_counterfactual_exist": [],
+  # ************ Identifying Bias: Causal Mediation Analysis *************
+  # experiment set 
+  "k":  5, 
+  # rank based on nie scores 
+  "eval_candidates": True,
+  "layer": 11,
+  "treatment": False,
+  "is_group_by_class": False,
+  "is_averaged_embeddings": True,
+  "intervention_type": "replace",
+  "computed_all_layers": True,
+  "print_config": False,
+  #  [42, 3099, 3785, 3990,  409] for experiments
+  "seed": 409,
+  # default
+  # "topk_neurons": True,
+  "get_candidate_neurons": True,
+  "distribution": False,
+  # To get counterfactual
+  "compute_all_seeds": False,
+  "eval_counterfactual": False,
+  "getting_counterfactual": False,
+  "compute_nie_scores": False,
+  # ******************** Unlearn Bias ********************
+  "training_json":  multinli_1.0_train.jsonl, 
+  "partition_params": True,
+  "get_condition_inferences": False,
+  # ******************** soft masking neurons ********************
+  "weaken": 0.97,
+  # "weaken": 0.9,
+  # percent of neurons to mask
+  "masking_rate": 0.05, 
+  # number of neurons to mask
+  "neuron_group": null,
+  "rank_losses": False, 
+  # "rank_losses": True, 
+  # training 
+  # optimizer settings
+  # range 0.0 to 0.10, step = 0.01
+  "percent": {
+    "low": 0.0, 
+    "high": 0.1,
+    "step": 0.01,
+    "size": 50,
+    "mode": 0o666,
+    "acc": {}
+    },
+  # range 0 to 1, step = 0.1
+  "epsilons": {
+    "low": 0.81, 
+    "high": 0.98,
+    "step": 0.01,
+    # "low": 0, 
+    # "high": 1,
+    # "step": 0.1,
+    "size": 50,
+    "mode": 0o666,
+    "acc": {}
+    },
+  "single_neuron": False,
+  # ******************** test  stuff ********************
+  "eval_model": False,
+  "traced": False, 
+  "traced_params": False,
+  "diag": False,
+  # "diag": True,
+  "test_traced_params": False,
+  "debias_test": False,
+  # "dev-name": "mismatched",
+  # "dev-name": "hans",
+  # this set uses matched dataset
+  # "dev-name": "reweight",
+  # "dev-name": "matched",
+  # if know best params
+  # "weaken": null,
+
+  # evaluate hans
+  "eval": {
+    "do": 'High-overlap',
+    "layer": 11,
+    "debug": False,
+    "all_layers": True,
+    "intervention_mode": "Intervene"
+    },
+
+  # uppper bound test on test set
+  # use to read prediction txt files
+  "prediction_path": '../pickles/prediction/',
+  "evaluations":  {},
+  "to_text": True,
+  # "get_result": False,
+  "get_condition_hans_result": False,
+  "get_hans_result": True,
+  "save_rank": True,
+  # neurons components
+  "attention_components": 3,
+  "nums": {}
+}
+
+
+
+
+    
+         
