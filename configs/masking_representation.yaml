@@ -46,12 +46,12 @@
   # To get counterfactual
   "compute_all_seeds": False,
   "eval_counterfactual": False,
-  "getting_counterfactual": False,
-  "compute_nie_scores": False,
+  "getting_counterfactual": True,
+  "compute_nie_scores": True,
   # ******************** Unlearn Bias ********************
   "training_json":  multinli_1.0_train.jsonl, 
   "partition_params": False,
-  "get_condition_inferences": True,
+  "get_condition_inferences": False,
   # ******************** soft masking neurons ********************
   # we mask top 5% neurons
   "weaken_rate": 0.9,

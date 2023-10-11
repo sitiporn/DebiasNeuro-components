@@ -44,8 +44,8 @@ from optimization import exclude_grad
 def main():
 
     # ******************** LOAD STUFF ********************
-    # config_path = "./configs/masking_representation.yaml"
-    config_path = "./configs/experiment_config.yaml"
+    config_path = "./configs/masking_representation.yaml"
+    # config_path = "./configs/experiment_config.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(f'config: {config_path}')
@@ -92,13 +92,35 @@ def main():
         print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
         for path in counterfactual_paths: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
         print(f'NIE_paths: {NIE_paths}')
+        if config['getting_counterfactual']: 
+            # Done checking model counterfactual_path and specific model
+            seed = config['seed']
+            model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
+            collect_counterfactuals(model, model_path, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
     
+    from data import get_condition_inference_hans_result
+    # TODO: get counterfactual of model ishan/bert-base-uncased-mnli
+    # TODO: compute NIE of model ishan/bert-base-uncased-mnli
+    # TODO: get top neurons
+    # TODO: get_condition inference on hans
+    # get_condition_inference_hans_result(config)
     # breakpoint()
     # dont forget to select mode eg. High or Low overlap
     # recheck intervention type
     # this computation should be run single seed at a time
     # set config -> compute_all_seeds: false
-    if config['compute_nie_scores']:  cma_analysis(config, all_model_paths[str(config['seed'])], config['seed'], counterfactual_paths, NIE_paths, save_nie_set_path = save_nie_set_path, model = model, treatments = mode, tokenizer = tokenizer, experiment_set = experiment_set, DEVICE = DEVICE, DEBUG = True)
+    if config['compute_nie_scores']:  cma_analysis(config, 
+                                                  config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])], 
+                                                  config['seed'], 
+                                                  counterfactual_paths, 
+                                                  NIE_paths, 
+                                                  save_nie_set_path = save_nie_set_path, 
+                                                  model = model, 
+                                                  treatments = mode, 
+                                                  tokenizer = tokenizer, 
+                                                  experiment_set = experiment_set, 
+                                                  DEVICE = DEVICE, 
+                                                  DEBUG = True)
     if config['get_candidate_neurons']: get_candidate_neurons(config, NIE_paths, treatments=mode, debug=False) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['rank_losses']: rank_losses(config=config, do=mode[0])
