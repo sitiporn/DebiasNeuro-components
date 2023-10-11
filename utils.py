@@ -336,17 +336,22 @@ def load_model(path, model):
     return model
 
 def compute_acc(raw_distribution_path, label_maps):
-
     label_remaps = {v:k for k, v in label_maps.items()}
-    
     with open(raw_distribution_path, 'rb') as handle: 
-        
         distributions = pickle.load(handle)
         golden_answers = pickle.load(handle)
         print(f'loading distributions and labels from : {raw_distribution_path}')
-    
     acc = {} 
-    for mode in distributions.keys():
+    if isinstance(distributions, dict):
+        modes = list(distributions.keys())
+    else:
+        modes = ['Null']
+        distributions  = {'Null': distributions}
+        golden_answers = {'Null': golden_answers}
+    
+    print(f'compute_acc modes:{modes}') # Intervene, Null
+     
+    for mode in modes:
         acc[mode] = {k: [] for k in (['all'] + list(label_maps.keys()))}
         for dist, label in zip(distributions[mode], golden_answers[mode]):
             prediction = int(torch.argmax(dist))

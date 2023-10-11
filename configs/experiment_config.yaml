@@ -28,7 +28,7 @@
   # experiment set 
   "k":  5, 
   # rank based on nie scores 
-  "eval_candidates": True,
+  "eval_candidates": False,
   "layer": 11,
   "treatment": True,
   "is_group_by_class": False,
@@ -41,11 +41,11 @@
   # default
   # "topk_neurons": True,
   # together with compute all seeds
-  "get_candidate_neurons": True,
+  "get_candidate_neurons": False,
   "distribution": False,
   # To get counterfactual
   "compute_all_seeds": True,
-  "eval_counterfactual": True,
+  "eval_counterfactual": False,
   "getting_counterfactual": False,
   "compute_nie_scores": False,
   # ******************** Unlearn Bias ********************
@@ -57,6 +57,7 @@
   # "weaken": 0.9,
   # percent of neurons to mask
   "masking_rate": 0.05, 
+  'get_masking_value': False,
   # number of neurons to mask
   "neuron_group": null,
   "rank_losses": False, 
@@ -86,7 +87,7 @@
     },
   "single_neuron": False,
   # ******************** test  stuff ********************
-  "eval_model": False,
+  "eval_model": True,
   "traced": False, 
   "traced_params": False,
   "diag": False,
@@ -118,7 +119,7 @@
   # "get_result": False,
   "get_condition_hans_result": False,
   "get_hans_result": True,
-  "save_rank": True,
+  "save_rank": iment_configTrue,
   # neurons components
   "attention_components": 3,
   "nums": {}

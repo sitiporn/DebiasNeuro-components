@@ -84,6 +84,10 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
         print(f'high level intervention seed:{seed}')
         if isinstance(seed, int): seed = str(seed)
         cls = cls[seed]
+    else:
+        # when using original model
+        cls = cls[str(seed)]
+    
     components = cls.keys() # 
     assert len(components) == 6, f"don't cover all component types of transformer modules" 
     assert len(layers) == 12, f"the computation does not cover follow all layers"
