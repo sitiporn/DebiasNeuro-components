@@ -257,7 +257,7 @@ class CustomDataset(Dataset):
 
 
 def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
-    """ getting inferences while modifiying activations """
+    """ getting inferences while modifiying activations on dev-matched/dev-mm """
     acc = {}
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
@@ -599,8 +599,31 @@ def format_label(label):
     else:
         return "non-entailment"
 
-def get_condition_inference_hans_result(config, eval_path, prediction_path, neuron_path, top_neuron, prediction_mode, params, digits):
+def get_condition_inference_hans_result(config): 
+    """ getting inferences while modifiying activations on challenge set(HANS)"""
+
+    eval_path = f'../pickles/evaluations/'
+    prediction_path = '../pickles/prediction/' 
+    top_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     
+    neuron_path = f'../pickles/top_neurons/top_neuron_{top_mode}_{config["eval"]["do"]}_all_layers.pickle'if config['computed_all_layers']  else f'../pickles/top_neurons/top_neuron_{top_mode}_{config["eval"]["do"]}_{config["layer"]}.pickle'
+    # path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
+    
+    with open(neuron_path, 'rb') as handle: 
+        top_neuron = pickle.load(handle)
+
+    breakpoint()
+
+    params, digits = get_params(config)
+    
+    # ********** follow **********
+    if model_path is not None: 
+        _model = load_model(path= model_path, model=model)
+    else:
+        print(f'using original model as input to this function')
+
+    # ********** original function **********
+ 
     if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits)
     
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
@@ -641,7 +664,7 @@ def get_condition_inference_hans_result(config, eval_path, prediction_path, neur
                     guess_dict[parts[0]] = format_label(parts[1])
 
             # load from hans set up
-            fi = open("hans/heuristics_evaluation_set.txt", "r")
+            fi = open("../hans/heuristics_evaluation_set.txt", "r")
 
             correct_dict = {}
             first = True
@@ -981,7 +1004,7 @@ def get_hans_result(raw_distribution_path, config):
             guess_dict[parts[0]] = format_label(parts[1])
 
     # load from hans set up
-    fi = open("hans/heuristics_evaluation_set.txt", "r")
+    fi = open("../hans/heuristics_evaluation_set.txt", "r")
 
     correct_dict = {}
     first = True
