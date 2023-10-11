@@ -6,7 +6,7 @@
     "type": "snli",
     "tokenizer": {
       "type": "pretrained_transformer",
-      "model_name": "../bert-base-uncased/",
+      "model_name": "bert-base-uncased",
       "add_special_tokens": false
     }
   },
@@ -14,13 +14,13 @@
   # Tokenizer
   "tokens": {
     "type": "pretrained_transformer",
-    "model_name": "../bert-base-uncased/", 
+    "model_name": "bert-base-uncased", 
     "max_length": 512
   },
   
   # dataset
-  "data_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
-  "train_data": "multinli_1.0_train.jsonl",
+  "data_path": "../data/nli",
+  "train_data": "train_prob_korn_lr_overlapping_sample_weight_3class.jsonl",
   "validation_data": "multinli_1.0_dev_matched.jsonl", 
   "test_data": "multinli_1.0_dev_mismatched.jsonl",
   
@@ -37,16 +37,16 @@
   # models; 
   # follow allennlp setups, the rest is the default of bert-base-uncased
   "model": {
-    "model_name": "../bert-base-uncased/",
+    "model_name": "bert-base-uncased",
     transformer_model,
     "max_length": 512
   },
   "dropout": 0.1,
   "namespace": "tags",
   
+  
   # Trainer
   "num_epochs": 3,
-  # recheck in Trainer 
   "validation_metric": "accuracy",
   "learning_rate_scheduler": {
     "type": "slanted_triangular", # override from allennlp
@@ -59,16 +59,11 @@
     "weight_decay": 0.1,
   },
   "cuda_device" : 0,
-  # 1548, 3990, 409, 3099
-  #  [42, 3099, 3785, 3990,  409] for experiments
-  "seed": 3990,   
+  "seed" : 3990, # 42 for debug;  [1548, 3099, 3785, 3990,  409] for experiments
   "evaluation_strategy": "steps",
   "eval_steps": 500,
-  "load_best_model_at_end": True,
+  "load_best_model_at_end": False,
   "save_total_limit": 1,
   # "use_amp" in allennlp
   "half_precision_backend": "amp",
-  # ************ Identifying Bias: Causal Mediation Analysis *************
-  # experiment set 
-  "k":  5, 
 }

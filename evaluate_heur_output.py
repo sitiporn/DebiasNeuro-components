@@ -11,7 +11,7 @@ from data import get_condition_inference_hans_result, get_num_neurons, get_param
 
 # ++++++  config ++++++++++++
 
-with open("config.yaml", "r") as yamlfile:
+with open("./configs/experiment_config.yaml", "r") as yamlfile:
     config = yaml.load(yamlfile, Loader=yaml.FullLoader)
     print(config)
 

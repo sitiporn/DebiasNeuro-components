@@ -1,7 +1,7 @@
 {
   # ******************** LOAD STUFF ********************
   # "model_name": "../bert-base-uncased/",
-  "collect_representation": True,
+  "collect_representation": False,
   "DEBUG": True,
   "debug": False, 
   "num_samples": 300,
@@ -37,7 +37,7 @@
   "computed_all_layers": True,
   "print_config": False,
   #  [42, 3099, 3785, 3990,  409] for experiments
-  "seed": 409,
+  "seed": 42,
   # default
   # "topk_neurons": True,
   # together with compute all seeds
@@ -46,18 +46,17 @@
   # To get counterfactual
   "compute_all_seeds": False,
   "eval_counterfactual": False,
-  "getting_counterfactual": False,
-  "compute_nie_scores": False,
+  "getting_counterfactual": True,
+  "compute_nie_scores": True,
   # ******************** Unlearn Bias ********************
   "training_json":  multinli_1.0_train.jsonl, 
   "partition_params": False,
-  "get_condition_inferences": True,
+  "get_condition_inferences": False,
   # ******************** soft masking neurons ********************
   # we mask top 5% neurons
-  "weaken_rate": null,
-  "get_masking_value": True,
+  "weaken_rate": 0.9,
+  "get_masking_value": False,
   # "weaken_rate": 0.97,
-  # "weaken": 0.9,
   # percent of neurons to mask
   "masking_rate": 0.05, 
   # number of neurons to mask
@@ -95,11 +94,14 @@
   # "diag": True,
   "test_traced_params": False,
   "debias_test": False,
-  # "dev-name": "mismatched",
+  # using when knowing weaken and maksking rates
+  # test set
+  "dev-name": "mismatched",
+  # challenge set
   # "dev-name": "hans",
   # this set uses matched dataset
   # "dev-name": "reweight",
-  "dev-name": "matched",
+  # "dev-name": "matched",
   # if know best params
   # "weaken": null,
 
@@ -118,7 +120,7 @@
   "evaluations":  {},
   "to_text": True,
   # "get_result": False,
-  "get_condition_hans_result": False,
+  "get_condition_hans_result": True,
   "get_hans_result": True,
   "save_rank": True,
   # neurons components

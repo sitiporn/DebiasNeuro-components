@@ -59,7 +59,9 @@ def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
     else:
+        _model = model
         print(f'using original model as input to this function')
+    
     with open(save_nie_set_path, 'rb') as handle:
         nie_dataset = pickle.load(handle)
         nie_dataloader = pickle.load(handle)
@@ -119,7 +121,7 @@ def get_topk(config, k=None, num_top_neurons=None):
     if config['eval_candidates']:
         topk = {'percent': k / 100}
     else: # ******************** Hyperparameter search ********************
-        params, digits = get_params(config)
+        params  = get_params(config)
         total_neurons = get_num_neurons(config)
         if k is not None: topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
         if num_top_neurons is not None:
