@@ -257,7 +257,7 @@ class CustomDataset(Dataset):
 
 
 def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
-    """ getting inferences while modifiying activations """
+    """ getting inferences while modifiying activations on dev-matched/dev-mm """
     acc = {}
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
@@ -272,7 +272,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     # torch.manual_seed(42)
     # modified activations of top 5 percent of all neurons
     mediators  = get_mediators(_model)
-    params  = get_params(config, soft_masking_value_search=True)
+    params  = get_params(config, soft_masking_value_search=False)
     total_neurons = get_num_neurons(config)
     epsilons = params['epsilons']
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
@@ -409,12 +409,14 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
         with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
-        
+
         if config['weaken_rate'] is not None and config['masking_rate'] is not None:
-            print(f"overall acc : {acc[config['masking_rate']]['all']}")
-            print(f"contradiction acc : {acc[config['masking_rate']]['contradiction']}")
-            print(f"entailment acc : {acc[config['masking_rate']]['entailment']}")
-            print(f"neutral acc : {acc[config['masking_rate']]['neutral']}")
+            for mode in ['Null','Intervene']:
+                print(f'************** {mode} *****************')
+                print(f"overall acc : {acc[config['masking_rate']][mode]['all']}")
+                print(f"contradiction acc : {acc[config['masking_rate']][mode]['contradiction']}")
+                print(f"entailment acc : {acc[config['masking_rate']][mode]['entailment']}")
+                print(f"neutral acc : {acc[config['masking_rate']][mode]['neutral']}")
 
         # 
         # pickles/evaluations/v0.9/0.9_0.05_High-overlap_weaken_mismatched.pickle 
@@ -597,8 +599,31 @@ def format_label(label):
     else:
         return "non-entailment"
 
-def get_condition_inference_hans_result(config, eval_path, prediction_path, neuron_path, top_neuron, prediction_mode, params, digits):
+def get_condition_inference_hans_result(config): 
+    """ getting inferences while modifiying activations on challenge set(HANS)"""
+
+    eval_path = f'../pickles/evaluations/'
+    prediction_path = '../pickles/prediction/' 
+    top_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     
+    neuron_path = f'../pickles/top_neurons/top_neuron_{top_mode}_{config["eval"]["do"]}_all_layers.pickle'if config['computed_all_layers']  else f'../pickles/top_neurons/top_neuron_{top_mode}_{config["eval"]["do"]}_{config["layer"]}.pickle'
+    # path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
+    
+    with open(neuron_path, 'rb') as handle: 
+        top_neuron = pickle.load(handle)
+
+    breakpoint()
+
+    params, digits = get_params(config)
+    
+    # ********** follow **********
+    if model_path is not None: 
+        _model = load_model(path= model_path, model=model)
+    else:
+        print(f'using original model as input to this function')
+
+    # ********** original function **********
+ 
     if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits)
     
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
@@ -639,7 +664,7 @@ def get_condition_inference_hans_result(config, eval_path, prediction_path, neur
                     guess_dict[parts[0]] = format_label(parts[1])
 
             # load from hans set up
-            fi = open("hans/heuristics_evaluation_set.txt", "r")
+            fi = open("../hans/heuristics_evaluation_set.txt", "r")
 
             correct_dict = {}
             first = True
@@ -836,13 +861,13 @@ def get_all_model_paths(LOAD_MODEL_PATH):
     assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
-def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimized_set = False):
+def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
     golden_answers = {}
 
-    LOAD_MODEL_PATH = '../models/recent_baseline/'
+    
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
@@ -855,19 +880,19 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
     contradiction_avg = 0
     neutral_avg = 0
     hans_avg = 0
-    count = 0
-    for cur_json in json_sets:
-        name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
-        for seed, path in all_paths.items():
-            if is_load_model:
-                from utils import load_model
-                model = load_model(path=path, model=model)
-            else:
-                print(f'Using original model')
-
-            distributions[name_set] = []
-            losses[name_set] = []
-            golden_answers[name_set] = []
+    computed_acc_count = 0
+    computed_hans_count = 0
+    for seed, path in all_paths.items():
+        if is_load_model:
+            from utils import load_model
+            model = load_model(path=path, model=model)
+        else:
+            print(f'Using original model')
+        for cur_json in json_sets:
+            name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+            distributions = []
+            losses = []
+            golden_answers = []
             
             dev_set = Dev(config['dev_path'] , cur_json)
             dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
@@ -889,8 +914,8 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
                 with torch.no_grad(): 
                     # Todo: generalize to distribution if the storage is enough
                     outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
-                    distributions[name_set].extend(F.softmax(outs.logits.cpu() , dim=-1))
-                    golden_answers[name_set].extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
+                    distributions.extend(F.softmax(outs.logits.cpu() , dim=-1))
+                    golden_answers.extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
 
             cur_raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
             
@@ -902,18 +927,24 @@ def eval_model(model, config, tokenizer, DEVICE, is_load_model=True, is_optimize
                 
             if 'heuristics' not in cur_json: 
                 acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
-                print(f"overall acc : {acc['multinli']['all']}")
-                print(f"contradiction acc : {acc['multinli']['contradiction']}")
-                print(f"entailment acc : {acc['multinli']['entailment']}")
-                print(f"neutral acc : {acc['multinli']['neutral']}")
+                if 'Null' in acc.keys():
+                    acc = acc['Null']
+                print(f"overall acc : {acc['all']}")
+                print(f"contradiction acc : {acc['contradiction']}")
+                print(f"entailment acc : {acc['entailment']}")
+                print(f"neutral acc : {acc['neutral']}")
 
-                acc_avg += acc['multinli']['all']
-                entail_avg += acc['multinli']['entailment']
-                neutral_avg += acc['multinli']['neutral']
-                contradiction_avg += acc['multinli']['contradiction']
+                acc_avg += acc['all']
+                entail_avg += acc['entailment']
+                neutral_avg += acc['neutral']
+                contradiction_avg += acc['contradiction']
+                computed_acc_count += 1
 
             elif config['get_hans_result'] and 'heuristics'in cur_json: 
-                hans_avg += get_hans_result(cur_raw_distribution_path, config)
+                cur_hans_score = get_hans_result(cur_raw_distribution_path, config)
+                hans_avg += cur_hans_score
+                computed_hans_count +=1
+                print(f'has score :{cur_hans_score}')
     
     print(f'==================== Avearge scores ===================')
     print(f"average overall acc : {acc_avg / len(all_paths)}")
@@ -929,10 +960,11 @@ def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path)
     with open(raw_distribution_path, 'rb') as handle: 
         distributions = pickle.load(handle)
         golden_answers = pickle.load(handle)
+        print(f'hans loading from : {raw_distribution_path}')
 
     # # convert answers_ids to text answers
-    for sample_id in range(len(distributions['heuristics'])):
-        text_prediction = get_ans(torch.argmax(distributions['heuristics'][sample_id], dim=-1))
+    for sample_id in range(len(distributions)):
+        text_prediction = get_ans(torch.argmax(distributions[sample_id], dim=-1))
         text_answers.append(text_prediction)
 
     # # write into text files
@@ -972,7 +1004,7 @@ def get_hans_result(raw_distribution_path, config):
             guess_dict[parts[0]] = format_label(parts[1])
 
     # load from hans set up
-    fi = open("hans/heuristics_evaluation_set.txt", "r")
+    fi = open("../hans/heuristics_evaluation_set.txt", "r")
 
     correct_dict = {}
     first = True
