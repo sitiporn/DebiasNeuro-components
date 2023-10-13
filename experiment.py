@@ -44,8 +44,8 @@ from optimization import exclude_grad
 def main():
 
     # ******************** LOAD STUFF ********************
-    config_path = "./configs/masking_representation.yaml"
-    # config_path = "./configs/experiment_config.yaml"
+    # config_path = "./configs/masking_representation.yaml"
+    config_path = "experiment_config.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(f'config: {config_path}')
@@ -54,6 +54,7 @@ def main():
     group_path_by_seed = {}
     # torch.manual_seed(config['seed'])
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(config['model_name'])
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
     model = BertForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
@@ -61,7 +62,7 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     # ******************** PATH ********************
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
-    LOAD_MODEL_PATH = '../models/recent_baseline/'
+    LOAD_MODEL_PATH = '../models/poe/'
     # LOAD_MODEL_PATH = '../models/developing_baseline/'
     NIE_paths = []
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
