@@ -13,6 +13,7 @@ from cma_utils import collect_counterfactuals, trace_counterfactual, geting_coun
 from optimization_utils import test_restore_weight
 from optimization_utils import trace_optimized_params, initial_partition_params
 from optimization import partition_param_train, restore_original_weight
+
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -27,6 +28,7 @@ from pprint import pprint
 #)
 from data import ExperimentDataset, Dev, print_config
 from data import rank_losses
+
 from intervention import intervene, high_level_intervention
 # from cma import cma_analysis, get_distribution, get_top_k
 from utils import debias_test
@@ -611,8 +613,7 @@ def main():
     global label_maps
     global metric
 
-    
-    # config_path = 
+
     config_path = "./configs/reweight_config.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
@@ -670,9 +671,11 @@ def main():
     opitmizer = AdamW(params=model.parameters(),
                     lr= float(config['optimizer']['lr']) , 
                     weight_decay = config['optimizer']['weight_decay'])
+
     # NOTE: for baseline just change 
     # config: baseline_config.yaml
     # model: BertForSequenceClassification
+
     trainer = ReweightTrainer(
         model,
         training_args,
@@ -692,5 +695,4 @@ def main():
 if __name__ == "__main__":
     main()
      
-
 
