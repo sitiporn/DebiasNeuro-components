@@ -53,7 +53,8 @@
   "partition_params": False,
   "get_condition_inferences": False,
   # ******************** soft masking neurons ********************
-  "weaken": 0.97,
+  # "weaken": 0.97,
+  "weaken": 1.0,
   # "weaken": 0.9,
   # percent of neurons to mask
   "masking_rate": 0.05, 

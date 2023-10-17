@@ -37,7 +37,7 @@
   "computed_all_layers": True,
   "print_config": False,
   #  [42, 3099, 3785, 3990,  409] for experiments
-  "seed": 42,
+  "seed": null,
   # default
   # "topk_neurons": True,
   # together with compute all seeds
@@ -46,17 +46,19 @@
   # To get counterfactual
   "compute_all_seeds": False,
   "eval_counterfactual": False,
-  "getting_counterfactual": True,
-  "compute_nie_scores": True,
+  "getting_counterfactual": False,
+  "compute_nie_scores": False,
   # ******************** Unlearn Bias ********************
   "training_json":  multinli_1.0_train.jsonl, 
   "partition_params": False,
   "get_condition_inferences": False,
   # ******************** soft masking neurons ********************
   # we mask top 5% neurons
-  "weaken_rate": 0.9,
-  "get_masking_value": False,
+  "weaken_rate": 0.9, # best score on has (0.6299)
+  # "weaken_rate": 0.1,
   # "weaken_rate": 0.97,
+  # "weaken_rate": 1.0,
+  "get_masking_value": False,
   # percent of neurons to mask
   "masking_rate": 0.05, 
   # number of neurons to mask
@@ -95,10 +97,11 @@
   "test_traced_params": False,
   "debias_test": False,
   # using when knowing weaken and maksking rates
+  # "dev-name": "matched",
   # test set
-  "dev-name": "mismatched",
+  # "dev-name": "mismatched",
   # challenge set
-  # "dev-name": "hans",
+  "dev-name": "hans",
   # this set uses matched dataset
   # "dev-name": "reweight",
   # "dev-name": "matched",

@@ -41,7 +41,7 @@
   # default
   # "topk_neurons": True,
   # together with compute all seeds
-  "get_candidate_neurons": False,
+  "get_candidate_neurons": True,
   "distribution": False,
   # To get counterfactual
   "compute_all_seeds": False,
@@ -118,7 +118,7 @@
   "evaluations":  {},
   "to_text": True,
   # "get_result": False,
-  "get_condition_hans_result": True,
+  "get_condition_hans_result": False,
   "get_hans_result": True,
   "save_rank": True,
   # neurons components
