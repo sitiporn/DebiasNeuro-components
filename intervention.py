@@ -75,6 +75,7 @@ def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, in
             print(f"component-neuron_ids-value: {component}-{neuron_ids}-{value[neuron_ids]}")
             print(output[:2,:3, neuron_ids])
             # print(output[:2,:3, :2])
+
     return intervention_hook
 
 # ************  intervention  *******************
