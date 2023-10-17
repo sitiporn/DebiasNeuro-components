@@ -262,13 +262,17 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
     seed = config['seed']
+    seed = str(seed)
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
     max_num_digits = 3
+    # Todo: fix loading model using deep copy method
     # load model
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
     else:
+        _model = model
         print(f'using original model as input to this function')
+    print(f'{config["dev-name"]} : compute on {config["dev_json"]}')
     # torch.manual_seed(42)
     # modified activations of top 5 percent of all neurons
     mediators  = get_mediators(_model)
@@ -276,7 +280,6 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     total_neurons = get_num_neurons(config)
     epsilons = params['epsilons']
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
-    epsilons = sorted(epsilons)
     dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
     key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
@@ -291,12 +294,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
     cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
-    
-    if seed is not None:
-        print(f'high level intervention seed:{seed}')
-        if isinstance(seed, int): seed = str(seed)
-        cls = cls[seed]
-
+    cls = cls[seed]
     for epsilon in (t := tqdm(epsilons)): 
         prediction_path = f'../pickles/prediction/seed_{seed}/' 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
@@ -390,6 +388,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
 
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
 
+
             with open(raw_distribution_path, 'wb') as handle: 
                 pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -410,22 +409,6 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
 
-        if config['weaken_rate'] is not None and config['masking_rate'] is not None:
-            for mode in ['Null','Intervene']:
-                print(f'************** {mode} *****************')
-                print(f"overall acc : {acc[config['masking_rate']][mode]['all']}")
-                print(f"contradiction acc : {acc[config['masking_rate']][mode]['contradiction']}")
-                print(f"entailment acc : {acc[config['masking_rate']][mode]['entailment']}")
-                print(f"neutral acc : {acc[config['masking_rate']][mode]['neutral']}")
-
-        # 
-        # pickles/evaluations/v0.9/0.9_0.05_High-overlap_weaken_mismatched.pickle 
-
-        # if config["masking_rate"] is not None:
-        #     print(f"all acc : {acc[value]['all']}")
-        #     print(f"contradiction acc : {acc[value]['contradiction']}")
-        #     print(f"entailment acc : {acc[value]['entailment']}")
-        #     print(f"neutral acc : {acc[value]['neutral']}")
 
 def get_masking_value(config):
     import glob
@@ -451,7 +434,6 @@ def get_masking_value(config):
         # cur_digits = len(str(best_val).split('.')[-1])
         print(f"Null : {acc[value]['Null']['all']*100:.2f}, Intervene at {best_val}:{scores[cur_best_key]*100:.2f}")
     # get new high and low value unitil up to max_num_digits 
-    breakpoint()
     # get digits
     # get of new 
     # add digits by one
@@ -459,9 +441,8 @@ def get_masking_value(config):
     # 0.9 + diff , 
     # 
 
-
-
-def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
+#  for a masking representation experiment 
+def convert_to_text_ans(config, top_neuron, params, do, text_answer_path = None, raw_distribution_path = None):
     
     """changing distributions into text anaswers on hans set
     
@@ -470,48 +451,27 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
     text_answer_path  -- write text into text file
     
     """
-
-    with open(neuron_path, 'rb') as handle: 
-        top_neuron = pickle.load(handle)
-
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
-
-    low  =  config['epsilons']['low'] 
-    high =  config['epsilons']['high']  
-    step =  config['epsilons']['step'] 
-
-    digits = len(str(step).split('.')[-1])
-    
-    size = config['epsilons']['size']
-    mode = config['epsilons']['mode']
-    
+    digits = [ len(str(epsilon).split('.')[-1]) for epsilon in params['epsilons'] ]
     layer = config['layer']
-    
-    rank_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+    epsilons = params['epsilons']
+    seed = config['seed']
+    seed = str(seed)
+    # select neuron group type 
+    topk_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
     prediction_path = '../pickles/prediction/' 
-
-    if config['intervention_type'] == "remove": epsilons = (low - high) * torch.rand(size) + high  # the interval (low, high)
-    if config['intervention_type'] == "weaken": epsilons = [config['weaken']] if config['weaken'] is not None else [round(val, digits)for val in np.arange(low, high, step).tolist()]
-    if config['intervention_type'] not in ["remove","weaken"]: epsilons = [0]
-
-    # bugs : in epsilons
-
-    for epsilon in (t := tqdm(epsilons)):  
-
+    
+    for idx, epsilon in enumerate(t := tqdm(epsilons)):  
         # read pickle file used to interpret as text answers later
-        epsilon_path = f'v{round(epsilon, digits)}'
+        epsilon_path = f'v-{round(epsilon, digits[idx])}'
 
         for neurons in (n:= tqdm(num_neuron_groups)):
 
-            # why top neuron doesnt show result
-            # key : (percent, neuron, weaken)
-            # value : neuron_group
         
             # dont touch this 
-            raw_distribution_path = f'raw_distribution_{rank_mode}_{config["eval"]["do"]}_all_layers_{neurons}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
-            raw_distribution_path = os.path.join(os.path.join(prediction_path, epsilon_path),  raw_distribution_path)
-
-            # bugs: no such file because no intervention yet
+            raw_distribution_path = f'raw_distribution_{do}_all_layers_{neurons}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
+            raw_distribution_path = os.path.join(os.path.join(prediction_path, f'seed_{seed}',epsilon_path),  raw_distribution_path)
+            
             with open(raw_distribution_path, 'rb') as handle: 
                 distributions = pickle.load(handle)
                 golden_answers = pickle.load(handle)
@@ -535,24 +495,23 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
                 
                 # Todo: generalize to all challege sets
                 if  os.path.exists(text_answer_path) and mode == 'Null': continue
-
+                
                 if mode == 'Intervene': 
 
                     if config["single_neuron"]:
 
                         component = [neuron.split('-')[2 if layer == -1 else 0] for neuron, v in top_neuron[neurons].items()][0]
 
-                        text_answer_path = f'txt_answer_{rank_mode}_{mode}_L{layer}_{component}_{config["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                        text_answer_path = f'txt_answer_{topk_mode}_{mode}_L{layer}_{component}_{config["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
                     
                     else:
                     
-                        if layer == -1:
-                            text_answer_path = f'txt_answer_{rank_mode}_{mode}_all_layers_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                        if config['computed_all_layers']:
+                            text_answer_path = f'txt_answer_{topk_mode}_{mode}_all_layers_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
                         else:
-                            text_answer_path = f'txt_answer_{rank_mode}_{mode}_L{layer}_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                            text_answer_path = f'txt_answer_{topk_mode}_{mode}_L{layer}_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
 
-
-            text_answer_path  = os.path.join(os.path.join(prediction_path, epsilon_path), text_answer_path)
+            text_answer_path  = os.path.join(os.path.join(prediction_path,f'seed_{seed}' ,epsilon_path), text_answer_path)
 
             with open(text_answer_path, "w") as fobj:
 
@@ -564,7 +523,7 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
 
                     fobj.write(f"ex{sample_id}" + "," + ans +"\n")
 
-                print(f"saving text answer's bert predictions: {text_answer_path}")
+                print(f"saving text answer's bert predictions {mode}: {text_answer_path}")
 
         
 
@@ -598,55 +557,66 @@ def format_label(label):
         return "entailment"
     else:
         return "non-entailment"
-
-def get_condition_inference_hans_result(config): 
+# for a masking representation experiment
+def get_condition_inference_hans_result(config, model, model_path): 
     """ getting inferences while modifiying activations on challenge set(HANS)"""
-
+    # this fucntion is to get hans using: 
+    # raw_distribution on hans then
+    # convert text to answer
+    # using text_answer to compute hans scores
+    
     eval_path = f'../pickles/evaluations/'
     prediction_path = '../pickles/prediction/' 
-    top_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    
-    neuron_path = f'../pickles/top_neurons/top_neuron_{top_mode}_{config["eval"]["do"]}_all_layers.pickle'if config['computed_all_layers']  else f'../pickles/top_neurons/top_neuron_{top_mode}_{config["eval"]["do"]}_{config["layer"]}.pickle'
-    # path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
-    
-    with open(neuron_path, 'rb') as handle: 
-        top_neuron = pickle.load(handle)
+    # top_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
+    seed = config['seed']
+    layer = config["layer"]
+    k = config['k']
+    num_neurons = None
+    from cma import get_topk
+    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    key = list(topk.keys())[0] # masking model eg. percent, k, num_neurons
+    if seed is None: seed = str(seed)
+    do = config["eval"]["do"]
+    if config['computed_all_layers']:  
+        neuron_path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
+    else:                                                       
+        neuron_path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
+    with open(neuron_path, 'rb') as handle: top_neuron = pickle.load(handle)
+    # with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle: top_neuron = pickle.load(handle)
+    topk_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+    params = get_params(config)
+    digits = [ len(str(epsilon).split('.')[-1]) for epsilon in params['epsilons'] ]
 
-    breakpoint()
-
-    params, digits = get_params(config)
-    
     # ********** follow **********
-    if model_path is not None: 
-        _model = load_model(path= model_path, model=model)
-    else:
-        print(f'using original model as input to this function')
-
     # ********** original function **********
+    # required distribution of hans
+    if config['to_text']: convert_to_text_ans(config, top_neuron, params, do)
  
-    if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits)
-    
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
 
+    for idx, epsilon in enumerate(t := tqdm(params['epsilons'])):  
 
-    for epsilon in (t := tqdm(params['epsilons'])):  
-
-        epsilon_path = f'v{round(epsilon, digits["epsilons"])}'
+        epsilon_path = f'v-{round(epsilon, digits[idx])}'
 
         t.set_description(f"epsilon : {epsilon} ")
         
         for group in num_neuron_groups:
 
-            text_answer_path = f'txt_answer_{prediction_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
-            result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+            # after convert to txt answer 
+            text_answer_path = f'txt_answer_{topk_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+            result_path = f'result_{topk_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
 
-            if config['eval']['all_layers']: text_answer_path = f'txt_answer_{prediction_mode}_{config["eval"]["intervention_mode"]}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
-            if config['eval']['all_layers']: result_path = f'result_{prediction_mode}_{config["eval"]["intervention_mode"]}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+            if config['eval']['all_layers']: text_answer_path = f'txt_answer_{topk_mode}_{config["eval"]["intervention_mode"]}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+            if config['eval']['all_layers']: result_path = f'result_{topk_mode}_{config["eval"]["intervention_mode"]}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
 
             config['evaluations'][group] = {}
 
-            text_answer_path = os.path.join(os.path.join(prediction_path, epsilon_path),  text_answer_path)
-            result_path = os.path.join(os.path.join(eval_path, epsilon_path),  result_path)
+            # text_answer_path = os.path.join(os.path.join(prediction_path, epsilon_path),  text_answer_path)
+            text_answer_path  = os.path.join(os.path.join(prediction_path,f'seed_{seed}' ,epsilon_path), text_answer_path)
+            result_path = os.path.join(os.path.join(eval_path, f'seed_{seed}',epsilon_path),  result_path)
+            # vv = '../pickles/prediction/seed_None/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt'
+            
+            # get_hans_result(cur_raw_distribution_path, config)
 
             tables = {}
 
@@ -764,10 +734,32 @@ def get_condition_inference_hans_result(config):
 
                     config["evaluations"][group][cur_class][heuristic] = percent
 
-            
             with open(result_path, 'wb') as handle: 
-                pickle.dump(config["evaluations"], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f'saving evaluation predictoins into : {result_path}')
+                pickle.dump(config["evaluations"][group], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving evaluation prediction {group} into : {result_path}')
+
+            valid_result =  f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_matched.pickle'
+            dev_mm_result = f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_mismatched.pickle'
+            eval_path =  f'../pickles/evaluations/seed_{seed}/'
+
+            valid_result =  os.path.join(eval_path, epsilon_path, valid_result)
+            dev_mm_result =  os.path.join(eval_path, epsilon_path, dev_mm_result)
+            # f'../pickles/evaluations/seed_None/v-0.9/percent_0.05_High-overlap_weaken_matched.pickle'
+            # f'../pickles/evaluations/seed_None/v-0.9/percent_0.05_High-overlap_weaken_mismatched.pickle'
+            with open(valid_result,'rb') as handle: valid_acc = pickle.load(handle)
+            with open(dev_mm_result,'rb') as handle: dev_mm_acc = pickle.load(handle)
+            hans_score = get_avg_score(result_path)
+            print(f"*********** masking rate : {config['weaken_rate']} **************")
+            print(f"Matched :")
+            print(f"-- Intervene  : {valid_acc[config['masking_rate']]['Intervene']['all']*100:.2f}")
+            print(f"-- Null : {valid_acc[config['masking_rate']]['Null']['all']*100:.2f}")
+            print(f"Dev-mm :")
+            print(f"-- Intervene  : {dev_mm_acc[config['masking_rate']]['Intervene']['all']*100:.2f}")
+            print(f"-- Null : {dev_mm_acc[config['masking_rate']]['Null']['all']*100:.2f}")
+            print(f'HAN score score : ')
+            print(f"-- Intervene  : {hans_score*100:.2f}")
+            print(f"-- Null : 56.72")
+             
 
 def rank_losses(config, do):  
 
@@ -866,7 +858,6 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
     distributions = {}
     losses = {}
     golden_answers = {}
-
     
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
@@ -893,7 +884,6 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
             distributions = []
             losses = []
             golden_answers = []
-            
             dev_set = Dev(config['dev_path'] , cur_json)
             dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
             
@@ -961,7 +951,7 @@ def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path)
         distributions = pickle.load(handle)
         golden_answers = pickle.load(handle)
         print(f'hans loading from : {raw_distribution_path}')
-
+    
     # # convert answers_ids to text answers
     for sample_id in range(len(distributions)):
         text_prediction = get_ans(torch.argmax(distributions[sample_id], dim=-1))
@@ -978,6 +968,7 @@ def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path)
         print(f"saving text answer's bert predictions: {text_answer_path}")
 
 def get_hans_result(raw_distribution_path, config):
+    
     performance_path =  '/'.join(raw_distribution_path.split('/')[:-1])
     text_answer_path =  os.path.join(performance_path, f'hans_text_answers.txt')
     score_path =  os.path.join(performance_path, f'hans_scores.txt')
