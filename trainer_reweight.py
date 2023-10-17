@@ -10,7 +10,10 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import  report_gpu
 from cma_utils import collect_counterfactuals, trace_counterfactual, geting_counterfactual_paths, get_single_representation, geting_NIE_paths
-from data import test_restore_weight
+from optimization_utils import test_restore_weight
+from optimization_utils import trace_optimized_params, initial_partition_params
+from optimization import partition_param_train, restore_original_weight
+
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -23,8 +26,9 @@ from pprint import pprint
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-from data import ExperimentDataset, Dev, print_config, trace_optimized_params
-from data import rank_losses, initial_partition_params, restore_original_weight, partition_param_train
+from data import ExperimentDataset, Dev, print_config
+from data import rank_losses
+
 from intervention import intervene, high_level_intervention
 # from cma import cma_analysis, get_distribution, get_top_k
 from utils import debias_test
@@ -33,7 +37,7 @@ import yaml
 from utils import get_num_neurons, get_params, get_diagnosis
 from data import get_analysis 
 from transformers import AutoTokenizer, BertForSequenceClassification
-from data import exclude_grad
+from optimization import exclude_grad
 from transformers import Trainer
 # from torch.utils.data import Dataset, DataLoader
 from transformers import TrainingArguments, Trainer, AdamW, DataCollatorWithPadding
@@ -610,7 +614,8 @@ def main():
     global metric
 
 
-    with open("reweight_config.yaml", "r") as yamlfile:
+    config_path = "./configs/reweight_config.yaml"
+    with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
     
     dataset = {}
@@ -667,6 +672,10 @@ def main():
                     lr= float(config['optimizer']['lr']) , 
                     weight_decay = config['optimizer']['weight_decay'])
 
+    # NOTE: for baseline just change 
+    # config: baseline_config.yaml
+    # model: BertForSequenceClassification
+
     trainer = ReweightTrainer(
         model,
         training_args,
@@ -686,3 +695,4 @@ def main():
 if __name__ == "__main__":
     main()
      
+
