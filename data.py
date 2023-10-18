@@ -553,14 +553,9 @@ def format_label(label):
         return "entailment"
     else:
         return "non-entailment"
-# for a masking representation experiment
-def get_condition_inference_hans_result(config, model, model_path): 
-    """ getting inferences while modifiying activations on challenge set(HANS)"""
-    # this fucntion is to get hans using: 
-    # raw_distribution on hans then
-    # convert text to answer
-    # using text_answer to compute hans scores
-    
+
+def get_condition_inference_scores(config, model, model_path): 
+    """ getting scores on modifiying activations on dev-matched, dev-mm and challenge set(HANS)"""
     eval_path = f'../pickles/evaluations/'
     prediction_path = '../pickles/prediction/' 
     # top_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')

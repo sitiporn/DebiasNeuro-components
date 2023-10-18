@@ -40,6 +40,7 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from data import get_all_model_paths
 from data import get_masking_value 
 from optimization import exclude_grad
+from data import get_condition_inference_scores
 
 def main():
 
@@ -99,21 +100,6 @@ def main():
             seed = config['seed']
             collect_counterfactuals(model, model_path, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
     
-    from data import get_condition_inference_hans_result
-    # TODO: get counterfactual of model ishan/bert-base-uncased-mnli
-    # TODO: compute NIE of model ishan/bert-base-uncased-mnli
-    # TODO: get top neurons
-    # TODO: get_condition inference on hans
-    # NOTE: Before compute this 
-    # 1. comppute nie score of new models on valid set -> cma_analysis : done
-    # 2. get top neuron using NIE scores on valid set -> get_candidate_neurons: done
-    # 3. masking representation -> raw distribution of finding set(hans)
-    # 4. convert raw distribution to text answer -> convert_text_to_ans
-    # breakpoint()
-    # dont forget to select mode eg. High or Low overlap
-    # recheck intervention type
-    # this computation should be run single seed at a time
-    # set config -> compute_all_seeds: false
     if config['compute_nie_scores']:  cma_analysis(config, 
                                                   model_path,
                                                   config['seed'], 
@@ -138,7 +124,7 @@ def main():
     elif config["dev-name"] == 'reweight': config["dev_json"]['reweight'] = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
     # find hyperparameters for soft masking method
     if config['get_condition_inferences']: get_conditional_inferences(config, mode[0], model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False)
-    if config['get_condition_hans_result']: get_condition_inference_hans_result( config, model, model_path)
+    if config['get_condition_inference_scores']: get_condition_inference_scores(config, model, model_path)
     if config['get_masking_value']: get_masking_value(config=config)
     # PCGU: optimization 
     if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], counterfactual_paths, DEVICE)

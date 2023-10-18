@@ -84,11 +84,12 @@
     "acc": {}
     },
   "single_neuron": False,
-  "get_condition_inferences": True,
   # do hyperparameter search on value used modify neurons's activations
   "soft_masking_value_search": True,
   # do hyperparameter search on the percentages of all neurons to mask
   "masking_rate_search": False,
+  "get_condition_inferences": True,
+  "get_condition_inference_scores": False,
   # ******************** test  stuff ********************
   "eval_model": False,
   "traced": False, 
