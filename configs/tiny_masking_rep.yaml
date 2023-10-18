@@ -41,7 +41,7 @@
   # default
   # "topk_neurons": True,
   # together with compute all seeds
-  "get_candidate_neurons": True,
+  "get_candidate_neurons": False,
   "distribution": False,
   # To get counterfactual
   "compute_all_seeds": False,
@@ -51,13 +51,13 @@
   # ******************** Unlearn Bias ********************
   "training_json":  multinli_1.0_train.jsonl, 
   "partition_params": False,
-  "get_condition_inferences": False,
   # ******************** soft masking neurons ********************
   # we mask top 5% neurons
-  "weaken_rate": 0.9, # best score on has (0.6299)
+  # "weaken_rate": 0.9, # best score on has (0.6299)
   # "weaken_rate": 0.1,
   # "weaken_rate": 0.97,
   # "weaken_rate": 1.0,
+  "weaken_rate": null,
   "get_masking_value": False,
   # percent of neurons to mask
   "masking_rate": 0.05, 
@@ -78,12 +78,14 @@
   "epsilons": {
     "low":  0, 
     "high": 1,
-    "step": 0.0001, #0.01, 0.1,
+    "step": 0.1, #0.0001, #0.01, 0.1,
     "size": 50,
     "mode": 0o666,
     "acc": {}
     },
   "single_neuron": False,
+  "get_condition_inferences": True,
+  "soft_masking_value_search": True,
   # ******************** test  stuff ********************
   "eval_model": False,
   "traced": False, 

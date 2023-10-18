@@ -257,26 +257,24 @@ class CustomDataset(Dataset):
 
 
 def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
-    """ getting inferences while modifiying activations on dev-matched/dev-mm """
+    """ getting inferences while modifiying activations on dev-matched/dev-mm/HANS"""
     acc = {}
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
     seed = config['seed']
     seed = str(seed)
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
-    max_num_digits = 3
     # Todo: fix loading model using deep copy method
     # load model
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
     else:
         _model = model
-        print(f'using original model as input to this function')
+        print(f'using original model : {config["model_name"]}')
     print(f'{config["dev-name"]} : compute on {config["dev_json"]}')
-    # torch.manual_seed(42)
-    # modified activations of top 5 percent of all neurons
     mediators  = get_mediators(_model)
-    params  = get_params(config, soft_masking_value_search=False)
+    params  = get_params(config, soft_masking_value_search=True)
+    digits = [ len(str(epsilon).split('.')[-1]) for epsilon in params['epsilons'] ]
     total_neurons = get_num_neurons(config)
     epsilons = params['epsilons']
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
@@ -285,21 +283,19 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
-    # why top neurons dont chage according to get_top_k
-    # get position of top neurons 
+    
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
     
-    # Todo: changing neuron group correspond to percent
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
     cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     cls = cls[seed]
-    for epsilon in (t := tqdm(epsilons)): 
+    for eps_id, epsilon in enumerate(t := tqdm(epsilons)): 
         prediction_path = f'../pickles/prediction/seed_{seed}/' 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         # where to save modifying activation results
-        prediction_path =  os.path.join(prediction_path, f'v-{round(epsilon, max_num_digits)}')
+        prediction_path =  os.path.join(prediction_path, f'v-{round(epsilon, digits[eps_id])}')
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         t.set_description(f"epsilon : {epsilon} , prediction path : {prediction_path}")
         for value in (n:= tqdm(num_neuron_groups)):
@@ -399,7 +395,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
 
         eval_path =  f'../pickles/evaluations/seed_{seed}/'
         if not os.path.isdir(eval_path): os.mkdir(eval_path)
-        eval_path =  os.path.join(eval_path, f'v-{round(epsilon, max_num_digits)}')
+        eval_path =  os.path.join(eval_path, f'v-{round(epsilon, digits[eps_id])}')
         if not os.path.isdir(eval_path): os.mkdir(eval_path)
         eval_path = os.path.join(eval_path, 
                                 f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
