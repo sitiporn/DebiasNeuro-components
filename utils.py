@@ -375,18 +375,13 @@ def get_num_neurons(config):
 
     return total_neurons
 
-def get_params(config, soft_masking_value_search:bool=False, masking_rate_search:bool=False):
-    """hyperparameters to modify neuron's activations tuned on validation sets
-       Args:
-          config: config for experiment
-          soft_masking_value_search: do hyperparameter search on value used modify neurons's activations
-          masking_rate_search: do hyperparameter search on the percentage of neurons to mask
-    """
+def get_params(config):
+    """hyperparameters to modify neuron's activations tuned on a validation set """
     params = {}
     digits = {}
     search_hyper_types = []
-    if soft_masking_value_search: search_hyper_types.append('epsilons')
-    if masking_rate_search: search_hyper_types.append('percent')
+    if config["soft_masking_value_search"]: search_hyper_types.append('epsilons')
+    if config["masking_rate_search"]: search_hyper_types.append('percent')
     """
     if intervention_type == "weaken": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * epsilon
     elif intervention_type == "neg": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * -1

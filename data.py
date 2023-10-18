@@ -273,7 +273,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
         print(f'using original model : {config["model_name"]}')
     print(f'{config["dev-name"]} : compute on {config["dev_json"]}')
     mediators  = get_mediators(_model)
-    params  = get_params(config, soft_masking_value_search=True)
+    params  = get_params(config) 
     digits = [ len(str(epsilon).split('.')[-1]) for epsilon in params['epsilons'] ]
     total_neurons = get_num_neurons(config)
     epsilons = params['epsilons']
