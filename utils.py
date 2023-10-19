@@ -16,6 +16,7 @@ from torch.utils.data import Dataset, DataLoader
 from collections import Counter
 from intervention import get_mediators
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, BertForSequenceClassification
 
 def report_gpu(): 
   print(f"++++++++++++++++++++++++++++++")
@@ -364,7 +365,8 @@ def compute_acc(raw_distribution_path, label_maps):
 
 def get_num_neurons(config):
 
-    model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
+    label_maps = config['label_maps']
+    model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
     
     config['nums']['self'] = model.bert.encoder.layer[0].attention.self.query.out_features * config['attention_components']
     config['nums']['AO'] = model.bert.encoder.layer[0].attention.output.dense.out_features
@@ -505,10 +507,9 @@ class EncoderParams:
     def append_pos(self, pos, value):
         component = pos.split('-')[2]
         neuron_id = pos.split('-')[3]
-
         # Todo: refactor group by component 
         for child in list(self.params.keys()): 
-            self.params[child][f'{component}-{neuron_id}'] = value[child].cpu()
+            self.params[child][f'{component}-{neuron_id}'] = value[child].cpu() if value[child] is not None else None
 
 
 
