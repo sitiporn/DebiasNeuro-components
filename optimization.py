@@ -23,11 +23,12 @@ from functools import partial
 from optimization_utils import masking_grad, reverse_grad, initial_partition_params, trace_optimized_params
 
 
-def exclude_grad(model, hooks, value = 0.05):
+def exclude_grad(model, hooks, config, value = 0.05, collect_param=False):
     DEBUG = False
+    seed = config['seed']
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/'
-    restore_path = os.path.join(restore_path, f'v-{value}')
+    restore_path = os.path.join(restore_path, f'masking-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
@@ -42,17 +43,19 @@ def exclude_grad(model, hooks, value = 0.05):
 
         layer_id, component = get_specific_component(splited_name, component_mappings) 
         freeze_param_name = splited_name[-1]
-        cur_restore_path = os.path.join(restore_path, f'layer{layer_id}_components.pickle')
-        
+        cur_restore_path = os.path.join(restore_path, f'{seed}_layer{layer_id}_collect_param={collect_param}_components.pickle')
+       
         with open(cur_restore_path, 'rb') as handle:
             layer_params = pickle.load(handle)
         
+        # group freeze  by components 
         neuron_ids = group_layer_params(layer_params)
-
+        print(param_name, param.shape)
 
         if 'dense' in splited_name:
             if child == 'weight': 
                 hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, neuron_ids[component], param_name, DEBUG)))
+                breakpoint()
             elif child == 'bias':
                 hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, neuron_ids[component], param_name, DEBUG)))
             print(f'exlude_grad func dense : {param_name}') 
