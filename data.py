@@ -20,7 +20,7 @@ from pprint import pprint
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-from utils import  EncoderParams
+from utils import  LayerParams
 from cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
 from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans, compute_acc
@@ -1146,11 +1146,12 @@ def get_specific_component(splited_name, component_mappings):
     
     return layer_id, component
         
-def group_layer_params(layer_params):
+def group_layer_params(layer_params, mode):
     """ group parameter's component of both weight and bias """
 
     group_param_names = {}
-    param_names = list(layer_params.params['weight'].keys())
+    
+    param_names = list(layer_params.train_params['weight'].keys() if mode == 'train' else layer_params.freeze_params['weight'] )
 
     for name in param_names:
         component = name.split('-')[0]
