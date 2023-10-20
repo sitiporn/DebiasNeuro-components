@@ -517,3 +517,25 @@ class LayerParams:
         for child in list(self.train_params.keys()): 
             self.train_params[child][f'{component}-{neuron_id}'] = value[child].cpu() if value[child] is not None else None
 
+def test_layer_params(encoder_params, freeze_params, train_params, value):
+
+    train_param_count = {}
+    freeze_param_count = {}
+
+    for layer_id in range(len(encoder_params)):
+        for child in ['weight', 'bias']:
+            if child not in train_param_count.keys(): train_param_count[child] = 0
+            if child not in freeze_param_count.keys(): freeze_param_count[child] = 0
+            
+            train_param_count[child] += len(encoder_params[layer_id].train_params[child].keys())
+            freeze_param_count[child] +=  len(encoder_params[layer_id].freeze_params[child].keys())
+
+    print(f'summary after combine parameters')
+    for child in ['weight', 'bias']:
+        assert train_param_count[child]   == encoder_params[layer_id].num_train_params  
+        assert freeze_param_count[child]  == encoder_params[layer_id].num_freeze_params  
+        assert encoder_params[layer_id].total_params == train_param_count[child] +  freeze_param_count[child]
+        print(f'********** {child}  ************')
+        print(f'# Train : {train_param_count[child]}')
+        print(f'# Freeze : {freeze_param_count[child]}')
+        print(f'# Total  : {train_param_count[child] +  freeze_param_count[child]}')
