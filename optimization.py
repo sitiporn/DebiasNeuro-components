@@ -17,7 +17,7 @@ import operator
 import torch.nn.functional as F
 import numpy as np
 from torch.optim import Adam
-from data import get_mediators, get_hidden_representations, EncoderParams, get_specific_component, Dev, group_layer_params 
+from data import get_mediators, get_hidden_representations, get_specific_component, Dev, group_layer_params 
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from optimization_utils import masking_grad, reverse_grad, initial_partition_params, trace_optimized_params
@@ -40,7 +40,6 @@ def exclude_grad(model, hooks, config, value = 0.05, collect_param=False):
         if 'LayerNorm' in splited_name: continue
 
         child = splited_name[-1]
-
         layer_id, component = get_specific_component(splited_name, component_mappings) 
         freeze_param_name = splited_name[-1]
         cur_restore_path = os.path.join(restore_path, f'{seed}_layer{layer_id}_collect_param={collect_param}_components.pickle')
@@ -48,23 +47,33 @@ def exclude_grad(model, hooks, config, value = 0.05, collect_param=False):
         with open(cur_restore_path, 'rb') as handle:
             layer_params = pickle.load(handle)
         
-        # group freeze  by components 
-        neuron_ids = group_layer_params(layer_params)
-        print(param_name, param.shape)
+        # group by components 
+        train_neuron_ids = group_layer_params(layer_params, mode='train')
+        frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
+
+        print(f'************ {param_name} ****************')
+        print(f'#train components :{len(train_neuron_ids.keys())}, #frozen components {len(frozen_neuron_ids.keys())}' )
+        from optimization import reverse_grad
 
         if 'dense' in splited_name:
             if child == 'weight': 
-                hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, neuron_ids[component], param_name, DEBUG)))
-                breakpoint()
+                if component in list(train_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
+                if component in list(frozen_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, frozen_neuron_ids[component], param_name, DEBUG)))
             elif child == 'bias':
-                hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, neuron_ids[component], param_name, DEBUG)))
+                if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
+                if component in list(frozen_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, frozen_neuron_ids[component], param_name, DEBUG)))
             print(f'exlude_grad func dense : {param_name}') 
         else: 
             if child == 'weight': 
-                hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(masking_grad, neuron_ids[component], param_name, DEBUG )))
+                if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG )))
+                if component in list(frozen_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(masking_grad, frozen_neuron_ids[component], param_name, DEBUG )))
             elif child == 'bias':
-                hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, neuron_ids[component], param_name, DEBUG)))
+                if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
+                if component in list(frozen_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, frozen_neuron_ids[component], param_name, DEBUG)))
             print(f'exlude_grad func : {param_name}')
+
+        # masking grad hooks : 144
+        # reverse grad hooks : 134
     
     return model, hooks
 

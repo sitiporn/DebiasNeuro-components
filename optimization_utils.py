@@ -17,10 +17,11 @@ import operator
 import torch.nn.functional as F
 import numpy as np
 from torch.optim import Adam
-from data import get_mediators, get_hidden_representations, EncoderParams, get_specific_component, Dev, group_layer_params
+from data import get_mediators, get_hidden_representations, get_specific_component, Dev, group_layer_params
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from cma import get_topk
+from utils import LayerParams
 
 def initial_partition_params(config, model, do, collect_param=False, debug=True):
     """partition parameters used to freeze  and train(bias parameters)"""
@@ -107,23 +108,38 @@ def initial_partition_params(config, model, do, collect_param=False, debug=True)
                 assert param.requires_grad == False, f' Error : {name}'
         
         # Todo: rolling out memory
-        layer_param = [] 
+        encoder_params = [] 
         for layer_id in range(model.config.num_hidden_layers): 
-            layer_param.append(EncoderParams(layer_id, len(train_params[value]['weight']), len(freeze_params[value]['weight']) ))
+            encoder_params.append(LayerParams(layer_id, len(train_params[value]['weight']), len(freeze_params[value]['weight']) ))
         
         # collect parameters needed to be frozen while perform optmize step
         for pos in list(freeze_params[value]['weight'].keys()):
             layer_id = int(pos.split('-')[1])
-            layer_param[layer_id].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
+            encoder_params[layer_id].append_frozen(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
+        
+        for pos in list(train_params[value]['weight'].keys()):
+            layer_id = int(pos.split('-')[1])
+            encoder_params[layer_id].append_train(pos, {'weight': train_params[value]['weight'][pos], 'bias': train_params[value]['bias'][pos]})
+        
+        for child in ['weight', 'bias']:
+            assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
+            assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
+            print(f'# {child} train parameters:  {len(train_params[value][child])} ')
+            print(f'# {child} freeze parameters: {len(freeze_params[value][child])} ')
+            print(f'# {child} total oparameters: {len(train_params[value][child]) + len(freeze_params[value][child])} ')
+
+        from utils import test_layer_params
+        test_layer_params(encoder_params, freeze_params, train_params, value)
+
         
         restore_path = f'../pickles/restore_weight/'
-        for layer in range(len(layer_param)): 
+        for layer in range(len(encoder_params)): 
             cur_restore_path = os.path.join(restore_path, f'masking-{value}')
             if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
             
             cur_restore_path = os.path.join(cur_restore_path,f'{seed}_layer{layer}_collect_param={collect_param}_components.pickle')
             with open(cur_restore_path, 'wb') as handle:
-                pickle.dump(layer_param[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(encoder_params[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving {layer}'s components into {cur_restore_path}")
     
     return model
