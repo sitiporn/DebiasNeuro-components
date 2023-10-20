@@ -495,24 +495,25 @@ def give_weight(label, probs):
 
     return 1 / probs
 
-class EncoderParams:
-    """ A class used to restore specific parameters needed to be frozen inside Encoder of model"""
+class LayerParams:
+    """ A class used to mangage parameters of each layer  to use in optimization step """
     def __init__(self, layer_id, num_train_params, num_freeze_params):
         self.layer_id  = layer_id
-        self.params = {'weight': {}, 'bias': {}}
+        self.train_params = {'weight': {}, 'bias': {}}
+        self.freeze_params = {'weight': {}, 'bias': {}}
         self.num_train_params = num_train_params
         self.num_freeze_params = num_freeze_params
         self.total_params = self.num_train_params + self.num_freeze_params
 
-    def append_pos(self, pos, value):
+    def append_frozen(self, pos, value):
         component = pos.split('-')[2]
         neuron_id = pos.split('-')[3]
-        # Todo: refactor group by component 
-        for child in list(self.params.keys()): 
-            self.params[child][f'{component}-{neuron_id}'] = value[child].cpu() if value[child] is not None else None
+        for child in list(self.freeze_params.keys()): 
+            self.freeze_params[child][f'{component}-{neuron_id}'] = value[child].cpu() if value[child] is not None else None
 
-
-
-
-
+    def append_train(self, pos, value):
+        component = pos.split('-')[2]
+        neuron_id = pos.split('-')[3]
+        for child in list(self.train_params.keys()): 
+            self.train_params[child][f'{component}-{neuron_id}'] = value[child].cpu() if value[child] is not None else None
 
