@@ -22,8 +22,9 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from cma import get_topk
 
-def initial_partition_params(config, model, do, debug=True):
-    """partition candidate parameters used to train main model """
+def initial_partition_params(config, model, do, collect_param=False, debug=True):
+    """partition parameters used to freeze  and train(bias parameters)"""
+    from utils import report_gpu
     component_mappings = {}
     freeze_params = {}
     train_params = {}
@@ -49,6 +50,7 @@ def initial_partition_params(config, model, do, debug=True):
     # candidate neurons existed bias 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
+    
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     # unfreeze all parameters
     for param in model.parameters(): param.requires_grad = True
@@ -62,43 +64,48 @@ def initial_partition_params(config, model, do, debug=True):
         #  if 'encoder' not in splited_name: continue
         #  if 'LayerNorm' in splited_name: continue
         for name, param in model.named_parameters():
-            cur_name = name.split('.')
+            cur_name = name.split('.') 
             #  To load and save model's parameters
             if 'encoder' in cur_name and 'LayerNorm' not in cur_name:
                 component = None
                 layer_id = int(cur_name[3])
                 count_param  += param.shape[0]
+                # ************* get component *************
                 if 'self' in cur_name:  
                     component = component_mappings[cur_name[-2]]  # to get Q, K, V
                 elif 'attention' in cur_name and 'output' in cur_name: 
                     component = component_mappings['attention.output']  
                 else:
                     component = component_mappings[cur_name[-3]]
+                
                 for neuron_id in range(param.data.shape[0]):
-                    cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
-                    total_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+                    pos = f'L-{layer_id}-{component}-{neuron_id}'
+                    total_params[value][cur_name[-1]][pos] = param.data[neuron_id] if collect_param else None
                     # preparing to restore weight that are not in partition gradients
-                    if cur_combine not in list(top_neuron[value].keys()):
-                        freeze_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+                    if pos not in list(top_neuron[value].keys()):
+                        # used to masking grad
+                        freeze_params[value][cur_name[-1]][pos] = param.data[neuron_id] if collect_param else None
                     else:
-                        train_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+                        # used to reverse gradient
+                        train_params[value][cur_name[-1]][pos] = param.data[neuron_id]  if collect_param else None
             else:
                 print(f'freeze whole tensor: {name}')
                 param.requires_grad = False
-        
+
         for child in ['weight', 'bias']:
             assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
             assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
             print(f'# {child} train parameters:  {len(train_params[value][child])} ')
             print(f'# {child} freeze parameters: {len(freeze_params[value][child])} ')
             print(f'# {child} total oparameters: {len(train_params[value][child]) + len(freeze_params[value][child])} ')
-
         print(f'count_param : {count_param}') 
+        
         for name, param in model.named_parameters(): 
             if 'encoder' in name.split('.') and 'LayerNorm' not in name.split('.'): 
                 assert param.requires_grad == True, f' Error : {name}'
             else: 
                 assert param.requires_grad == False, f' Error : {name}'
+        
         # Todo: rolling out memory
         layer_param = [] 
         for layer_id in range(model.config.num_hidden_layers): 
@@ -106,16 +113,19 @@ def initial_partition_params(config, model, do, debug=True):
         
         # collect parameters needed to be frozen while perform optmize step
         for pos in list(freeze_params[value]['weight'].keys()):
-            layer_param[int(pos.split('-')[1])].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
+            layer_id = int(pos.split('-')[1])
+            layer_param[layer_id].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
         
         restore_path = f'../pickles/restore_weight/'
         for layer in range(len(layer_param)): 
-            cur_restore_path = os.path.join(restore_path, f'v-{value}')
+            cur_restore_path = os.path.join(restore_path, f'masking-{value}')
             if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
-            cur_restore_path = os.path.join(cur_restore_path,f'layer{layer}_components.pickle')
+            
+            cur_restore_path = os.path.join(cur_restore_path,f'{seed}_layer{layer}_collect_param={collect_param}_components.pickle')
             with open(cur_restore_path, 'wb') as handle:
                 pickle.dump(layer_param[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"saving layer {layer}'s components into pickle files")
+                print(f"saving {layer}'s components into {cur_restore_path}")
+    
     return model
 
 def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False , DEBUG=False):
@@ -222,4 +232,7 @@ def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
           grad: gradient used to be reversed
     """
     if DEBUG: print(f'call back reverse gradient func : {param_name}, {grad.shape}')
-    return -grad
+    mask =  torch.ones_like(grad)
+    mask[neuron_ids] = -1
+    
+    return grad  * mask
