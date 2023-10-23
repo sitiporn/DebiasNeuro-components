@@ -252,3 +252,83 @@ def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
     mask[neuron_ids] = -1
     
     return grad  * mask
+
+def get_advantaged_samples(config, model, seed, metric, collect=True):
+    # Todo: divide label
+    biased_label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
+    biased_label_remaps = {v:k for k,v in biased_label_maps.items()}
+    data_path = config["data_path"]
+    train_data = config["train_data"]
+    data_path = os.path.join(data_path, train_data)
+    biased_df = pd.read_json(data_path, lines=True)
+    
+    predictions = []
+    results = []
+
+    # ************* Biased model **************
+    for index, row in biased_df.iterrows():
+        prediction =  biased_label_remaps[int(torch.argmax(torch.Tensor(row['bias_probs']), dim=0))]
+        predictions.append(prediction)
+        # results.append(prediction  == "entailment")
+        results.append(prediction  == row['gold_label'])
+    
+    biased_df['predictions'] = predictions
+    biased_df['results'] = results
+    biased_df['gold_label_ids'] = biased_df['gold_label'].apply(lambda row : biased_label_maps[row])
+    biased_df['prediction_ids'] = biased_df['predictions'].apply(lambda row : biased_label_maps[row])
+
+    print(f"Bias model acc : {metric.compute(predictions=biased_df['prediction_ids'].tolist() , references=biased_df['gold_label_ids'].tolist() ) }")
+    
+    
+    # ************* Main model **************
+    from data import CustomDataset
+    main_label_maps = {"contradiction": 0, "entailment": 1, "neutral": 2}
+    train_set = CustomDataset(config, label_maps=main_label_maps, data_name="train_data", is_trained=False)
+    train_dataloader = DataLoader(train_set, batch_size = 32, shuffle = False, num_workers=0)
+    tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+    norm = nn.Softmax(dim=-1)
+    
+    main_model = {}
+    for col in ['gold_label', 'sentence1', 'sentence2', 'probs','predictions', 'results']: main_model[col] = []
+    for inputs in tqdm(train_dataloader):
+        premises, hypothesises,  labels = inputs
+        pair_sentences =  [[premise, hypo] for premise, hypo in zip(premises, hypothesises) ]
+        model_inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+        with torch.no_grad():
+            out = model(**model_inputs)[0]
+            cur_probs = norm(out)
+            cur_preds = torch.argmax(cur_probs, dim=-1)
+            cur_res = cur_preds == labels
+            main_model["sentence1"].extend(premises)
+            main_model["sentence2"].extend(hypothesises)
+            main_model["gold_label"].extend(labels)
+            main_model["probs"].extend(cur_probs)
+            main_model["predictions"].extend(cur_preds)
+            main_model["results"].extend(cur_res)
+    
+    main_df = pd.DataFrame.from_dict(main_model) 
+    main_df['gold_label'] = main_df['gold_label'].apply(lambda row : int(row))
+    main_df['predictions'] = main_df['predictions'].apply(lambda row : int(row))
+    print(f"Main model acc : {metric.compute(predictions=main_df['predictions'].tolist() , references=main_df['gold_label'].tolist() ) }")
+    
+    path = f'../pickles/advantaged/{seed}_inferences.pickle'
+    with open(path, 'wb') as handle: 
+        # nested dict : [component][do][class_name][layer][sample_idx]
+        pickle.dump(main_df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(biased_df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"saving to {path} done ! ")
+
+        
+        
+
+
+
+
+
+    
+
+
+
+
+
+
