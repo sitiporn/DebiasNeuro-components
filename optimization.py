@@ -23,8 +23,7 @@ from functools import partial
 from optimization_utils import masking_grad, reverse_grad, initial_partition_params, trace_optimized_params
 
 
-def exclude_grad(model, hooks, config, value = 0.05, collect_param=False):
-    DEBUG = False
+def intervene_grad(model, hooks, config, value = 0.05, collect_param=False, DEBUG = False):
     seed = config['seed']
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/'
@@ -127,7 +126,7 @@ def partition_param_train(model, tokenizer, config, do, counterfactual_paths, DE
     model = initial_partition_params(config, model, do) 
     hooks = []
     # when performing back propagation model it seems register o  ?
-    model, hooks = exclude_grad(model, hooks=hooks)
+    model, hooks = intervene_grad(model, hooks=hooks)
     print(f'Epochs : {epochs}, with learning rate at : {learning_rate}')
 
     if DEBUG: 
