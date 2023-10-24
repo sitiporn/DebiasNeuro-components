@@ -39,7 +39,7 @@ from data import get_analysis
 from transformers import AutoTokenizer, BertForSequenceClassification
 from data import get_all_model_paths
 from data import get_masking_value 
-from optimization import exclude_grad
+from optimization import intervene_grad
 
 def main():
 

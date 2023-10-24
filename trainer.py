@@ -35,7 +35,7 @@ import yaml
 from utils import get_num_neurons, get_params, get_diagnosis
 from data import get_analysis 
 from transformers import AutoTokenizer, BertForSequenceClassification
-from optimization import exclude_grad
+from optimization import intervene_grad
 from transformers import Trainer
 # from torch.utils.data import Dataset, DataLoader
 from transformers import TrainingArguments, Trainer, AdamW, DataCollatorWithPadding
@@ -128,7 +128,6 @@ class CustomTrainer(Trainer):
         
         self._loss = torch.nn.CrossEntropyLoss()
     
-    # Todo: custom where scheduler being created
     def create_scheduler(self, num_training_steps: int, optimizer: torch.optim.Optimizer = None):
         """
         Setup the scheduler. The optimizer of the trainer must have been set up either before this method is called or
@@ -139,9 +138,6 @@ class CustomTrainer(Trainer):
         """
         cut_frac = 0.06
 
-        # bugs: lr_scheuduler is no get_lr()[0]
-        # Scheduler -> slanted override 
-        # Allennlp -> override from
         if self.lr_scheduler is None:
             self.lr_scheduler = SlantedTriangular(optimizer = self.optimizer, 
                                            num_epochs = self.args.num_train_epochs,
@@ -604,24 +600,33 @@ def compute_metrics(eval_pred):
     return metric.compute(predictions=predictions, references=labels)
 
 def main():
+    # NOTE: Done checking roughly registered
+    # 
     global tokenizer
     global label_maps
     global metric
 
-    config_path = "./configs/baseline_config.yaml"
+    config_path = "./configs/pcgu_config.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
     
     dataset = {}
     tokenized_datasets = {}
     output_dir = '../models/developing_baseline/' 
-    label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
-    
+    label_maps = config['label_maps'] 
+
+    from optimization_utils import get_advantaged_samples
+
+    # NOTE: in config seed: null for to get top neurons 
     # random seed
-    seed = config['seed'] #random.randint(0,10000)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
+    seed = 42 #3099  #config['seed'] #random.randint(0,10000)
+    if seed is not None:
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+    else: 
+        seed = str(seed)
+    
     output_dir = os.path.join(output_dir, "seed_"+ str(seed))
     if not os.path.exists(output_dir): os.mkdir(output_dir) 
     # "validation_metric": "+accuracy"?
@@ -633,15 +638,20 @@ def main():
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer) if config['data_loader']['batch_sampler']['dynamic_padding'] else None
     dataset = {}
     tokenized_datasets = {}
-
-    # Two: method freezing components
-    # 1. freeze whole weight's tensor 
-    # do = "High-overlap"
-    # model = initial_partition_params(config, model, do)
-    # 2. freeze weight's all inputs corresponding to specific neurons
+    advantaged_bias = None
+    advantaged_main, advantaged_bias = get_advantaged_samples(config, model, seed, metric=metric)
+    
+    from optimization import partition_param_train, restore_original_weight
+    # PCGU
+    hooks = []
+    mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
+    model = initial_partition_params(config, model, do=mode[0], collect_param=config['collect_param']) 
+    model, hooks = intervene_grad(model, hooks=hooks, config=config, collect_param=config['collect_param'], DEBUG=False)
+    
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
-        tokenized_datasets[data_name] = CustomDataset(config, label_maps=label_maps, data_name=data_name)
+        data =  advantaged_bias if data_name == "train_data" else None
+        tokenized_datasets[data_name] = CustomDataset(config, label_maps=label_maps, data_name=data_name, data=data)
     print(f'Config of dataloader') 
     print(f'Group by len : {config["data_loader"]["batch_sampler"]["group_by_length"]}')
     print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")
@@ -670,7 +680,6 @@ def main():
     opitmizer = AdamW(params=model.parameters(),
                     lr= float(config['optimizer']['lr']) , 
                     weight_decay = config['optimizer']['weight_decay'])
-
     trainer = CustomTrainer(
         model,
         training_args,
