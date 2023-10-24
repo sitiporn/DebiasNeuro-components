@@ -229,8 +229,8 @@ def preprocss(df):
     return df
 
 class CustomDataset(Dataset):
-    def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
-        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+    def __init__(self, config, label_maps, data_name = 'train_data', is_trained=True, DEBUG=False, data=None) -> None: 
+        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True) if data is None else data
         df = preprocss(df)
         if "bias_probs" in df.columns:
           df_new = df[['sentence1', 'sentence2', 'gold_label','bias_probs']]  
@@ -238,23 +238,34 @@ class CustomDataset(Dataset):
             df_new = df[['sentence1', 'sentence2', 'gold_label']]
         df_new.rename(columns = {'gold_label':'label'}, inplace = True)
         self.label_maps = label_maps
+        self.is_trained = is_trained
         df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
-        from datasets import Dataset as HugginfaceDataset
-        self.dataset = HugginfaceDataset.from_pandas(df_new)
-        self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
-        self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+        if is_trained:
+            from datasets import Dataset as HugginfaceDataset
+            self.dataset = HugginfaceDataset.from_pandas(df_new)
+            self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+            self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+        else: 
+            self.df = df_new
+            self.premises = list(self.df.sentence1)
+            self.hypothesises = list(self.df.sentence2)
+            self.labels = list(self.df.label)
+
+
     def to_label_id(self, text_label): 
         return self.label_maps[text_label]
     
     def tokenize_function(self, examples):
-        return self.tokenizer(examples["sentence1"], examples["sentence2"], truncation=True) 
+        return self.tokenizer(examples["sentence1"], examples["sentence2"], padding='max_length', truncation=True, return_tensors="pt") 
    
     def __len__(self): 
-        return self.tokenized_datasets.shape[0]
+        return self.tokenized_datasets.shape[0] if self.is_trained else len(self.premises)
     
     def __getitem__(self, idx):
-        return self.tokenized_datasets[idx]
-
+        if self.is_trained:
+            return self.tokenized_datasets[idx]
+        else:
+            return self.premises[idx], self.hypothesises[idx], self.labels[idx]
 
 def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
     """ getting inferences while modifiying activations on dev-matched/dev-mm """
