@@ -849,7 +849,6 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
     distributions = {}
     losses = {}
     golden_answers = {}
-    
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
@@ -864,6 +863,9 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
     hans_avg = 0
     computed_acc_count = 0
     computed_hans_count = 0
+    seed = str(config['seed'])
+    if not config['compute_all_seeds']:  all_paths = {seed: all_paths[seed]}
+
     for seed, path in all_paths.items():
         if is_load_model:
             from utils import load_model

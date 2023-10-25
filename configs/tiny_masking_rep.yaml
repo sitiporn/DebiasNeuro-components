@@ -37,7 +37,7 @@
   "computed_all_layers": True,
   "print_config": False,
   #  [42, 3099, 3785, 3990,  409] for experiments
-  "seed": null,
+  "seed": 42, #null,
   # default
   # "topk_neurons": True,
   # together with compute all seeds
@@ -85,13 +85,13 @@
     },
   "single_neuron": False,
   # do hyperparameter search on value used modify neurons's activations
-  "soft_masking_value_search": True,
+  "soft_masking_value_search": False, #True,
   # do hyperparameter search on the percentages of all neurons to mask
   "masking_rate_search": False,
-  "get_condition_inferences": True,
+  "get_condition_inferences": False, #True,
   "get_condition_inference_scores": False,
   # ******************** test  stuff ********************
-  "eval_model": False,
+  "eval_model": True,
   "traced": False, 
   "traced_params": False,
   "diag": False,
