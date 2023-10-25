@@ -257,8 +257,10 @@ def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
 def get_advantaged_samples(config, model, seed, metric, collect=False):
     # Todo: divide label
     biased_label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
+    main_label_maps   = {"contradiction": 0, "entailment": 1, "neutral": 2}
     biased_label_remaps = {v:k for k,v in biased_label_maps.items()}
-    data_path = config["data_path"]
+    main_label_remaps   = {v:k for k,v in main_label_maps.items()}
+    data_path  = config["data_path"]
     train_data = config["train_data"]
     data_path = os.path.join(data_path, train_data)
     biased_df = pd.read_json(data_path, lines=True)
@@ -281,10 +283,8 @@ def get_advantaged_samples(config, model, seed, metric, collect=False):
 
         print(f"Bias model acc : {metric.compute(predictions=biased_df['prediction_ids'].tolist() , references=biased_df['gold_label_ids'].tolist() ) }")
         
-        
         # ************* Main model **************
         from data import CustomDataset
-        main_label_maps = {"contradiction": 0, "entailment": 1, "neutral": 2}
         train_set = CustomDataset(config, label_maps=main_label_maps, data_name="train_data", is_trained=False)
         train_dataloader = DataLoader(train_set, batch_size = 32, shuffle = False, num_workers=0)
         tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
@@ -319,13 +319,56 @@ def get_advantaged_samples(config, model, seed, metric, collect=False):
             pickle.dump(main_df, handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(biased_df, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving to {path} done ! ")
+        
+        main_df['results'] = main_df['results'].apply(lambda row: bool(row))
+        entail_main_df = main_df.loc[main_df['gold_label'] == main_label_maps['entailment']]
+        entail_biased_df = biased_df.loc[biased_df['gold_label'] == biased_label_remaps[0]]
+        entail_biased_df.shape == entail_main_df.shape
+        print(f'entail bias shape : {entail_biased_df.shape }')
+        print(f'entail main shape : {entail_main_df.shape}')
+        # select samples base on main model and bias model inferences
+        advantaged  = []
+        for idx in range(entail_main_df.shape[0]):
+            if entail_main_df['results'].iloc[idx] ==  False and entail_biased_df['results'].iloc[idx] == True:
+                advantaged.append(True)
+            else: 
+                advantaged.append(False)
+
+        advantaged_main = entail_main_df[advantaged]
+        advantaged_bias = entail_biased_df[advantaged]
+        advantaged_main.shape[0] == advantaged_bias.shape[0]
+
+        bias_probs = []
+        for row_idx, row  in advantaged_bias.iterrows():
+            bias_probs.append(row['bias_probs'])
+        bias_probs = torch.tensor(bias_probs)
+
+        probs = {}
+        for idx, row in advantaged_bias.iterrows():
+            for label_text in biased_label_maps.keys():
+                if label_text not in probs.keys(): probs[label_text] = []
+                probs[label_text].append(row['bias_probs'][biased_label_maps[label_text]])
+        for label_text in probs.keys():
+            print(f'{label_text} : {len(probs[label_text])}')
+            advantaged_bias[label_text + '_probs'] = probs[label_text]
+
+        print(f"min: {advantaged_bias['entailment_probs'].min()}, max: {advantaged_bias['entailment_probs'].max()}")
+        path = f'../pickles/advantaged/clean_{seed}_inferences.pickle'
+        with open(path, 'wb') as handle: 
+            # nested dict : [component][do][class_name][layer][sample_idx]
+            pickle.dump(advantaged_main, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(advantaged_bias, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"saving to {path} done ! ")
+        return None, None
     else:
         path = f'../pickles/advantaged/clean_{seed}_inferences.pickle'
         with open(path, 'rb') as handle: 
             advantaged_main = pickle.load(handle)
             advantaged_bias = pickle.load(handle)
             print(f"Loading from {path} done ! ")
+        
         return  advantaged_main, advantaged_bias
+
         
         
 
