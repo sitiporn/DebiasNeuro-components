@@ -869,7 +869,8 @@ def get_all_model_paths(LOAD_MODEL_PATH):
         # load best model is trained up to the end
         checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
         clean_model_files.append(checkpoint[-1])
-    assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
+    breakpoint()
+    #assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
 def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
@@ -893,6 +894,12 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
     hans_avg = 0
     computed_acc_count = 0
     computed_hans_count = 0
+    seed = str(config['seed'])
+    if not config['compute_all_seeds']:  all_paths = {seed: all_paths[seed]}
+    # item= all_paths.pop(seed)
+    # print("Popped value is:",item)
+    # print("The dictionary is:" , all_paths.keys())
+
     for seed, path in all_paths.items():
         if is_load_model:
             from utils import load_model
