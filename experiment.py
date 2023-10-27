@@ -70,6 +70,9 @@ def main():
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
     print(f'Counterfactual type: {mode}')
     print(f'Intervention type : {config["intervention_type"]}')
+    
+    if config['compute_all_see']: print(f'current model path : {model_path}')
+
     if config['eval_counterfactual'] and config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
             # see the result of the counterfactual of modifying proportional bias

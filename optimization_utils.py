@@ -254,7 +254,7 @@ def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
     
     return grad  * mask
 
-def get_advantaged_samples(config, model, seed, metric, collect=False):
+def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load_model, method_name, collect=False):
     # Todo: divide label
     biased_label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     main_label_maps   = {"contradiction": 0, "entailment": 1, "neutral": 2}
@@ -264,11 +264,22 @@ def get_advantaged_samples(config, model, seed, metric, collect=False):
     train_data = config["train_data"]
     data_path = os.path.join(data_path, train_data)
     biased_df = pd.read_json(data_path, lines=True)
+    seed = str(seed)
     
     predictions = []
     results = []
 
     if collect:
+        from data import get_all_model_paths
+        all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+        path = all_paths[seed]
+        if is_load_model:
+            from utils import load_model
+            model = load_model(path=path, model=model)
+            print(f'Loading model from : {path}')
+        else:
+            print(f'Using original model')
+
         # ************* Biased model **************
         for index, row in biased_df.iterrows():
             prediction =  biased_label_remaps[int(torch.argmax(torch.Tensor(row['bias_probs']), dim=0))]
@@ -292,6 +303,7 @@ def get_advantaged_samples(config, model, seed, metric, collect=False):
         
         main_model = {}
         for col in ['gold_label', 'sentence1', 'sentence2', 'probs','predictions', 'results']: main_model[col] = []
+        count = 0
         for inputs in tqdm(train_dataloader):
             premises, hypothesises,  labels = inputs
             pair_sentences =  [[premise, hypo] for premise, hypo in zip(premises, hypothesises) ]
@@ -313,7 +325,7 @@ def get_advantaged_samples(config, model, seed, metric, collect=False):
         main_df['predictions'] = main_df['predictions'].apply(lambda row : int(row))
         print(f"Main model acc : {metric.compute(predictions=main_df['predictions'].tolist() , references=main_df['gold_label'].tolist() ) }")
         
-        path = f'../pickles/advantaged/{seed}_inferences.pickle'
+        path = f'../pickles/advantaged/{method_name}_{seed}_inferences.pickle'
         with open(path, 'wb') as handle: 
             # nested dict : [component][do][class_name][layer][sample_idx]
             pickle.dump(main_df, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -353,7 +365,7 @@ def get_advantaged_samples(config, model, seed, metric, collect=False):
             advantaged_bias[label_text + '_probs'] = probs[label_text]
 
         print(f"min: {advantaged_bias['entailment_probs'].min()}, max: {advantaged_bias['entailment_probs'].max()}")
-        path = f'../pickles/advantaged/clean_{seed}_inferences.pickle'
+        path = f'../pickles/advantaged/{method_name}_clean_{seed}_inferences.pickle'
         with open(path, 'wb') as handle: 
             # nested dict : [component][do][class_name][layer][sample_idx]
             pickle.dump(advantaged_main, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -361,7 +373,7 @@ def get_advantaged_samples(config, model, seed, metric, collect=False):
             print(f"saving to {path} done ! ")
         return None, None
     else:
-        path = f'../pickles/advantaged/clean_{seed}_inferences.pickle'
+        path = f'../pickles/advantaged/{method_name}_clean_{seed}_inferences.pickle'
         with open(path, 'rb') as handle: 
             advantaged_main = pickle.load(handle)
             advantaged_bias = pickle.load(handle)
