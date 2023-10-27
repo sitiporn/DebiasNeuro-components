@@ -257,7 +257,7 @@ def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
 def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load_model, method_name, collect=False):
     # Todo: divide label
     biased_label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
-    main_label_maps   = {"contradiction": 0, "entailment": 1, "neutral": 2}
+    main_label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     biased_label_remaps = {v:k for k,v in biased_label_maps.items()}
     main_label_remaps   = {v:k for k,v in main_label_maps.items()}
     data_path  = config["data_path"]
