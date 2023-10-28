@@ -292,7 +292,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
     key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
+    path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
     # why top neurons dont chage according to get_top_k
     # get position of top neurons 
     with open(path, 'rb') as handle: 

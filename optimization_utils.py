@@ -23,7 +23,7 @@ from functools import partial
 from cma import get_topk
 from utils import LayerParams
 
-def initial_partition_params(config, model, do, collect_param=False, debug=True):
+def initial_partition_params(config, method_name, model, do, collect_param=False, debug=True):
     """partition parameters used to freeze  and train(bias parameters)"""
     from utils import report_gpu
     component_mappings = {}
@@ -42,10 +42,10 @@ def initial_partition_params(config, model, do, collect_param=False, debug=True)
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     if config['computed_all_layers']:
-        path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle'
+        path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle'
         layers = config['layers']
     else: 
-        path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
+        path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
         layer = config['layer']
 
     # candidate neurons existed bias 
@@ -132,7 +132,7 @@ def initial_partition_params(config, model, do, collect_param=False, debug=True)
         test_layer_params(encoder_params, freeze_params, train_params, value)
 
         
-        restore_path = f'../pickles/restore_weight/'
+        restore_path = f'../pickles/restore_weight/{method_name}/'
         for layer in range(len(encoder_params)): 
             cur_restore_path = os.path.join(restore_path, f'masking-{value}')
             if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)

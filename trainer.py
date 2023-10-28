@@ -80,6 +80,7 @@ from torch.utils.data.distributed import DistributedSampler
 from transformers.trainer_pt_utils import IterableDatasetShard
 from transformers.utils import is_torch_tpu_available
 from transformers.trainer_utils import speed_metrics, TrainOutput
+from data import get_all_model_paths
 
 logger = logging.get_logger(__name__)
 
@@ -612,14 +613,32 @@ def main():
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/developing_baseline/' 
-    label_maps = config['label_maps'] 
+    NIE_paths = []
+    mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
+    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    
+    # ******************** PATH ********************
+    output_dir = '../models/pcgu_poe2/'
+    LOAD_MODEL_PATH = '../models/poe2/'
+    # LOAD_MODEL_PATH = '../models/reweight2/'
+    # LOAD_MODEL_PATH = '../models/recent_baseline/'
+    method_name =  LOAD_MODEL_PATH.split('/')[-2] #'recent_baseline' #'reweight2' # 'poe2'
+    if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
+    save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
+    if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
+    counterfactual_paths, _ = geting_counterfactual_paths(config, method_name)
+    # path to save NIE scores
+    NIE_paths, _ = geting_NIE_paths(config, method_name, mode)
+    print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
+    for path in counterfactual_paths: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
+    print(f'NIE_paths: {NIE_paths}')
 
     from optimization_utils import get_advantaged_samples
 
     # NOTE: in config seed: null for to get top neurons 
     # random seed
-    seed = 42 #3099  #config['seed'] #random.randint(0,10000)
+    seed = config['seed'] 
     if seed is not None:
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -627,25 +646,47 @@ def main():
     else: 
         seed = str(seed)
     
+    print(f'current {method_name} : seed : {seed}')
+    
     output_dir = os.path.join(output_dir, "seed_"+ str(seed))
     if not os.path.exists(output_dir): os.mkdir(output_dir) 
-    # "validation_metric": "+accuracy"?
+    
+    # *************** Train model stuff ***************
+    label_maps = config['label_maps'] 
     metric = evaluate.load(config["validation_metric"])
     model_config = BertConfig(config['model']["model_name"])
     model_config.num_labels = len(label_maps.keys())
     tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
     model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer) if config['data_loader']['batch_sampler']['dynamic_padding'] else None
-    dataset = {}
-    tokenized_datasets = {}
-    advantaged_bias = None
-    advantaged_main, advantaged_bias = get_advantaged_samples(config, model, seed, metric=metric)
     
+    # Todo: get top_neurons
+    # Done checking model counterfactual_path and specific model
+    experiment_set = ExperimentDataset(config, encode = tokenizer)                            
+    dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
+    collect_counterfactuals(model, model_path, method_name, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
+    cma_analysis(config, 
+                model_path,
+                method_name, 
+                seed, 
+                counterfactual_paths, 
+                NIE_paths, 
+                save_nie_set_path = save_nie_set_path, 
+                model = model, 
+                treatments = mode, 
+                tokenizer = tokenizer, 
+                experiment_set = experiment_set, 
+                DEVICE = DEVICE, 
+                DEBUG = True)   
+    from cma import get_candidate_neurons 
+    get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False) 
+    
+    # ************************** PCGU ***************************
     from optimization import partition_param_train, restore_original_weight
-    # PCGU
     hooks = []
-    mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
-    model = initial_partition_params(config, model, do=mode[0], collect_param=config['collect_param']) 
+    advantaged_bias = None
+    advantaged_main, advantaged_bias = get_advantaged_samples(config, model, seed, metric=metric, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model=True, method_name=method_name,collect=False)
+    model = initial_partition_params(config, method_name, model, do=mode[0], collect_param=config['collect_param']) 
     model, hooks = intervene_grad(model, hooks=hooks, config=config, collect_param=config['collect_param'], DEBUG=False)
     
     for data_name in ["train_data", "validation_data", "test_data"]:
@@ -656,6 +697,7 @@ def main():
     print(f'Group by len : {config["data_loader"]["batch_sampler"]["group_by_length"]}')
     print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")
     
+    # ************************** Training ***************************
     training_args = TrainingArguments(output_dir = output_dir,
                                     report_to="none",
                                     overwrite_output_dir = True,
@@ -680,13 +722,13 @@ def main():
     opitmizer = AdamW(params=model.parameters(),
                     lr= float(config['optimizer']['lr']) , 
                     weight_decay = config['optimizer']['weight_decay'])
+    
     trainer = CustomTrainer(
         model,
         training_args,
         train_dataset= tokenized_datasets["train_data"],
         eval_dataset= tokenized_datasets["validation_data"],
         tokenizer =tokenizer, 
-        # "validation_metric": "+accuracy"?
         compute_metrics=compute_metrics,
         optimizers = (opitmizer, None),
         data_collator=data_collator,

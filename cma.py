@@ -44,7 +44,7 @@ class ComputingEmbeddings:
         self.label_remaps = {v:k for k, v in self.label_maps.items()}
         self.tokenizer = tokenizer
 
-def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save_nie_set_path, model, treatments, tokenizer, experiment_set, DEVICE, DEBUG=False):
+def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NIE_paths, save_nie_set_path, model, treatments, tokenizer, experiment_set, DEVICE, DEBUG=False):
     # checking model and counterfactual_paths whether it change corresponding to seeds
     mediators = {}
     counter = None
@@ -81,7 +81,7 @@ def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save
         # Dont need model as input because we load counterfactual from -> counterfactual_paths
         # dont need head to specify components
         # cls shape: [seed][component][do][layer][neuron_ids]
-        cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
+        cls = get_hidden_representations(counterfactual_paths, method_name, seed,layers, config['is_group_by_class'], config['is_averaged_embeddings'])
         # mediators:change respect to seed
         # cls: change respect to seed
         high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter , counter_predictions, layers, _model, config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
@@ -130,7 +130,7 @@ def get_topk(config, k=None, num_top_neurons=None):
             topk = {'percent': [config['masking_rate']] if config['masking_rate'] else params['percent']}
     return topk
 
-def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
+def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=False):
     # select candidates  based on percentage
     k = config['k']
     # select candidates based on the number of neurons
@@ -151,7 +151,7 @@ def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
             counter = pickle.load(handle)
             print(f"loading NIE : {cur_path}")
         # get seed number
-        seed = cur_path.split('/')[2].split('_')[-1]
+        seed = cur_path.split('/')[3].split('_')[-1]
         # get treatment type
         do = cur_path.split('/')[-1].split('_')[2]
         t.set_description(f"{seed}, {do} : {cur_path}")
@@ -176,7 +176,7 @@ def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
                 num_neurons = int(num_neurons)
                 print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
                 top_neurons[round(value, 2) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
-            with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_{layer}.pickle', 'wb') as handle:
+            with open(f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_{layer}.pickle', 'wb') as handle:
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !") 
         # sort whole layers
@@ -189,7 +189,7 @@ def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
                 print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
                 top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
             
-            with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle:
+            with open(f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle:
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !") 
             
