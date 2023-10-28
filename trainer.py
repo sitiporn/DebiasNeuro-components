@@ -618,8 +618,9 @@ def main():
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
     # ******************** PATH ********************
-    output_dir = '../models/pcgu_poe2/'
-    LOAD_MODEL_PATH = '../models/poe2/'
+    # output_dir = '../models/pcgu_poe2/'
+    output_dir = '../models/pcgu_reweight2/'
+    LOAD_MODEL_PATH = '../models/reweight2/'
     # LOAD_MODEL_PATH = '../models/reweight2/'
     # LOAD_MODEL_PATH = '../models/recent_baseline/'
     method_name =  LOAD_MODEL_PATH.split('/')[-2] #'recent_baseline' #'reweight2' # 'poe2'
@@ -662,8 +663,11 @@ def main():
     
     # Todo: get top_neurons
     # Done checking model counterfactual_path and specific model
+    
+    from cma import get_candidate_neurons 
     experiment_set = ExperimentDataset(config, encode = tokenizer)                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
+    
     collect_counterfactuals(model, model_path, method_name, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
     cma_analysis(config, 
                 model_path,
@@ -678,16 +682,26 @@ def main():
                 experiment_set = experiment_set, 
                 DEVICE = DEVICE, 
                 DEBUG = True)   
-    from cma import get_candidate_neurons 
     get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False) 
     
     # ************************** PCGU ***************************
+    # NOTE: scale gradient by confident scores <- kind of reweighting (sample base)
+    # spatial adaptive gradient scaler by NIE scores (NIE base)
     from optimization import partition_param_train, restore_original_weight
     hooks = []
     advantaged_bias = None
     advantaged_main, advantaged_bias = get_advantaged_samples(config, model, seed, metric=metric, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model=True, method_name=method_name,collect=False)
+    if config['model']['is_load_trained_model']:
+        from utils import load_model
+        all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+        path = all_paths[str(seed)]
+        model = load_model(path=path, model=model)
+        print(f'Loading model from : {path} to optimize on PCGU')
+    else:
+        print(f'Using original model to optimize on PCGU')
+
     model = initial_partition_params(config, method_name, model, do=mode[0], collect_param=config['collect_param']) 
-    model, hooks = intervene_grad(model, hooks=hooks, config=config, collect_param=config['collect_param'], DEBUG=False)
+    model, hooks = intervene_grad(model, hooks=hooks, method_name=method_name, config=config, collect_param=config['collect_param'], DEBUG=False)
     
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
@@ -698,6 +712,14 @@ def main():
     print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")
     
     # ************************** Training ***************************
+    lr = float(config['optimizer']['lr'])
+    pcgu_epochs = 15
+    pcgu_num_batch_per_epoch = 4
+    pcgu_batch_size = 64
+    our_samples = len(advantaged_bias) * config['num_epochs']
+    pcgu_samples = (pcgu_batch_size * pcgu_num_batch_per_epoch * pcgu_epochs)
+    lr = (  pcgu_samples /  our_samples) * lr
+
     training_args = TrainingArguments(output_dir = output_dir,
                                     report_to="none",
                                     overwrite_output_dir = True,
@@ -720,7 +742,7 @@ def main():
                                     )
     
     opitmizer = AdamW(params=model.parameters(),
-                    lr= float(config['optimizer']['lr']) , 
+                    lr= lr , 
                     weight_decay = config['optimizer']['weight_decay'])
     
     trainer = CustomTrainer(
