@@ -23,10 +23,10 @@ from functools import partial
 from optimization_utils import masking_grad, reverse_grad, initial_partition_params, trace_optimized_params
 
 
-def intervene_grad(model, hooks, config, value = 0.05, collect_param=False, DEBUG = False):
+def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_param=False, DEBUG = False):
     seed = config['seed']
     component_mappings = {}
-    restore_path = f'../pickles/restore_weight/'
+    restore_path = f'../pickles/restore_weight/{method_name}/'
     restore_path = os.path.join(restore_path, f'masking-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
