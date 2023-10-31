@@ -13,9 +13,9 @@
   
   # ******************** PATH ********************
   "num_top_neurons": null, 
-  "range_percents": False, 
-  'neurons': False, 
-  # "model_name": "/ist-project/scads/can/sit/models/recent_baseline/seed_409/checkpoint-36500/",
+  "range_percents": True, 
+  'neurons': True, 
+  "model_name": "ishan/bert-base-uncased-mnli",
   "dev_path": "../data/nli/",
   "exp_json": "multinli_1.0_dev_matched.jsonl",
   "dev_json": {},
@@ -37,7 +37,7 @@
   "computed_all_layers": False,
   "print_config": False,
   #  [42, 3099, 3785, 3990,  409] for experiments
-  "seed": 409,
+  "seed": 3099,
   # default
   # "topk_neurons": True,
   "get_candidate_neurons": False,
@@ -57,6 +57,7 @@
   # "weaken": 0.9,
   # percent of neurons to mask
   "masking_rate": 0.05, 
+  'get_masking_value': False,
   # number of neurons to mask
   "neuron_group": null,
   "rank_losses": False, 
@@ -118,7 +119,7 @@
   # "get_result": False,
   "get_condition_hans_result": False,
   "get_hans_result": True,
-  "save_rank": False,
+  "save_rank": iment_configTrue,
   # neurons components
   "attention_components": 3,
   "nums": {}

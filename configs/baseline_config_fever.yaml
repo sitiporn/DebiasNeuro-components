@@ -1,0 +1,74 @@
+{ 
+# Mitigating Spurious Correlation in Natural Language Understanding with Counterfactual Inference
+# Main Model We apply the debiasing methods on the BERT base model (uncased) (Devlin et al., 2019). 
+# ideas from : https://github.com/c4n/debias_nlu/blob/9d3f55449a15fe6e4538ed5713530207d2127afd/configs/nli/baseline/mnli_bert_base_clark_1.jsonnet#L4
+  "dataset_reader": {
+    "type": "snli",
+    "tokenizer": {
+      "type": "pretrained_transformer",
+      "model_name": "bert-base-uncased",
+      "add_special_tokens": false
+    }
+  },
+    
+  # Tokenizer
+  "tokens": {
+    "type": "pretrained_transformer",
+    "model_name": "bert-base-uncased", 
+    "max_length": 512
+  },
+  
+  # dataset
+  "data_path": "../data/fact_verification/",
+  "train_data": "fever.train.jsonl",
+  "validation_data": "fever.val.jsonl", 
+  "test_data": "fever.dev.jsonl",
+  
+  # dataloader
+  "data_loader": {
+    "batch_sampler": {
+       # bucket type in allenlp by grouping by length and dynamic padding
+      "group_by_length": True, 
+      "dynamic_padding": True,
+      "batch_size" : 32 
+    }
+  },
+
+  # models; 
+  # follow allennlp setups, the rest is the default of bert-base-uncased
+  "model": {
+    "model_name": "bert-base-uncased",
+    transformer_model,
+    "max_length": 512
+  },
+  "dropout": 0.1,
+  "namespace": "tags",
+  
+  # Trainer
+  "num_epochs": 3,
+  # recheck in Trainer 
+  "validation_metric": "accuracy",
+  "learning_rate_scheduler": {
+    "type": "slanted_triangular", # override from allennlp
+    "cut_frac": 0.06
+  },
+  "optimizer": {
+    # using optimizer from the transformers package
+    "type": "huggingface_adamw", 
+    "lr": 2e-5,
+    "weight_decay": 0.1,
+  },
+  "cuda_device" : 0,
+  # 1548, 3990, 409, 3099
+  #  [1548, 3099, 3785, 3990,  409] for experiments
+  "seed": 409,   
+  "evaluation_strategy": "steps",
+  "eval_steps": 500,
+  "load_best_model_at_end": True,
+  "save_total_limit": 1,
+  # "use_amp" in allennlp
+  "half_precision_backend": "amp",
+  # ************ Identifying Bias: Causal Mediation Analysis *************
+  # experiment set 
+  "k":  5, 
+}

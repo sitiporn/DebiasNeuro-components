@@ -389,14 +389,20 @@ class BertForSequenceClassificationPoE(BertPreTrainedModel):
                 # only PoE here
                 # todo: apply PoE for all
                 if bias_probs is not None:
+<<<<<<< HEAD
                     breakpoint()
+=======
+>>>>>>> 8cacdfcab9f68edb90c1a6f42fa217ba7e76cfe9
                     log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
                     bias_log_probs = torch.log(bias_probs)
                     PoE = log_probs + bias_log_probs
                     PoE = torch.nn.functional.log_softmax(PoE, dim=-1)
                     loss_fct = torch.nn.NLLLoss(reduction='mean')
+<<<<<<< HEAD
                     loss = loss_fct(PoE.view(-1, self.num_labels), labels.view(-1))
                     breakpoint()
+=======
+>>>>>>> 8cacdfcab9f68edb90c1a6f42fa217ba7e76cfe9
                 else:
                     # normal loss
                     

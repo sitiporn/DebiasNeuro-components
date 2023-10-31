@@ -19,7 +19,7 @@
   },
   
   # dataset
-  "data_path": "../data/nli",
+  "data_path": "../data/nli/",
   "train_data": "train_prob_korn_lr_overlapping_sample_weight_3class.jsonl",
   "validation_data": "multinli_1.0_dev_matched.jsonl", 
   "test_data": "multinli_1.0_dev_mismatched.jsonl",
@@ -59,7 +59,8 @@
     "weight_decay": 0.1,
   },
   "cuda_device" : 0,
-  "seed" : 3990, # 42 for debug;  [1548, 3099, 3785, 3990,  409] for experiments
+  # [1548, 3099, 3785, 3990,  409] for experiments
+  "seed" : 3099, # 42 for debug;  
   "evaluation_strategy": "steps",
   "eval_steps": 500,
   "load_best_model_at_end": False,

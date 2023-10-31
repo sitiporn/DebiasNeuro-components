@@ -10,7 +10,13 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import  report_gpu
 from cma_utils import collect_counterfactuals, trace_counterfactual, geting_counterfactual_paths, get_single_representation, geting_NIE_paths
+<<<<<<< HEAD
 # from data import test_restore_weight
+=======
+from optimization_utils import test_restore_weight
+from optimization_utils import trace_optimized_params, initial_partition_params
+from optimization import partition_param_train, restore_original_weight
+>>>>>>> 8cacdfcab9f68edb90c1a6f42fa217ba7e76cfe9
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -33,7 +39,11 @@ import yaml
 from utils import get_num_neurons, get_params, get_diagnosis
 from data import get_analysis 
 from transformers import AutoTokenizer, BertForSequenceClassification
+<<<<<<< HEAD
 # from data import exclude_grad
+=======
+from optimization import exclude_grad
+>>>>>>> 8cacdfcab9f68edb90c1a6f42fa217ba7e76cfe9
 from transformers import Trainer
 # from torch.utils.data import Dataset, DataLoader
 from transformers import TrainingArguments, Trainer, AdamW, DataCollatorWithPadding
@@ -609,13 +619,25 @@ def main():
     global label_maps
     global metric
 
+<<<<<<< HEAD
 
     with open("poe_config.yaml", "r") as yamlfile:
+=======
+    
+    # config_path = 
+    config_path = "./configs/poe_config.yaml"
+    with open(config_path, "r") as yamlfile:
+>>>>>>> 8cacdfcab9f68edb90c1a6f42fa217ba7e76cfe9
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
     
     dataset = {}
     tokenized_datasets = {}
+<<<<<<< HEAD
     output_dir = '../models/poe/' 
+=======
+    output_dir = '../models/poe2/' 
+
+>>>>>>> 8cacdfcab9f68edb90c1a6f42fa217ba7e76cfe9
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
     # random seed
@@ -666,7 +688,13 @@ def main():
     opitmizer = AdamW(params=model.parameters(),
                     lr= float(config['optimizer']['lr']) , 
                     weight_decay = config['optimizer']['weight_decay'])
+<<<<<<< HEAD
 
+=======
+    # NOTE: for baseline just change 
+    # config: baseline_config.yaml
+    # model: BertForSequenceClassification
+>>>>>>> 8cacdfcab9f68edb90c1a6f42fa217ba7e76cfe9
     trainer = PoETrainer(
         model,
         training_args,
@@ -686,3 +714,8 @@ def main():
 if __name__ == "__main__":
     main()
      
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 8cacdfcab9f68edb90c1a6f42fa217ba7e76cfe9
