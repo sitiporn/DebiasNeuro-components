@@ -1,0 +1,27 @@
+testing stuff
+# ------------------- original model-----------------
+recent baseline without optimize
+LOAD_MODEL_PATH = '../models/recent_baseline/'
+==================== Avearge scores ===================
+average overall acc : 0.8229251423921887
+averge contradiction acc : 0.8654320987654321
+average entailment acc : 0.8250072191741264
+average neutral acc : 0.7766059443911792
+avarge hans score : 0.6060999631881714
+---------------------- no-intervention -------------------
+LOAD_MODEL_PATH = '../models/debugs' # no-intervention
+==================== Avearge scores ===================
+average overall acc : 0.8229251423921887
+averge contradiction acc : 0.8654320987654321
+average entailment acc : 0.8250072191741264
+average neutral acc : 0.7766059443911792
+avarge hans score : 0.6060999631881714
+-------------------- intervention -----------------------
+LOAD_MODEL_PATH = '../models/debug_baseline/' # intervention
+==================== Avearge scores ===================
+average overall acc : 0.8164157851912124
+averge contradiction acc : 0.8762345679012346
+average entailment acc : 0.7825584753104244
+average neutral acc : 0.7919463087248322
+avarge hans score : 0.6241333484649658
+---------------------------------------------------------  

@@ -1,0 +1,41 @@
+config: ./configs/pcgu_config.yaml
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+Counterfactual type: ['High-overlap']
+Intervention type : weaken
+Loading path for single at seed:409, layer: 11
+Q: ../counterfactuals/recent_baseline/seed_409/avg_Q_counterfactual_representation.pickle
+K: ../counterfactuals/recent_baseline/seed_409/avg_K_counterfactual_representation.pickle
+V: ../counterfactuals/recent_baseline/seed_409/avg_V_counterfactual_representation.pickle
+AO: ../counterfactuals/recent_baseline/seed_409/avg_AO_counterfactual_representation.pickle
+I: ../counterfactuals/recent_baseline/seed_409/avg_I_counterfactual_representation.pickle
+O: ../counterfactuals/recent_baseline/seed_409/avg_O_counterfactual_representation.pickle
+NIE_paths: ['../NIE/recent_baseline/seed_409/avg_embeddings_High-overlap_computed_all_layers_.pickle']
+Loading model from ../models/grad_debug/seed_409/checkpoint-1000/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_multinli.pickle
+loading distributions and labels from : ../pickles/performances/inference_multinli.pickle
+compute_acc modes:['Null']
+overall acc : 0.8229251423921887
+contradiction acc : 0.8654320987654321
+entailment acc : 0.8250072191741264
+neutral acc : 0.7766059443911792
+saving without condition distribution into : ../pickles/performances/inference_heuristics.pickle
+hans loading from : ../pickles/performances/inference_heuristics.pickle
+saving text answer's bert predictions: ../pickles/performances/hans_text_answers.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9296
+subsequence: 0.9974
+constituent: 0.9908
+Heuristic  non-entailed results:
+lexical_overlap: 0.5118
+subsequence: 0.0868
+constituent: 0.1202
+saving evaluation predictoins into : ../pickles/performances/hans_scores.txt
+average score : 0.6060999631881714
+has score :0.6060999631881714
+==================== Avearge scores ===================
+average overall acc : 0.8229251423921887
+averge contradiction acc : 0.8654320987654321
+average entailment acc : 0.8250072191741264
+average neutral acc : 0.7766059443911792
+avarge hans score : 0.6060999631881714
