@@ -37,7 +37,7 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
         splited_name = param_name.split('.')
         if 'encoder' not in splited_name: continue
         if 'LayerNorm' in splited_name: continue
-
+        
         child = splited_name[-1]
         layer_id, component = get_specific_component(splited_name, component_mappings) 
         freeze_param_name = splited_name[-1]
@@ -50,10 +50,17 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
         train_neuron_ids = group_layer_params(layer_params, mode='train')
         frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
 
-        print(f'************ {param_name} ****************')
-        print(f'#train components :{len(train_neuron_ids.keys())}, #frozen components {len(frozen_neuron_ids.keys())}' )
-        from optimization import reverse_grad
+        frozen_num =  len(frozen_neuron_ids[component]) if component in frozen_neuron_ids.keys() else 0
+        train_num =  len(train_neuron_ids[component]) if component in train_neuron_ids.keys() else 0
 
+        print(f'checking:{param_name}, frozen: {frozen_num}, train: {train_num}, Total : {frozen_num + train_num} : {param.shape}')
+        assert frozen_num + train_num == param.shape[0]
+        
+        # swap positions between train and freeze
+        # train_neuron_ids = group_layer_params(layer_params, mode='freeze')
+        # frozen_neuron_ids = group_layer_params(layer_params, mode='train')
+
+        from optimization import reverse_grad
         if 'dense' in splited_name:
             if child == 'weight': 
                 if component in list(train_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
@@ -70,10 +77,10 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
                 if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
                 if component in list(frozen_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, frozen_neuron_ids[component], param_name, DEBUG)))
             print(f'exlude_grad func : {param_name}')
+        
 
         # masking grad hooks : 144
         # reverse grad hooks : 134
-    
     return model, hooks
 
 def restore_original_weight(model, DEBUG = False):
