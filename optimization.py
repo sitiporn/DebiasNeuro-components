@@ -217,3 +217,168 @@ def partition_param_train(model, tokenizer, config, do, counterfactual_paths, DE
     with open(f'../pickles/losses/{config["dev-name"]}.pickle', 'wb') as handle: 
         pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving losses into pickle files')
+
+import math
+import warnings
+from functools import partial
+from typing import Callable, Iterable, Optional, Tuple, Union
+
+import torch
+from torch import nn
+from torch.optim import Optimizer
+
+class CustomAdamW(Optimizer):
+    """
+    Implements Adam algorithm with weight decay fix as introduced in [Decoupled Weight Decay
+    Regularization](https://arxiv.org/abs/1711.05101).
+
+    Parameters:
+        params (`Iterable[nn.parameter.Parameter]`):
+            Iterable of parameters to optimize or dictionaries defining parameter groups.
+        lr (`float`, *optional*, defaults to 1e-3):
+            The learning rate to use.
+        betas (`Tuple[float,float]`, *optional*, defaults to (0.9, 0.999)):
+            Adam's betas parameters (b1, b2).
+        eps (`float`, *optional*, defaults to 1e-6):
+            Adam's epsilon for numerical stability.
+        weight_decay (`float`, *optional*, defaults to 0):
+            Decoupled weight decay to apply.
+        correct_bias (`bool`, *optional*, defaults to `True`):
+            Whether or not to correct bias in Adam (for instance, in Bert TF repository they use `False`).
+        no_deprecation_warning (`bool`, *optional*, defaults to `False`):
+            A flag used to disable the deprecation warning (set to `True` to disable the warning).
+    """
+
+    def __init__(
+        self,
+        params: Iterable[nn.parameter.Parameter],
+        original_model: Iterable[nn.parameter.Parameter],
+        seed,
+        collect_param,
+        method_name,
+        DEVICE,
+        lr: float = 1e-3,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-6,
+        weight_decay: float = 0.0,
+        correct_bias: bool = True,
+        no_deprecation_warning: bool = False,
+    ):
+        if not no_deprecation_warning:
+            warnings.warn(
+                "This implementation of AdamW is deprecated and will be removed in a future version. Use the PyTorch"
+                " implementation torch.optim.AdamW instead, or set `no_deprecation_warning=True` to disable this"
+                " warning",
+                FutureWarning,
+            )
+        from transformers.utils.versions import require_version
+        require_version("torch>=1.5.0")  # add_ with alpha
+        if lr < 0.0:
+            raise ValueError(f"Invalid learning rate: {lr} - should be >= 0.0")
+        if not 0.0 <= betas[0] < 1.0:
+            raise ValueError(f"Invalid beta parameter: {betas[0]} - should be in [0.0, 1.0)")
+        if not 0.0 <= betas[1] < 1.0:
+            raise ValueError(f"Invalid beta parameter: {betas[1]} - should be in [0.0, 1.0)")
+        if not 0.0 <= eps:
+            raise ValueError(f"Invalid epsilon value: {eps} - should be >= 0.0")
+        defaults = {"lr": lr, "betas": betas, "eps": eps, "weight_decay": weight_decay, "correct_bias": correct_bias}
+        super().__init__(params, defaults)
+        self.original_model = original_model
+        value = 0.05
+        restore_path = f'../pickles/restore_weight/{method_name}/'
+        self.restore_path = os.path.join(restore_path, f'masking-{value}')
+        self.seed = seed 
+        self.collect_param = collect_param
+        self.component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+        mediators  = get_mediators(self.original_model)
+        component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+        self.component_mappings = {}
+        for k, v in zip(component_keys, mediators.keys()): self.component_mappings[k] = v
+        self.DEVICE = DEVICE
+        
+
+    @torch.no_grad()
+    def step(self, closure: Callable = None):
+        """
+        Performs a single optimization step.
+
+        Arguments:
+            closure (`Callable`, *optional*): A closure that reevaluates the model and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+            for p, (param_name, param) in zip(group["params"], self.original_model.named_parameters()):
+                splited_name = param_name.split('.')
+                if p.grad is None:
+                    continue
+                grad = p.grad
+                if grad.is_sparse:
+                    raise RuntimeError("Adam does not support sparse gradients, please consider SparseAdam instead")
+
+                state = self.state[p]
+
+                # State initialization
+                if len(state) == 0:
+                    state["step"] = 0
+                    # Exponential moving average of gradient values
+                    state["exp_avg"] = torch.zeros_like(p)
+                    # Exponential moving average of squared gradient values
+                    state["exp_avg_sq"] = torch.zeros_like(p)
+
+                exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
+                beta1, beta2 = group["betas"]
+
+                state["step"] += 1
+
+                # Decay the first and second moment running average coefficient
+                # In-place operations to update the averages at the same time
+                exp_avg.mul_(beta1).add_(grad, alpha=(1.0 - beta1))
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
+                denom = exp_avg_sq.sqrt().add_(group["eps"])
+
+                step_size = group["lr"]
+                if group["correct_bias"]:  # No bias correction for Bert
+                    bias_correction1 = 1.0 - beta1 ** state["step"]
+                    bias_correction2 = 1.0 - beta2 ** state["step"]
+                    step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
+
+                p.addcdiv_(exp_avg, denom, value=-step_size)
+
+                # Just adding the square of the weights to the loss function is *not*
+                # the correct way of using L2 regularization/weight decay with Adam,
+                # since that will interact with the m and v parameters in strange ways.
+                #
+                # Instead we want to decay the weights in a manner that doesn't interact
+                # with the m/v parameters. This is equivalent to adding the square
+                # of the weights to the loss with plain (non-momentum) SGD.
+                # Add weight decay at the end (fixed version)
+                if group["weight_decay"] > 0.0:
+                    p.add_(p, alpha=(-group["lr"] * group["weight_decay"]))
+                
+                child = splited_name[-1]
+                layer_id, component = get_specific_component(splited_name, self.component_mappings) 
+                freeze_param_name = splited_name[-1]
+                cur_restore_path = os.path.join(self.restore_path, f'{self.seed}_layer{layer_id}_collect_param={self.collect_param}_components.pickle')
+                with open(cur_restore_path, 'rb') as handle: layer_params = pickle.load(handle)
+                frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
+                train_neuron_ids = group_layer_params(layer_params, mode='train')
+                
+                
+                neuron_ids = []
+                # neuron_ids = [*range(0, param.shape[0], 1)]
+                neuron_ids += frozen_neuron_ids[component] if component in frozen_neuron_ids.keys() else []
+                # neuron_ids += train_neuron_ids[component] if component in train_neuron_ids.keys() else []
+                mask = torch.ones_like(p)
+                mask[neuron_ids] = 0
+
+                # if true p and false set it original param
+                # p: current updated parameters
+                # weight : [neuron_num, input_size], bias : [num_neurons]
+                p.data = torch.where(mask.bool(), p, param.to(self.DEVICE))
+                # assert (p == param.to(self.DEVICE)).all()
+                # print(f'param_name : {param_name}')
+
+        return loss
