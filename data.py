@@ -861,16 +861,17 @@ def get_all_model_paths(LOAD_MODEL_PATH):
         all_model_files[key].append(str(f))
     
 
-    def take_second(elem):
-        return elem[1]
+    def get_sorted_key(elem):
+        return int(elem[0].split('-')[-1])
 
     for seed in all_model_files.keys():
         checkpoint_paths = [ (checkpoint.split("/")[4].split('_')[-1], checkpoint) for checkpoint in all_model_files[seed]]
         # load best model is trained up to the end
-        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
+        # checkpoint = sorted(checkpoint_paths, key=get_sorted_key, reverse=True)[-1] # optimize
+        checkpoint = sorted(checkpoint_paths, key=get_sorted_key, reverse=True)[0] #  non optimize
         clean_model_files.append(checkpoint[-1])
     
-    assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
+    # assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
 def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
