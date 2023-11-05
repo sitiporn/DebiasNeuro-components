@@ -382,3 +382,56 @@ class CustomAdamW(Optimizer):
                 # print(f'param_name : {param_name}')
 
         return loss
+
+def test_grad_zero():
+    from transformers import TrainingArguments, Trainer
+    import yaml
+    import copy
+
+    config_path = "./configs/pcgu_config.yaml"
+    with open(config_path, "r") as yamlfile:
+        config = yaml.load(yamlfile, Loader=yaml.FullLoader)
+    from optimization import CustomAdamW
+    lr = 1e-2 
+    # # Setup
+    model = nn.Conv2d(1, 10, 3, 1, 1)
+    original_model = copy.deepcopy(model)
+    # weight_reference = model.weight.clone()
+    
+    optimizer = CustomAdamW(params=model.parameters(),
+                            original_model= original_model,
+                            # seed = seed,
+                            # method_name=method_name,
+                            # DEVICE=DEVICE,
+                            # collect_param=config['collect_param'],
+                            lr= lr , 
+                            weight_decay = config['optimizer']['weight_decay'])
+
+    # optimizer = torch.optim.SGD(model.parameters(), lr=1., momentum=0.0)
+
+    # Should fail
+    # model(torch.randn(1, 1, 3, 3)).mean().backward()
+    # optimizer.step()
+    # print(f'without zero grads : {(model.weight == weight_reference).all()}')
+
+    # Should work with momentum = 0.0
+    optimizer.zero_grad()
+    weight_reference = model.weight.clone()
+    model.weight.register_hook(lambda grad: grad * 0)
+    # model.weight.register_post_accumulate_grad_hook(lambda grad: grad * 0)
+    model(torch.randn(1, 1, 3, 3)).mean().backward()
+    print(f'with zero grads : {(model.weight == weight_reference).all()}')
+    breakpoint()
+    optimizer.step()
+    
+    # fail because pytorch version there is register_post_accumulate_grad_hook
+    # v = torch.tensor([0., 0., 0.], requires_grad=True)
+    # lr = 0.01
+    # # simulate a simple SGD update
+    # h = v.register_post_accumulate_grad_hook(lambda p: p.add_(p.grad, alpha=-lr))
+    # v.backward(torch.tensor([1., 2., 3.]))
+    # print(v)
+    # h.remove()  # removes the hook
+    # breakpoint()
+
+# test_grad_zero()
