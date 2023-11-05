@@ -44,7 +44,7 @@ from optimization import intervene_grad
 def main():
 
     # ******************** LOAD STUFF ********************
-    config_path = "./configs/masking_representation.yaml"
+    config_path = "./configs/pcgu_config.yaml"
     # config_path = "./configs/experiment_config.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
@@ -61,8 +61,23 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     # ******************** PATH ********************
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
-    LOAD_MODEL_PATH = '../models/recent_baseline/'
-    # LOAD_MODEL_PATH = '../models/developing_baseline/'
+    # LOAD_MODEL_PATH = '../models/poe2/'  # non optimize
+    # LOAD_MODEL_PATH = '../models/reweight2/' # non optimize
+    # LOAD_MODEL_PATH = '../models/pcgu_recent_baseline/' # non optimize
+
+    # LOAD_MODEL_PATH = '../models/recent_baseline/'
+    
+    # LOAD_MODEL_PATH = '../models/pcgu_poe2/' # optimize
+    # LOAD_MODEL_PATH = '../models/pcgu_reweight2/' # optimize
+    # ************  DEBUG ***************** 
+    # LOAD_MODEL_PATH = '../models/debug_baseline/' # (recent_baseline)
+    # LOAD_MODEL_PATH = '../models/debug_baseline/' # no-intervention  (reweight2)
+    # LOAD_MODEL_PATH = '../models/debugs' # no-intervention (poe2)
+    # method_name =  'reweight2' #LOAD_MODEL_PATH.split('/')[-2].split('_')[-1]
+    # method_name =  'recent_baseline' 
+    LOAD_MODEL_PATH = '../models/debug_poe2/' 
+    method_name =  'poe2' 
+    
     NIE_paths = []
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
@@ -71,7 +86,6 @@ def main():
     print(f'Counterfactual type: {mode}')
     print(f'Intervention type : {config["intervention_type"]}')
     
-    if config['compute_all_see']: print(f'current model path : {model_path}')
 
     if config['eval_counterfactual'] and config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
@@ -81,17 +95,17 @@ def main():
         for seed, model_path in all_model_paths.items():
             # path to save
             # Done checking path 
-            counterfactual_paths, _ = geting_counterfactual_paths(config, seed=seed)
-            NIE_path, _ = geting_NIE_paths(config, mode, seed=seed)
+            counterfactual_paths, _ = geting_counterfactual_paths(config, method_name=method_name)
+            NIE_path, _ = geting_NIE_paths(config, method_name, mode, seed=seed)
             NIE_paths.extend(NIE_path)
             if config['getting_counterfactual']: 
                 # Done checking model counterfactual_path and specific model
                 collect_counterfactuals(model, model_path, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
     else:
         # path to save counterfactuals 
-        counterfactual_paths, _ = geting_counterfactual_paths(config)
+        counterfactual_paths, _ = geting_counterfactual_paths(config, method_name)
         # path to save NIE scores
-        NIE_paths, _ = geting_NIE_paths(config, mode)
+        NIE_paths, _ = geting_NIE_paths(config, method_name, mode)
         print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
         for path in counterfactual_paths: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
         print(f'NIE_paths: {NIE_paths}')
