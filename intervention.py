@@ -23,12 +23,10 @@ from pprint import pprint
 
 def get_mediators(model):
     """
-    current option: ref: A New Framework for Shortcut Mitigation in NLU
-    another option: ref: Causal Mediation Analysis for Interpreting Neural NLP
-        this for attention intervention to select attention head?
-        attention_layer = lambda layer: model.bert.encoder.layer[layer].attention.self
-        intervention FFN neuron : 
-        neuron_layer lambda layer: model.bert.encoder.layer[layer].output
+    current option: ref: A New Framework for Shortcut Mitigation in NLU (EMNLP23)
+    another option: ref: Causal Mediation Analysis for Interpreting Neural NLP (NIPS)
+        attention_layer = lambda layer: model.bert.encoder.layer[layer].attention.self # to intervention attention scores
+        neuron_layer lambda layer: model.bert.encoder.layer[layer].output # to intervention neurons
     """
     mediators = {}
     
