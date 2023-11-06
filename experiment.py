@@ -75,7 +75,12 @@ def main():
     # LOAD_MODEL_PATH = '../models/debugs' # no-intervention (poe2)
     # method_name =  'reweight2' #LOAD_MODEL_PATH.split('/')[-2].split('_')[-1]
     # method_name =  'recent_baseline' 
-    LOAD_MODEL_PATH = '../models/debug_poe2/' 
+    
+    # LOAD_MODEL_PATH = '../models/debug_poe2/' 
+    # LOAD_MODEL_PATH = '../models/random_grad/' 
+    # LOAD_MODEL_PATH = '../models/ablation' # exclude_grad -> pos direction
+    LOAD_MODEL_PATH = '../models/zero_grad/' 
+    
     method_name =  'poe2' 
     
     NIE_paths = []

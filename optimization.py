@@ -23,7 +23,7 @@ from functools import partial
 from optimization_utils import masking_grad, reverse_grad, initial_partition_params, trace_optimized_params
 
 
-def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_param=False, DEBUG = False):
+def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_param=False, DEBUG = False, mode='sorted'):
     seed = config['seed']
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/{method_name}/'
@@ -41,7 +41,10 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
         child = splited_name[-1]
         layer_id, component = get_specific_component(splited_name, component_mappings) 
         freeze_param_name = splited_name[-1]
-        cur_restore_path = os.path.join(restore_path, f'{seed}_layer{layer_id}_collect_param={collect_param}_components.pickle')
+        if mode == 'sorted':
+            cur_restore_path = os.path.join(restore_path, f'{seed}_layer{layer_id}_collect_param={collect_param}_components.pickle')
+        elif mode == 'random':
+            cur_restore_path = os.path.join(restore_path, f'{seed}_random_layer{layer_id}_collect_param={collect_param}_components.pickle')
        
         with open(cur_restore_path, 'rb') as handle:
             layer_params = pickle.load(handle)
@@ -49,6 +52,10 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
         # group by components 
         train_neuron_ids = group_layer_params(layer_params, mode='train')
         frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
+        
+        # swap positions between train and freeze
+        # train_neuron_ids = group_layer_params(layer_params, mode='freeze')
+        # frozen_neuron_ids = group_layer_params(layer_params, mode='train')
 
         frozen_num =  len(frozen_neuron_ids[component]) if component in frozen_neuron_ids.keys() else 0
         train_num =  len(train_neuron_ids[component]) if component in train_neuron_ids.keys() else 0
@@ -56,9 +63,6 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
         print(f'checking:{param_name}, frozen: {frozen_num}, train: {train_num}, Total : {frozen_num + train_num} : {param.shape}')
         assert frozen_num + train_num == param.shape[0]
         
-        # swap positions between train and freeze
-        # train_neuron_ids = group_layer_params(layer_params, mode='freeze')
-        # frozen_neuron_ids = group_layer_params(layer_params, mode='train')
 
         from optimization import reverse_grad
         if 'dense' in splited_name:

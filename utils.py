@@ -539,3 +539,12 @@ def test_layer_params(encoder_params, freeze_params, train_params, value):
         print(f'# Train : {train_param_count[child]}')
         print(f'# Freeze : {freeze_param_count[child]}')
         print(f'# Total  : {train_param_count[child] +  freeze_param_count[child]}')
+
+def compare_weight(updated_model, reference_model):
+    for (_, updated_param)  , (param_name, ref_param) in zip(updated_model.named_parameters(), reference_model.named_parameters()):
+        if not updated_param.requires_grad: continue
+        assert (updated_param == ref_param).all(), f'{param_name} not exact match'
+        print(f'{param_name}: {ref_param.shape}')
+
+    print(f'Comparing weight checking Done!')
+    

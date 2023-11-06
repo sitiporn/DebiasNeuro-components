@@ -23,7 +23,7 @@ from functools import partial
 from cma import get_topk
 from utils import LayerParams
 
-def initial_partition_params(config, method_name, model, do, collect_param=False, debug=True):
+def initial_partition_params(config, method_name, model, do, collect_param=False, debug=True, mode='sorted'):
     """partition parameters used to freeze  and train(bias parameters)"""
     from utils import report_gpu
     component_mappings = {}
@@ -42,15 +42,19 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     if config['computed_all_layers']:
-        path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle'
+        if mode == 'sorted':
+            path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
+        elif mode == 'random':
+            path = f'../pickles/top_neurons/{method_name}/random_top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
         layers = config['layers']
     else: 
         path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
         layer = config['layer']
-
+    
     # candidate neurons existed bias 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
+        print(f'loading top neurons : {path}')
     
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     # unfreeze all parameters
@@ -137,7 +141,11 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
             cur_restore_path = os.path.join(restore_path, f'masking-{value}')
             if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
             
-            cur_restore_path = os.path.join(cur_restore_path,f'{seed}_layer{layer}_collect_param={collect_param}_components.pickle')
+            if mode == 'sorted':
+                cur_restore_path = os.path.join(cur_restore_path,f'{seed}_layer{layer}_collect_param={collect_param}_components.pickle')
+            elif mode == 'random':
+                cur_restore_path = os.path.join(cur_restore_path,f'{seed}_radom_layer{layer}_collect_param={collect_param}_components.pickle')
+            
             with open(cur_restore_path, 'wb') as handle:
                 pickle.dump(encoder_params[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving {layer}'s components into {cur_restore_path}")
@@ -232,9 +240,9 @@ def masking_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
           param_name: a neuron type
           grad: gradient used to be masked
     """
-    mask =  torch.ones_like(grad)
+    mask = torch.ones_like(grad)
     mask[neuron_ids] = 0
-    if DEBUG: print(f'call back masking_grad func: {param_name}, {grad.shape}, {mask[neuron_ids].shape}, ')
+    if DEBUG: print(f'call back masking_grad func: {param_name}, {grad.shape}, {mask[neuron_ids].shape}')
     
     # masking out gradients 
     return grad  * mask
@@ -248,7 +256,7 @@ def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
           param_name: a neuron type
           grad: gradient used to be reversed
     """
-    mask =  torch.ones_like(grad)
+    mask = torch.ones_like(grad)
     mask[neuron_ids] = -1
     if DEBUG: print(f'call back reverse gradient func: {param_name}, {grad.shape}, {mask[neuron_ids].shape}')
     
