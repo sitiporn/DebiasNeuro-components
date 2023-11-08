@@ -549,52 +549,62 @@ def compare_weight(updated_model, reference_model):
     print(f'Comparing weight checking Done!')
 
     
-def compare_frozen_weight(LOAD_MODEL_PATH, LOAD_OPTIMIZED_MODEL_PATH, config, method_name, value = 0.05):
+def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, method_name, value = 0.05):
     from data import get_specific_component, group_layer_params, get_all_model_paths
 
-    seed = config['seed'] 
     label_maps = config['label_maps'] 
     collect_param = config['collect_param']
     model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
     reference_model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
 
-    if config['model']['is_load_trained_model']:
-        from utils import load_model
-        all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
-        all_optimized_model_paths = get_all_model_paths(LOAD_OPTIMIZED_MODEL_PATH)
+    from utils import load_model
+    all_model_paths = get_all_model_paths(LOAD_REFERENCE_MODEL_PATH)
+    all_optimized_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    
+    for seed, _ in all_model_paths.items():
         path = all_model_paths[str(seed)]
         optimized_path = all_optimized_model_paths[str(seed)]
         optimized_model = load_model(path=path, model=model)
         reference_model = load_model(path=optimized_path, model=reference_model)
         print(f'Loading updated model from : {optimized_path} to optimize on PCGU done!')
         print(f'Loading reference model from : {path} done!')
-    else:
-        print(f'Using original model to optimize on PCGU') 
-    
-    component_mappings = {}
-    mediators  = get_mediators(optimized_model)
-    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
-    restore_path = f'../pickles/restore_weight/{method_name}/'
-    restore_path = os.path.join(restore_path, f'masking-{value}')
-    for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
+        
+        component_mappings = {}
+        mediators  = get_mediators(optimized_model)
+        component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+        restore_path = f'../pickles/restore_weight/{method_name}/'
+        restore_path = os.path.join(restore_path, f'masking-{value}')
+        for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
 
-    for (_, optimized_param)  , (param_name, ref_param) in zip(optimized_model.named_parameters(), reference_model.named_parameters()):
-        splited_name = param_name.split('.') 
-        child = splited_name[-1]
-        
-        if 'encoder' not in splited_name or 'LayerNorm' in splited_name: 
-            assert (optimized_param == ref_param).all() , f'{param_name}'
-            continue
-        
-        layer_id, component = get_specific_component(splited_name,component_mappings) 
-        freeze_param_name = splited_name[-1]
+        for (_, optimized_param)  , (param_name, ref_param) in zip(optimized_model.named_parameters(), reference_model.named_parameters()):
+            splited_name = param_name.split('.') 
+            child = splited_name[-1]
+            
+            if 'encoder' not in splited_name or 'LayerNorm' in splited_name: 
+                assert (optimized_param == ref_param).all() , f'{param_name}'
+                continue
+            
+            layer_id, component = get_specific_component(splited_name,component_mappings) 
+            freeze_param_name = splited_name[-1]
+            cur_restore_path = os.path.join(restore_path, f'{seed}_layer{layer_id}_collect_param={collect_param}_components.pickle')
+            with open(cur_restore_path, 'rb') as handle: layer_params = pickle.load(handle)
+            frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
+            train_neuron_ids = group_layer_params(layer_params, mode='train')
+            
+            neuron_ids = []
+            neuron_ids += frozen_neuron_ids[component] if component in frozen_neuron_ids.keys() else []
+            assert (optimized_param[neuron_ids] == ref_param[neuron_ids]).all() , f'{param_name}: {optimized_param[neuron_ids].shape}'
 
-        cur_restore_path = os.path.join(restore_path, f'{seed}_layer{layer_id}_collect_param={collect_param}_components.pickle')
-        with open(cur_restore_path, 'rb') as handle: layer_params = pickle.load(handle)
-        frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
-        train_neuron_ids = group_layer_params(layer_params, mode='train')
-        
-        neuron_ids = []
-        neuron_ids += frozen_neuron_ids[component] if component in frozen_neuron_ids.keys() else []
-        assert (optimized_param[neuron_ids] == ref_param[neuron_ids]).all() , f'{param_name}: {optimized_param[neuron_ids].shape}'
+
+def droupout(model):
+
+    scale_out  = None
+
+    # set 
+
+
+
+
+
+    return 
