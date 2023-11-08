@@ -61,26 +61,16 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     # ******************** PATH ********************
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
-    # LOAD_MODEL_PATH = '../models/poe2/'  # non optimize
-    # LOAD_MODEL_PATH = '../models/reweight2/' # non optimize
-    # LOAD_MODEL_PATH = '../models/pcgu_recent_baseline/' # non optimize
-
-    # LOAD_MODEL_PATH = '../models/recent_baseline/'
     
-    # LOAD_MODEL_PATH = '../models/pcgu_poe2/' # optimize
-    # LOAD_MODEL_PATH = '../models/pcgu_reweight2/' # optimize
-    # ************  DEBUG ***************** 
-    # LOAD_MODEL_PATH = '../models/debug_baseline/' # (recent_baseline)
-    # LOAD_MODEL_PATH = '../models/debug_baseline/' # no-intervention  (reweight2)
-    # LOAD_MODEL_PATH = '../models/debugs' # no-intervention (poe2)
-    # method_name =  'reweight2' #LOAD_MODEL_PATH.split('/')[-2].split('_')[-1]
+    # LOAD_REFERENCE_MODEL_PATH = '../models/frozen/'
+    # LOAD_REFERENCE_MODEL_PATH = '../models/recent_baseline/' 
+    # LOAD_REFERENCE_MODEL_PATH = '../models/reweight2/'
+    LOAD_REFERENCE_MODEL_PATH = '../models/poe2/'
+    # LOAD_MODEL_PATH = '../models/debug_baseline/'
+    # LOAD_MODEL_PATH = '../models/debug_reweight2/'
+    LOAD_MODEL_PATH = '../models/recheck_poe2/'
     # method_name =  'recent_baseline' 
-    
-    # LOAD_MODEL_PATH = '../models/debug_poe2/' 
-    # LOAD_MODEL_PATH = '../models/random_grad/' 
-    # LOAD_MODEL_PATH = '../models/ablation' # exclude_grad -> pos direction
-    LOAD_MODEL_PATH = '../models/zero_grad/' 
-    
+    # method_name =  'reweight2' 
     method_name =  'poe2' 
     
     NIE_paths = []
@@ -90,7 +80,9 @@ def main():
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
     print(f'Counterfactual type: {mode}')
     print(f'Intervention type : {config["intervention_type"]}')
-    
+
+    from utils import compare_frozen_weight 
+    if config['compare_frozen_weight']: compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, method_name)
 
     if config['eval_counterfactual'] and config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
