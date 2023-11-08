@@ -68,18 +68,14 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
         if 'dense' in splited_name:
             if child == 'weight': 
                 if component in list(train_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
-                if component in list(frozen_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(masking_grad, frozen_neuron_ids[component], param_name, DEBUG)))
             elif child == 'bias':
                 if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
-                if component in list(frozen_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(masking_grad, frozen_neuron_ids[component], param_name, DEBUG)))
             print(f'exlude_grad func dense : {param_name}') 
         else: 
             if child == 'weight': 
                 if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG )))
-                if component in list(frozen_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(masking_grad, frozen_neuron_ids[component], param_name, DEBUG )))
             elif child == 'bias':
                 if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
-                if component in list(frozen_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(masking_grad, frozen_neuron_ids[component], param_name, DEBUG)))
             print(f'exlude_grad func : {param_name}')
         
 
