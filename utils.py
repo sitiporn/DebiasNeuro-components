@@ -17,6 +17,7 @@ from collections import Counter
 from intervention import get_mediators
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from transformers import AutoTokenizer, BertForSequenceClassification
+from functools import partial
 
 def report_gpu(): 
   print(f"++++++++++++++++++++++++++++++")
@@ -597,14 +598,17 @@ def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, me
             assert (optimized_param[neuron_ids] == ref_param[neuron_ids]).all() , f'{param_name}: {optimized_param[neuron_ids].shape}'
 
 
-def droupout(model):
 
-    scale_out  = None
+def scale_contributions(multiplier:float, param_name:str, DEBUG:bool):
+    def scale_contribution_hook(module, input, output):
+        """ Hook for scaling output during forward pass """
+        print(f"scale contributions: inp: ")
+        print(input)
+        print(f"scale contributions: ouput: ")
+        print(output)
+        return output * multiplier
+    return scale_contribution_hook
 
-    # set 
 
 
 
-
-
-    return 
