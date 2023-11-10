@@ -598,6 +598,48 @@ def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, me
             assert (optimized_param[neuron_ids] == ref_param[neuron_ids]).all() , f'{param_name}: {optimized_param[neuron_ids].shape}'
 
 
+def droupout(LOAD_MODEL_PATH, config, method_name, value = 0.05, DEBUG=False):
+    from data import get_specific_component, group_layer_params, get_all_model_paths
+    seed = config['seed']
+    label_maps = config['label_maps'] 
+    collect_param = config['collect_param']
+    model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
+    component_mappings = {}
+    hooks = []
+    mediators  = get_mediators(model)
+    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+    restore_path = f'../pickles/restore_weight/{method_name}/'
+    restore_path = os.path.join(restore_path, f'masking-{value}')
+    for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
+    
+    for param_name, param in model.named_parameters():
+        splited_name = param_name.split('.') 
+        if 'encoder' not in splited_name or 'LayerNorm' in splited_name: continue
+        child = splited_name[-1]
+        layer_id, component = get_specific_component(splited_name,component_mappings) 
+        freeze_param_name = splited_name[-1]
+        cur_restore_path = os.path.join(restore_path, f'{seed}_layer{layer_id}_collect_param={collect_param}_components.pickle')
+        with open(cur_restore_path, 'rb') as handle: layer_params = pickle.load(handle)
+        frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
+        biased_neuron_ids = group_layer_params(layer_params, mode='train')
+        
+        frozen_num =  len(frozen_neuron_ids[component]) if component in frozen_neuron_ids.keys() else 0
+        train_num =  len(biased_neuron_ids[component]) if component in biased_neuron_ids.keys() else 0
+        
+        scaler_output = param.shape[0] / frozen_num
+        
+        hooks.append(mediators[component](int(layer_id)).register_forward_pre_hook(partial(prunning, biased_neuron_ids[component], param_name, DEBUG)))
+        hooks.append(mediators[component](int(layer_id)).register_forward_hook(partial(scale_contributions, scaler_output, param_name, DEBUG)))
+        m.register_forward_pre_hook(prunning(neuron_ids=[], param_name='lol', DEBUG=True))
+        # m.register_forward_pre_hook(scale_contributions(multiplier=100, param_name='Okie', DEBUG=True))
+        breakpoint()
+
+        # a dict to store the activations
+        scale_out  = None
+        # h = model.layer-name.register_forward_hook(getActivation(name))
+        breakpoint()
+
+    return model, hooks
 
 def scale_contributions(multiplier:float, param_name:str, DEBUG:bool):
     def scale_contribution_hook(module, input, output):
@@ -609,6 +651,11 @@ def scale_contributions(multiplier:float, param_name:str, DEBUG:bool):
         return output * multiplier
     return scale_contribution_hook
 
-
-
-
+def prunning(neuron_ids:int, param_name:str, DEBUG:bool):
+    def prunning_hook(module, inputs):
+        """ Hook for prunning input tensors during forward pass """
+        mask = torch.ones_like(inputs[0])
+        mask[neuron_ids] = 0
+        if DEBUG: print(f'prunning func: {param_name}, {inputs[0].shape}, {mask[neuron_ids].shape}')
+        return (inputs[0] *  mask, )
+    return prunning_hook
