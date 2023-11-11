@@ -599,33 +599,34 @@ def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, me
 
 
 
-def scale_contributions(multiplier:float, param_name:str, DEBUG:bool):
-    def scale_contribution_hook(module, input, output):
+def prunning_neurons(neuron_ids:int, multiplier:float, param_name:str, DEBUG:bool):
+    def prunning_hook(module, input, output):
         """ Hook for scaling output during forward pass """
-        print(f"scale contributions: inp: ")
-        print(input)
-        print(f"scale contributions: ouput: ")
-        print(output)
-        return output * multiplier
-    return scale_contribution_hook
-
-def prunning(neuron_ids:int, param_name:str, DEBUG:bool):
-    def prunning_hook(module, inputs):
-        """ Hook for prunning input tensors during forward pass """
-        mask = torch.ones_like(inputs[0])
-        mask[neuron_ids] = 0
-        if DEBUG: print(f'prunning func: {param_name}, {inputs[0].shape}, {mask[neuron_ids].shape}')
-        return (inputs[0] *  mask, )
+        # out_dim:  ([bz, seq_len, neuron_num])
+        mask = torch.ones_like(output)
+        # prunning input tensor respect to candidate neurons
+        mask[:,:, neuron_ids] = 0
+        mask = multiplier * mask
+        return output * mask
     return prunning_hook
 
-def droupout(LOAD_MODEL_PATH, config, method_name, hooks, value = 0.05, DEBUG=False):
+# def prunning( param_name:str, DEBUG:bool, module, input):
+#     # def prunning_hook(module, input):
+#     """ Hook for prunning input tensors during forward pass """
+#     mask = torch.ones_like(input[0])
+#     # [bz, seq_len, inp_dim]
+#     # mask[:, :, neuron_ids] = 0
+#     if DEBUG: print(f'prunning func: {param_name}, {input[0].shape}, {mask[neuron_ids].shape}')
+#     breakpoint()
+#     return (input[0] *  mask, )
+    # return prunning_hook
+
+def prunning_biased_neurons(model, config, method_name, hooks, value = 0.05, DEBUG=False):
     from data import get_specific_component, group_layer_params, get_all_model_paths
     seed = config['seed']
     label_maps = config['label_maps'] 
     collect_param = config['collect_param']
-    model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
     component_mappings = {}
-    hooks = []
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     restore_path = f'../pickles/restore_weight/{method_name}/'
@@ -644,8 +645,11 @@ def droupout(LOAD_MODEL_PATH, config, method_name, hooks, value = 0.05, DEBUG=Fa
         biased_neuron_ids = group_layer_params(layer_params, mode='train')
         frozen_num =  len(frozen_neuron_ids[component]) if component in frozen_neuron_ids.keys() else 0
         train_num =  len(biased_neuron_ids[component]) if component in biased_neuron_ids.keys() else 0
-        scale_multiplier = param.shape[0] / frozen_num
-        hooks.append(mediators[component](int(layer_id)).register_forward_pre_hook(prunning(biased_neuron_ids[component], param_name, DEBUG)))
-        hooks.append(mediators[component](int(layer_id)).register_forward_hook(scale_contributions(scale_multiplier, param_name, DEBUG)))
+        multiplier = param.shape[0] / frozen_num
+        neuron_ids = biased_neuron_ids[component] if component in biased_neuron_ids.keys() else []
+        
+        if child == 'weight':
+            print(f'{param_name}, frozen:{frozen_num}, train:{train_num}')
+            hooks.append(mediators[component](int(layer_id)).register_forward_hook(prunning_neurons(neuron_ids, multiplier, param_name, DEBUG)))
 
     return model, hooks
