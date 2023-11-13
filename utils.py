@@ -601,29 +601,22 @@ def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, me
 
 def prunning_neurons(neuron_ids:int, multiplier:float, param_name:str, DEBUG:bool):
     def prunning_hook(module, input, output):
-        """ Hook for scaling output during forward pass """
+        """ Hook for prunning output during forward pass """
         # out_dim:  ([bz, seq_len, neuron_num])
         mask = torch.ones_like(output)
         # prunning input tensor respect to candidate neurons
         mask[:,:, neuron_ids] = 0
         mask = multiplier * mask
+        if DEBUG:
+            print(f'{param_name}, neuron_num: {len(neuron_ids)}')
+            print(f'inp mean: {output.mean()}, out mean:{(output * mask).mean()} mask mean: {mask.mean()}, multiplier: {multiplier}')
         return output * mask
     return prunning_hook
-
-# def prunning( param_name:str, DEBUG:bool, module, input):
-#     # def prunning_hook(module, input):
-#     """ Hook for prunning input tensors during forward pass """
-#     mask = torch.ones_like(input[0])
-#     # [bz, seq_len, inp_dim]
-#     # mask[:, :, neuron_ids] = 0
-#     if DEBUG: print(f'prunning func: {param_name}, {input[0].shape}, {mask[neuron_ids].shape}')
-#     breakpoint()
-#     return (input[0] *  mask, )
-    # return prunning_hook
 
 def prunning_biased_neurons(model, config, method_name, hooks, value = 0.05, DEBUG=False):
     from data import get_specific_component, group_layer_params, get_all_model_paths
     seed = config['seed']
+    value = config['masking_rate']
     label_maps = config['label_maps'] 
     collect_param = config['collect_param']
     component_mappings = {}
@@ -649,7 +642,8 @@ def prunning_biased_neurons(model, config, method_name, hooks, value = 0.05, DEB
         neuron_ids = biased_neuron_ids[component] if component in biased_neuron_ids.keys() else []
         
         if child == 'weight':
-            print(f'{param_name}, frozen:{frozen_num}, train:{train_num}')
+            print(f'{param_name}, frozen:{frozen_num}, train:{train_num}, multiplier: {multiplier}')
+            # ref: https://medium.com/@hunter-j-phillips/a-simple-introduction-to-dropout-3fd41916aaea
             hooks.append(mediators[component](int(layer_id)).register_forward_hook(prunning_neurons(neuron_ids, multiplier, param_name, DEBUG)))
 
     return model, hooks
