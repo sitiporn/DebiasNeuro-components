@@ -284,6 +284,35 @@ class FeverDataset(Dataset):
     def __getitem__(self, idx):
         return self.tokenized_datasets[idx]
 
+class FeverDatasetClaimOnly(Dataset):
+    def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
+        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+        df = preprocss(df)
+        df.rename(columns = {'evidence_sentence':'evidence'}, inplace = True)
+        df.rename(columns = {'gold_label':'label'}, inplace = True)
+        if "bias_probs" in df.columns:
+          df_new = df[['claim', 'label','bias_probs']]  
+        else:
+            df_new = df[['claim', 'label']]
+        self.label_maps = label_maps
+        df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
+        from datasets import Dataset as HugginfaceDataset
+        self.dataset = HugginfaceDataset.from_pandas(df_new)
+        self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+        self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+   
+    def to_label_id(self, text_label): 
+        return self.label_maps[text_label]
+    
+    def tokenize_function(self, examples):
+        return self.tokenizer(examples["claim"], truncation=True) 
+   
+    def __len__(self): 
+        return self.tokenized_datasets.shape[0]
+    
+    def __getitem__(self, idx):
+        return self.tokenized_datasets[idx]        
+
 
 def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
     """ getting inferences while modifiying activations on dev-matched/dev-mm """
