@@ -60,8 +60,8 @@
   },
   "cuda_device" : 0,
   # 1548, 3990, 409, 3099
-  #  [42, 3099, 3785, 3990,  409] for experiments
-  "seed": 42,   
+  #  [1548, 3099, 3785, 3990,  409] for experiments
+  "seed": 409,   
   "evaluation_strategy": "steps",
   "eval_steps": 500,
   "load_best_model_at_end": True,

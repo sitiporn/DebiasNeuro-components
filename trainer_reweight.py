@@ -613,13 +613,13 @@ def main():
 
     
     # config_path = 
-    config_path = "./configs/reweight_config.yaml"
+    config_path = "./configs/reweight_config_clark.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/reweight/' 
+    output_dir = '../models/reweight_clark/' 
 
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     

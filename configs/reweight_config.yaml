@@ -19,7 +19,7 @@
   },
   
   # dataset
-  "data_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
+  "data_path": "../data/nli/",
   "train_data": "train_prob_korn_lr_overlapping_sample_weight_3class.jsonl",
   "validation_data": "multinli_1.0_dev_matched.jsonl", 
   "test_data": "multinli_1.0_dev_mismatched.jsonl",
