@@ -65,7 +65,7 @@ from transformers.utils import logging
 from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
 import math
 import time
-from data import FeverDataset
+from data import FeverDatasetClaimOnly
 from transformers.deepspeed import deepspeed_init, is_deepspeed_zero3_enabled
 from transformers.trainer_callback import (
     CallbackHandler,
@@ -614,7 +614,7 @@ def main():
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/baseline_fever/' 
+    output_dir = '../models/claimonly_fever/' 
     label_maps = {"SUPPORTS": 0, "REFUTES": 1, "NOT ENOUGH INFO": 2}
     
     # random seed
@@ -641,7 +641,7 @@ def main():
     # 2. freeze weight's all inputs corresponding to specific neurons
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
-        tokenized_datasets[data_name] = FeverDataset(config, label_maps=label_maps, data_name=data_name)
+        tokenized_datasets[data_name] = FeverDatasetClaimOnly(config, label_maps=label_maps, data_name=data_name)
     print(f'Config of dataloader') 
     print(f'Group by len : {config["data_loader"]["batch_sampler"]["group_by_length"]}')
     print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")
