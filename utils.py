@@ -607,9 +607,18 @@ def prunning_neurons(neuron_ids:int, multiplier:float, param_name:str, DEBUG:boo
         # prunning input tensor respect to candidate neurons
         mask[:,:, neuron_ids] = 0
         mask = multiplier * mask
-        if DEBUG:
-            print(f'{param_name}, neuron_num: {len(neuron_ids)}')
+        if DEBUG and len(neuron_ids) > 0:
+            print(f'{param_name}, #bias neurons: {len(neuron_ids)}')
             print(f'inp mean: {output.mean()}, out mean:{(output * mask).mean()} mask mean: {mask.mean()}, multiplier: {multiplier}')
+            test_ids = [1,2,3,5]
+            x = torch.rand(50000, 10)
+            test_mask = torch.ones_like(x)
+            test_ratio = x.shape[-1] / (x.shape[-1] - len(test_ids) )
+            test_mask[:,test_ids] = 0
+            test_mask = test_mask * test_ratio
+            out = x * test_mask
+            print(f'test result, inp mean: ({x.mean():.4f}), out mean: ({out.mean():.4f}).')
+
         return output * mask
     return prunning_hook
 
