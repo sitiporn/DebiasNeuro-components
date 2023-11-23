@@ -23,6 +23,8 @@ import torch.nn.functional as F
 from pprint import pprint
 from data import ExperimentDataset
 from intervention import intervene, high_level_intervention
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler, Normalizer
 #from nn_pruning.patch_coordinator import (
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
@@ -150,6 +152,7 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
             NIE = pickle.load(handle)
             counter = pickle.load(handle)
             print(f"loading NIE : {cur_path}")
+
         # get seed number
         seed = cur_path.split('/')[3].split('_')[-1]
         # get treatment type
@@ -173,7 +176,7 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
             all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
             for value in topk[key]:
                 num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
-                num_neurons = int(num_neurons)
+                num_neurons = int(num_neurons) 
                 print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
                 top_neurons[round(value, 2) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
             with open(f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_{layer}.pickle', 'wb') as handle:
@@ -208,7 +211,6 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
                 print(list(top_neurons[0.01].keys())[:20])
                 print(f"NIE values :")
                 print(list(top_neurons[0.01].values())[:20])
-        
         # with open(f'../pickles/top_neurons/top_neuron_{}_{key}_{do}_all_layers.pickle', 'rb') as handle:
         #     cur_top_neurons = pickle.load(handle)
         #     print(f"loading top neurons from pickles !") 
@@ -558,3 +560,66 @@ def forward_pair_sentences(sentences, computing_embeddings, labels, do, model, D
                 
                 computing_embeddings.confident[do][computing_embeddings.label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
                 computing_embeddings.class_acc[do][computing_embeddings.label_remaps[label]].extend([int(predictions[idx]) == label])
+
+def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted') -> pd.DataFrame:
+    # select candidates  based on percentage
+    k = config['k']
+    # select candidates based on the number of neurons
+    num_top_neurons = config['num_top_neurons']
+    top_neurons = {}
+    num_neurons = None
+    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    key = list(topk.keys())[0]
+    # rank for NIE
+    layers = config['layers'] if config['computed_all_layers'] else config['layer']
+    # compute average NIE
+    # ranking_nie = {} if config['compute_all_seeds'] else None
+    scores = {"Neuron_ids": None, "NIE_scores": None }
+    scaler = MinMaxScaler()
+    treatment = "High-overlap"  if config['treatment'] else  "Low-overlap"
+
+    for cur_path in (t:=tqdm(NIE_paths)):
+        ranking_nie = {}
+        with open(cur_path, 'rb') as handle:
+            NIE = pickle.load(handle)
+            counter = pickle.load(handle)
+            print(f"loading NIE : {cur_path}")
+
+        seed = cur_path.split('/')[3].split('_')[-1]
+        do = cur_path.split('/')[-1].split('_')[2]
+        path = f'../NIE/{method_name}/'
+        path = os.path.join(path, "seed_"+ str(seed))
+        for layer in layers:
+            for component in NIE[do].keys():
+                for neuron_id in NIE[do][component][layer].keys():
+                    NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter[do][component][layer][neuron_id]
+                    ranking_nie[(f"L-{layer}-" if config['computed_all_layers'] else "") + component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+        
+        # sort whole layers
+        if config['computed_all_layers']:
+            all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
+            if not isinstance(topk[key], list): topk[key] = [topk[key]]
+            for value in topk[key]:
+                num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
+                num_neurons = int(num_neurons)
+                print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
+                cur_neurons = sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)
+                cur_neurons = dict(cur_neurons)
+                scores["Neuron_ids"] = list(cur_neurons.keys())
+                scores["NIE_scores"] = list(cur_neurons.values())
+                df = pd.DataFrame(scores)
+                df['NIE_scores'] = df['NIE_scores'].apply(lambda row :  float(row))
+                scaler.fit(df['NIE_scores'].to_numpy().reshape(-1, 1))
+                transformer = Normalizer().fit(df['NIE_scores'].to_numpy().reshape(-1, 1))
+                df['MinMax'] = scaler.transform(df['NIE_scores'].to_numpy().reshape(-1, 1))
+                df['Normalize'] = transformer.transform(df['NIE_scores'].to_numpy().reshape(-1, 1))
+                df['M_MinMax'] = df['MinMax'].apply(lambda row : 1-row)
+                df['M_Normalize'] = df['Normalize'].apply(lambda row : 1-row)
+                df['M_NIE_scores'] = df['NIE_scores'].apply(lambda row : 1-row)
+                nie_table_path = os.path.join(path, f'nie_table_avg_embeddings_{treatment}_computed_all_layers_.pickle') 
+                
+                with open(nie_table_path, 'wb') as handle:
+                    pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    print(f"Done saving NIE table into {nie_table_path} !")
+
+    return df
