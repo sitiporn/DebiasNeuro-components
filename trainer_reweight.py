@@ -619,7 +619,7 @@ def main():
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/reweight_clark/' 
+    output_dir = '../models/reweight_clark_ipw2' 
 
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
