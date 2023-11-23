@@ -598,14 +598,13 @@ def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, me
             assert (optimized_param[neuron_ids] == ref_param[neuron_ids]).all() , f'{param_name}: {optimized_param[neuron_ids].shape}'
 
 
-
-def prunning_neurons(neuron_ids:int, multiplier:float, param_name:str, DEBUG:bool):
+def prunning_neurons(neuron_ids:int, m:torch.Tensor, multiplier:float, param_name:str, DEBUG:bool):
     def prunning_hook(module, input, output):
         """ Hook for prunning output during forward pass """
         # out_dim:  ([bz, seq_len, neuron_num])
         mask = torch.ones_like(output)
         # prunning input tensor respect to candidate neurons
-        mask[:,:, neuron_ids] = 0
+        mask[:,:, neuron_ids] = 0 if m.shape[0] == 0 else m
         mask = multiplier * mask
         if DEBUG and len(neuron_ids) > 0:
             print(f'{param_name}, #bias neurons: {len(neuron_ids)}')
@@ -622,9 +621,8 @@ def prunning_neurons(neuron_ids:int, multiplier:float, param_name:str, DEBUG:boo
         return output * mask
     return prunning_hook
 
-def prunning_biased_neurons(model, config, method_name, hooks, value = 0.05, DEBUG=False):
+def prunning_biased_neurons(model, seed, NIE_paths, config, method_name, hooks, value = 0.05, DEBUG=False, DEVICE="cuda:0"):
     from data import get_specific_component, group_layer_params, get_all_model_paths
-    seed = config['seed']
     value = config['masking_rate']
     label_maps = config['label_maps'] 
     collect_param = config['collect_param']
@@ -634,6 +632,9 @@ def prunning_biased_neurons(model, config, method_name, hooks, value = 0.05, DEB
     restore_path = f'../pickles/restore_weight/{method_name}/'
     restore_path = os.path.join(restore_path, f'masking-{value}')
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
+    from cma import scaling_nie_scores
+    nie_table_df = scaling_nie_scores(config, method_name, NIE_paths, debug=False)
+    m = {row['Neuron_ids']: row['M_MinMax'] for index, row in nie_table_df.iterrows()} 
     
     for param_name, param in model.named_parameters():
         splited_name = param_name.split('.') 
@@ -645,14 +646,30 @@ def prunning_biased_neurons(model, config, method_name, hooks, value = 0.05, DEB
         with open(cur_restore_path, 'rb') as handle: layer_params = pickle.load(handle)
         frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
         biased_neuron_ids = group_layer_params(layer_params, mode='train')
+
         frozen_num =  len(frozen_neuron_ids[component]) if component in frozen_neuron_ids.keys() else 0
         train_num =  len(biased_neuron_ids[component]) if component in biased_neuron_ids.keys() else 0
-        multiplier = param.shape[0] / frozen_num
         neuron_ids = biased_neuron_ids[component] if component in biased_neuron_ids.keys() else []
+
+        num_neurons = config['num_neurons'] if config['criterion'] == 'num_neurons' else config["masking_rate"] * nie_table_df.shape[0]
+        best_neuron_ids = nie_table_df['Neuron_ids'].iloc[:int(num_neurons)].tolist()
         
+        neuron_ids = [neuron_id for neuron_id in neuron_ids if f'L-{layer_id}-{component}-{neuron_id}' in best_neuron_ids]
+        
+        nie_m = []
+        for neuron_id in neuron_ids: 
+            if f'{component}-{neuron_id}'  in layer_params.train_params[child].keys():
+                nie_m.append(m[f'L-{layer_id}-{component}-{neuron_id}']) 
+
         if child == 'weight':
-            print(f'{param_name}, frozen:{frozen_num}, train:{train_num}, multiplier: {multiplier}')
+            sum_m = sum(nie_m) if len(nie_m) > 0 else 0 
+            nie_m = len(nie_m) * [0.9]
+            # multiplier = param.shape[0] / (param.shape[0] - len(nie_m) + sum(nie_m) )
+            # multiplier = param.shape[0] / (frozen_num + sum_m)
+            multiplier = 1.0
+            nie_m = torch.tensor(nie_m).to(DEVICE)
+            print(f'{param_name}, frozen:{frozen_num}, train:{train_num}, multiplier: {multiplier}, neuron_ids: {len(neuron_ids)}')
             # ref: https://medium.com/@hunter-j-phillips/a-simple-introduction-to-dropout-3fd41916aaea
-            hooks.append(mediators[component](int(layer_id)).register_forward_hook(prunning_neurons(neuron_ids, multiplier, param_name, DEBUG)))
+            hooks.append(mediators[component](int(layer_id)).register_forward_hook(prunning_neurons(neuron_ids, nie_m, multiplier, param_name, DEBUG)))
 
     return model, hooks
