@@ -29,6 +29,8 @@ from torch.optim import Adam
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from utils import load_model
+from utils import load_model
+from utils import compare_frozen_weight, prunning_biased_neurons
 
 class ExperimentDataset(Dataset):
     def __init__(self, config, encode, DEBUG=False) -> None: 
@@ -905,13 +907,12 @@ def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, met
     for seed, path in all_paths.items():
         hooks = []
         if is_load_model:
-            from utils import load_model
-            from utils import compare_frozen_weight, prunning_biased_neurons
-            from optimization_utils import initial_partition_params 
             model = load_model(path=path, model=model)
         else:
             print(f'Using original model')
+        
         if config['prunning']:
+            from optimization_utils import initial_partition_params 
             path = [NIE_paths[seed]]
             do = "High-overlap"  if config['treatment'] else  "Low-overlap"
             model = initial_partition_params(config, method_name, model, do=do, collect_param=config['collect_param'],seed=seed ,mode=config['top_neuron_mode']) 

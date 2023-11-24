@@ -276,6 +276,7 @@ def get_ans(ans: int):
     else:
         return "non-entailment"
 
+
 def get_outliers(class_name, outliers,label_maps, data):
     # Todo: get outliers
     # Contradiction set; entailment > 100, neutral > 100 
@@ -598,28 +599,38 @@ def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, me
             assert (optimized_param[neuron_ids] == ref_param[neuron_ids]).all() , f'{param_name}: {optimized_param[neuron_ids].shape}'
 
 
+# def prunning_neurons(neuron_ids:int, m:torch.Tensor, multiplier:float, param_name:str, DEBUG:bool):
+#     def prunning_hook(module, input, output):
+#         """ Hook for prunning output during forward pass """
+#         # out_dim:  ([bz, seq_len, neuron_num])
+#         mask = torch.ones_like(output)
+#         # prunning input tensor respect to candidate neurons
+#         mask[:,:, neuron_ids] = 0 if m.shape[0] == 0 else m
+#         mask = multiplier * mask
+#         if DEBUG and len(neuron_ids) > 0:
+#             print(f'{param_name}, #bias neurons: {len(neuron_ids)}')
+#             print(f'inp mean: {output.mean()}, out mean:{(output * mask).mean()} mask mean: {mask.mean()}, multiplier: {multiplier}')
+#             test_ids = [1,2,3,5]
+#             x = torch.rand(50000, 10)
+#             test_mask = torch.ones_like(x)
+#             test_ratio = x.shape[-1] / (x.shape[-1] - len(test_ids) )
+#             test_mask[:,test_ids] = 0
+#             test_mask = test_mask * test_ratio
+#             out = x * test_mask
+#             print(f'test result, inp mean: ({x.mean():.4f}), out mean: ({out.mean():.4f}).')
+
+#         return output * mask
+#     return prunning_hook
+
 def prunning_neurons(neuron_ids:int, m:torch.Tensor, multiplier:float, param_name:str, DEBUG:bool):
     def prunning_hook(module, input, output):
         """ Hook for prunning output during forward pass """
         # out_dim:  ([bz, seq_len, neuron_num])
-        mask = torch.ones_like(output)
-        # prunning input tensor respect to candidate neurons
-        mask[:,:, neuron_ids] = 0 if m.shape[0] == 0 else m
-        mask = multiplier * mask
-        if DEBUG and len(neuron_ids) > 0:
-            print(f'{param_name}, #bias neurons: {len(neuron_ids)}')
-            print(f'inp mean: {output.mean()}, out mean:{(output * mask).mean()} mask mean: {mask.mean()}, multiplier: {multiplier}')
-            test_ids = [1,2,3,5]
-            x = torch.rand(50000, 10)
-            test_mask = torch.ones_like(x)
-            test_ratio = x.shape[-1] / (x.shape[-1] - len(test_ids) )
-            test_mask[:,test_ids] = 0
-            test_mask = test_mask * test_ratio
-            out = x * test_mask
-            print(f'test result, inp mean: ({x.mean():.4f}), out mean: ({out.mean():.4f}).')
-
-        return output * mask
+        CLS_TOKEN = 0
+        # bz, seq_len, hidden_dim
+        output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * 0.9
     return prunning_hook
+
 
 def prunning_biased_neurons(model, seed, NIE_paths, config, method_name, hooks, value = 0.05, DEBUG=False, DEVICE="cuda:0"):
     from data import get_specific_component, group_layer_params, get_all_model_paths
@@ -664,9 +675,8 @@ def prunning_biased_neurons(model, seed, NIE_paths, config, method_name, hooks, 
         if child == 'weight':
             sum_m = sum(nie_m) if len(nie_m) > 0 else 0 
             nie_m = len(nie_m) * [0.9]
-            # multiplier = param.shape[0] / (param.shape[0] - len(nie_m) + sum(nie_m) )
+            multiplier = param.shape[0] / (param.shape[0] - len(nie_m) + sum(nie_m) )
             # multiplier = param.shape[0] / (frozen_num + sum_m)
-            multiplier = 1.0
             nie_m = torch.tensor(nie_m).to(DEVICE)
             print(f'{param_name}, frozen:{frozen_num}, train:{train_num}, multiplier: {multiplier}, neuron_ids: {len(neuron_ids)}')
             # ref: https://medium.com/@hunter-j-phillips/a-simple-introduction-to-dropout-3fd41916aaea

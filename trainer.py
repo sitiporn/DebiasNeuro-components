@@ -613,26 +613,30 @@ def main():
     tokenized_datasets = {}
     NIE_paths = []
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
-    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    DEVICE = torch.device("cuda:6" if torch.cuda.is_available() else "cpu")
     
     # ******************** PATH ********************
     # used to save model training on PCGU
     # output_dir = '../models/pcgu_poe2/'
     # output_dir = '../models/pcgu_reweight2/'
     # output_dir = '../models/pcgu_recent_baseline/'
-    output_dir = '../models/zero_grad/' 
-    output_dir = '../models/frozen/' 
-    # output_dir = '../models/debug_baseline' 
+    # output_dir = '../models/zero_grad/' 
+    # output_dir = '../models/frozen/' 
+    output_dir = '../models/debug_baseline' 
+    # output_dir = '../models/recheck_baseline/' 
+    # output_dir = '../models/recheck_poe2' 
+    # output_dir = '../models/debug_reweight2/' 
     # output_dir = '../models/debug_poe2/' 
     # output_dir = '../models/ablation' # exclude_grad -> pos direction
-    # output_dir = '../models/random_grad/' # exclude_grad -> pos direction
+    # output_dir = '../models/random_grad/' # exclude_grad -> pos directio"""  """n
     
     # used to train 
-    # LOAD_MODEL_PATH = '../models/recent_baseline/' 
+    LOAD_MODEL_PATH = '../models/recent_baseline/' 
     # LOAD_MODEL_PATH = '../models/reweight2/'
-    LOAD_MODEL_PATH = '../models/poe2/'
-    # method_name =  'recent_baseline' 
-    method_name =  LOAD_MODEL_PATH.split('/')[-2] #reweight2' # 'poe2'
+    # LOAD_MODEL_PATH = '../models/poe2/'
+    method_name =  'recent_baseline' 
+    # method_name =  LOAD_MODEL_PATH.split('/')[-2] #reweight2' # 'poe2'
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
@@ -693,7 +697,6 @@ def main():
     #             DEVICE = DEVICE, 
     #             DEBUG = True)   
     get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False, mode=config['top_neuron_mode']) 
-    
     # ************************** PCGU ***************************
     # NOTE: scale gradient by confident scores <- kind of reweighting (sample base)
     # spatial adaptive gradient scaler by NIE scores (NIE base)
@@ -701,6 +704,7 @@ def main():
     hooks = []
     advantaged_bias = None
     advantaged_main, advantaged_bias = get_advantaged_samples(config, model, seed, metric=metric, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model=True, method_name=method_name,collect=False)
+    
     if config['model']['is_load_trained_model']:
         from utils import load_model
         all_paths = get_all_model_paths(LOAD_MODEL_PATH)
@@ -718,14 +722,11 @@ def main():
     model, hooks = intervene_grad(model, hooks=hooks, method_name=method_name, config=config, collect_param=config['collect_param'], DEBUG=False)
     compare_weight(updated_model=model, reference_model=reference_model)
     
-    # for param_name, param in model.named_parameters(): 
-    #     if param_name == 'bert.encoder.layer.0.attention.self.query.weight': continue
-    #     else: param.requires_grad = False
-
     for data_name in ["train_data", "validation_data", "test_data"]:
         print(f'========= {data_name} ===========')
         data =  advantaged_bias if data_name == "train_data" else None
         tokenized_datasets[data_name] = CustomDataset(config, label_maps=label_maps, data_name=data_name, data=data)
+    
     print(f'Config of dataloader') 
     print(f'Group by len : {config["data_loader"]["batch_sampler"]["group_by_length"]}')
     print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")

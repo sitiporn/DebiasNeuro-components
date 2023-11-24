@@ -63,16 +63,24 @@ def main():
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
     
     # LOAD_REFERENCE_MODEL_PATH = '../models/frozen/'
-    # LOAD_REFERENCE_MODEL_PATH = '../models/recent_baseline/' 
+    LOAD_REFERENCE_MODEL_PATH = '../models/recent_baseline/' 
     # LOAD_REFERENCE_MODEL_PATH = '../models/reweight2/'
-    LOAD_REFERENCE_MODEL_PATH = '../models/poe2/'
+    # LOAD_REFERENCE_MODEL_PATH = '../models/poe2/'
     # LOAD_MODEL_PATH = '../models/debug_baseline/'
     # LOAD_MODEL_PATH = '../models/debug_reweight2/'
-    LOAD_MODEL_PATH = '../models/recheck_poe2/'
-    # method_name =  'recent_baseline' 
+    # LOAD_MODEL_PATH = '../models/recheck_poe2/'
+    method_name =  'recent_baseline' 
     # method_name =  'reweight2' 
-    method_name =  'poe2' 
+    # method_name =  'poe2' 
     
+    # for prunning model
+    LOAD_MODEL_PATH = '../models/recent_baseline/' 
+    # LOAD_MODEL_PATH = '../models/debug_reweight2/'
+    # LOAD_MODEL_PATH = '../models/recheck_poe2/'
+
+    # for eval
+    # LOAD_MODEL_PATH = '../models/debug_baseline/' 
+   
     NIE_paths = []
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
@@ -81,8 +89,10 @@ def main():
     print(f'Counterfactual type: {mode}')
     print(f'Intervention type : {config["intervention_type"]}')
 
-    from utils import compare_frozen_weight 
-    if config['compare_frozen_weight']: compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, method_name)
+    from utils import compare_frozen_weight, prunning_biased_neurons
+    
+
+    # if config['compare_frozen_weight']: compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, method_name)
 
     if config['eval_counterfactual'] and config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
@@ -113,30 +123,21 @@ def main():
             collect_counterfactuals(model, model_path, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
     
     from data import get_condition_inference_hans_result
-    # TODO: get counterfactual of model ishan/bert-base-uncased-mnli
-    # TODO: compute NIE of model ishan/bert-base-uncased-mnli
-    # TODO: get top neurons
-    # TODO: get_condition inference on hans
-    # get_condition_inference_hans_result(config)
-    # breakpoint()
-    # dont forget to select mode eg. High or Low overlap
-    # recheck intervention type
-    # this computation should be run single seed at a time
-    # set config -> compute_all_seeds: false
-    if config['compute_nie_scores']:  cma_analysis(config, 
-                                                  config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])], 
-                                                  config['seed'], 
-                                                  counterfactual_paths, 
-                                                  NIE_paths, 
-                                                  save_nie_set_path = save_nie_set_path, 
-                                                  model = model, 
-                                                  treatments = mode, 
-                                                  tokenizer = tokenizer, 
-                                                  experiment_set = experiment_set, 
-                                                  DEVICE = DEVICE, 
-                                                  DEBUG = True)
 
-    if config['get_candidate_neurons']: get_candidate_neurons(config, NIE_paths, treatments=mode, debug=False) 
+    if config['compute_nie_scores']:  cma_analysis(config, 
+                                                   config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])], 
+                                                   config['seed'], 
+                                                   counterfactual_paths, 
+                                                   NIE_paths, 
+                                                   save_nie_set_path = save_nie_set_path, 
+                                                   model = model, 
+                                                   treatments = mode, 
+                                                   tokenizer = tokenizer, 
+                                                   experiment_set = experiment_set, 
+                                                   DEVICE = DEVICE, 
+                                                   DEBUG = True)
+     
+    if config['get_candidate_neurons']: get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['rank_losses']: rank_losses(config=config, do=mode[0])
     # if config['topk']: print(f"the NIE paths are not available !") if sum(config['is_NIE_exist']) != len(config['is_NIE_exist']) else get_top_k(config, treatments=mode) 
@@ -152,7 +153,8 @@ def main():
     if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], counterfactual_paths, DEVICE)
     # ******************** test  stuff ********************
     # Eval models on test and challenge sets for all seeds
-    if config['eval_model']: eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model= True, is_optimized_set=False)
+    is_load_model= True
+    if config['eval_model']: eval_model(model, NIE_paths, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, method_name=method_name, is_load_model= is_load_model, is_optimized_set=False)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
     if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
     if config["diag"]: get_diagnosis(config)
