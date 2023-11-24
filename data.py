@@ -20,7 +20,7 @@ from pprint import pprint
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-from utils import  EncoderParams
+from utils import  LayerParams
 from cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
 from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans, compute_acc
@@ -29,6 +29,8 @@ from torch.optim import Adam
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from utils import load_model
+from utils import load_model
+from utils import compare_frozen_weight, prunning_biased_neurons
 
 class ExperimentDataset(Dataset):
     def __init__(self, config, encode, DEBUG=False) -> None: 
@@ -229,8 +231,8 @@ def preprocss(df):
     return df
 
 class CustomDataset(Dataset):
-    def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
-        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+    def __init__(self, config, label_maps, data_name = 'train_data', is_trained=True, DEBUG=False, data=None) -> None: 
+        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True) if data is None else data
         df = preprocss(df)
         if "bias_probs" in df.columns:
           df_new = df[['sentence1', 'sentence2', 'gold_label','bias_probs']]  
@@ -238,23 +240,34 @@ class CustomDataset(Dataset):
             df_new = df[['sentence1', 'sentence2', 'gold_label']]
         df_new.rename(columns = {'gold_label':'label'}, inplace = True)
         self.label_maps = label_maps
+        self.is_trained = is_trained
         df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
-        from datasets import Dataset as HugginfaceDataset
-        self.dataset = HugginfaceDataset.from_pandas(df_new)
-        self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
-        self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+        if is_trained:
+            from datasets import Dataset as HugginfaceDataset
+            self.dataset = HugginfaceDataset.from_pandas(df_new)
+            self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+            self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+        else: 
+            self.df = df_new
+            self.premises = list(self.df.sentence1)
+            self.hypothesises = list(self.df.sentence2)
+            self.labels = list(self.df.label)
+
+
     def to_label_id(self, text_label): 
         return self.label_maps[text_label]
     
     def tokenize_function(self, examples):
-        return self.tokenizer(examples["sentence1"], examples["sentence2"], truncation=True) 
+        return self.tokenizer(examples["sentence1"], examples["sentence2"], padding='max_length', truncation=True, return_tensors="pt") 
    
     def __len__(self): 
-        return self.tokenized_datasets.shape[0]
+        return self.tokenized_datasets.shape[0] if self.is_trained else len(self.premises)
     
     def __getitem__(self, idx):
-        return self.tokenized_datasets[idx]
-
+        if self.is_trained:
+            return self.tokenized_datasets[idx]
+        else:
+            return self.premises[idx], self.hypothesises[idx], self.labels[idx]
 
 def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
     """ getting inferences while modifiying activations on dev-matched/dev-mm """
@@ -281,7 +294,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
     key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
+    path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
     # why top neurons dont chage according to get_top_k
     # get position of top neurons 
     with open(path, 'rb') as handle: 
@@ -850,18 +863,20 @@ def get_all_model_paths(LOAD_MODEL_PATH):
         all_model_files[key].append(str(f))
     
 
-    def take_second(elem):
-        return elem[1]
+    def get_sorted_key(elem):
+        return int(elem[0].split('-')[-1])
 
     for seed in all_model_files.keys():
         checkpoint_paths = [ (checkpoint.split("/")[4].split('_')[-1], checkpoint) for checkpoint in all_model_files[seed]]
         # load best model is trained up to the end
-        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
+        # checkpoint = sorted(checkpoint_paths, key=get_sorted_key, reverse=True)[-1] # optimize
+        checkpoint = sorted(checkpoint_paths, key=get_sorted_key, reverse=True)[0] #  non optimize
         clean_model_files.append(checkpoint[-1])
-    assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
+    
+    # assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
-def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
+def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
@@ -882,12 +897,28 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
     hans_avg = 0
     computed_acc_count = 0
     computed_hans_count = 0
+    seed = str(config['seed'])
+    if not config['compute_all_seeds']:  all_paths = {seed: all_paths[seed]}
+    # item= all_paths.pop(seed)
+    # print("Popped value is:",item)
+    # print("The dictionary is:" , all_paths.keys())
+    NIE_paths = {path.split('/')[3].split('_')[-1]:path for path in NIE_paths}
+
     for seed, path in all_paths.items():
+        hooks = []
         if is_load_model:
-            from utils import load_model
             model = load_model(path=path, model=model)
         else:
             print(f'Using original model')
+        
+        if config['prunning']:
+            from optimization_utils import initial_partition_params 
+            path = [NIE_paths[seed]]
+            do = "High-overlap"  if config['treatment'] else  "Low-overlap"
+            model = initial_partition_params(config, method_name, model, do=do, collect_param=config['collect_param'],seed=seed ,mode=config['top_neuron_mode']) 
+            model, hooks = prunning_biased_neurons(model, seed, path, config, method_name, hooks, DEBUG=False)
+            print(f'eval model using prunning mode')
+        
         for cur_json in json_sets:
             name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
             distributions = []
@@ -952,6 +983,7 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
     print(f"average entailment acc : {entail_avg   / len(all_paths)}")
     print(f"average neutral acc : {neutral_avg /  len(all_paths)}")
     print(f'avarge hans score : { hans_avg  / len(all_paths)}')
+    for hook in hooks: hook.remove()
 
 def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path):
 
@@ -1146,11 +1178,12 @@ def get_specific_component(splited_name, component_mappings):
     
     return layer_id, component
         
-def group_layer_params(layer_params):
+def group_layer_params(layer_params, mode):
     """ group parameter's component of both weight and bias """
 
     group_param_names = {}
-    param_names = list(layer_params.params['weight'].keys())
+    
+    param_names = list(layer_params.train_params['weight'].keys() if mode == 'train' else layer_params.freeze_params['weight'] )
 
     for name in param_names:
         component = name.split('-')[0]

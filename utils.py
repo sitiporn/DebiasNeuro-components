@@ -16,6 +16,8 @@ from torch.utils.data import Dataset, DataLoader
 from collections import Counter
 from intervention import get_mediators
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, BertForSequenceClassification
+from functools import partial
 
 def report_gpu(): 
   print(f"++++++++++++++++++++++++++++++")
@@ -274,6 +276,7 @@ def get_ans(ans: int):
     else:
         return "non-entailment"
 
+
 def get_outliers(class_name, outliers,label_maps, data):
     # Todo: get outliers
     # Contradiction set; entailment > 100, neutral > 100 
@@ -364,7 +367,8 @@ def compute_acc(raw_distribution_path, label_maps):
 
 def get_num_neurons(config):
 
-    model = AutoModelForSequenceClassification.from_pretrained(config["model_name"])
+    label_maps = config['label_maps']
+    model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
     
     config['nums']['self'] = model.bert.encoder.layer[0].attention.self.query.out_features * config['attention_components']
     config['nums']['AO'] = model.bert.encoder.layer[0].attention.output.dense.out_features
@@ -493,25 +497,189 @@ def give_weight(label, probs):
 
     return 1 / probs
 
-class EncoderParams:
-    """ A class used to restore specific parameters needed to be frozen inside Encoder of model"""
+class LayerParams:
+    """ A class used to mangage parameters of each layer  to use in optimization step """
     def __init__(self, layer_id, num_train_params, num_freeze_params):
         self.layer_id  = layer_id
-        self.params = {'weight': {}, 'bias': {}}
+        self.train_params = {'weight': {}, 'bias': {}}
+        self.freeze_params = {'weight': {}, 'bias': {}}
         self.num_train_params = num_train_params
         self.num_freeze_params = num_freeze_params
         self.total_params = self.num_train_params + self.num_freeze_params
 
-    def append_pos(self, pos, value):
+    def append_frozen(self, pos, value):
         component = pos.split('-')[2]
         neuron_id = pos.split('-')[3]
+        for child in list(self.freeze_params.keys()): 
+            self.freeze_params[child][f'{component}-{neuron_id}'] = value[child].cpu() if value[child] is not None else None
 
-        # Todo: refactor group by component 
-        for child in list(self.params.keys()): 
-            self.params[child][f'{component}-{neuron_id}'] = value[child].cpu()
+    def append_train(self, pos, value):
+        component = pos.split('-')[2]
+        neuron_id = pos.split('-')[3]
+        for child in list(self.train_params.keys()): 
+            self.train_params[child][f'{component}-{neuron_id}'] = value[child].cpu() if value[child] is not None else None
+
+def test_layer_params(encoder_params, freeze_params, train_params, value):
+
+    train_param_count = {}
+    freeze_param_count = {}
+
+    for layer_id in range(len(encoder_params)):
+        for child in ['weight', 'bias']:
+            if child not in train_param_count.keys(): train_param_count[child] = 0
+            if child not in freeze_param_count.keys(): freeze_param_count[child] = 0
+            
+            train_param_count[child] += len(encoder_params[layer_id].train_params[child].keys())
+            freeze_param_count[child] +=  len(encoder_params[layer_id].freeze_params[child].keys())
+
+    print(f'summary after combine parameters')
+    for child in ['weight', 'bias']:
+        assert train_param_count[child]   == encoder_params[layer_id].num_train_params  
+        assert freeze_param_count[child]  == encoder_params[layer_id].num_freeze_params  
+        assert encoder_params[layer_id].total_params == train_param_count[child] +  freeze_param_count[child]
+        print(f'********** {child}  ************')
+        print(f'# Train : {train_param_count[child]}')
+        print(f'# Freeze : {freeze_param_count[child]}')
+        print(f'# Total  : {train_param_count[child] +  freeze_param_count[child]}')
+
+def compare_weight(updated_model, reference_model):
+    for (_, updated_param)  , (param_name, ref_param) in zip(updated_model.named_parameters(), reference_model.named_parameters()):
+        if not updated_param.requires_grad: continue
+        assert (updated_param == ref_param).all(), f'{param_name} not exact match'
+        print(f'{param_name}: {ref_param.shape}')
+
+    print(f'Comparing weight checking Done!')
+
+    
+def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, method_name, value = 0.05):
+    from data import get_specific_component, group_layer_params, get_all_model_paths
+
+    label_maps = config['label_maps'] 
+    collect_param = config['collect_param']
+    model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
+    reference_model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
+
+    from utils import load_model
+    all_model_paths = get_all_model_paths(LOAD_REFERENCE_MODEL_PATH)
+    all_optimized_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    
+    for seed, _ in all_model_paths.items():
+        path = all_model_paths[str(seed)]
+        optimized_path = all_optimized_model_paths[str(seed)]
+        optimized_model = load_model(path=path, model=model)
+        reference_model = load_model(path=optimized_path, model=reference_model)
+        print(f'Loading updated model from : {optimized_path} to optimize on PCGU done!')
+        print(f'Loading reference model from : {path} done!')
+        
+        component_mappings = {}
+        mediators  = get_mediators(optimized_model)
+        component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+        restore_path = f'../pickles/restore_weight/{method_name}/'
+        restore_path = os.path.join(restore_path, f'masking-{value}')
+        for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
 
+        for (_, optimized_param)  , (param_name, ref_param) in zip(optimized_model.named_parameters(), reference_model.named_parameters()):
+            splited_name = param_name.split('.') 
+            child = splited_name[-1]
+            
+            if 'encoder' not in splited_name or 'LayerNorm' in splited_name: 
+                assert (optimized_param == ref_param).all() , f'{param_name}'
+                continue
+            
+            layer_id, component = get_specific_component(splited_name,component_mappings) 
+            freeze_param_name = splited_name[-1]
+            cur_restore_path = os.path.join(restore_path, f'{seed}_layer{layer_id}_collect_param={collect_param}_components.pickle')
+            with open(cur_restore_path, 'rb') as handle: layer_params = pickle.load(handle)
+            frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
+            train_neuron_ids = group_layer_params(layer_params, mode='train')
+            
+            neuron_ids = []
+            neuron_ids += frozen_neuron_ids[component] if component in frozen_neuron_ids.keys() else []
+            assert (optimized_param[neuron_ids] == ref_param[neuron_ids]).all() , f'{param_name}: {optimized_param[neuron_ids].shape}'
 
 
+# def prunning_neurons(neuron_ids:int, m:torch.Tensor, multiplier:float, param_name:str, DEBUG:bool):
+#     def prunning_hook(module, input, output):
+#         """ Hook for prunning output during forward pass """
+#         # out_dim:  ([bz, seq_len, neuron_num])
+#         mask = torch.ones_like(output)
+#         # prunning input tensor respect to candidate neurons
+#         mask[:,:, neuron_ids] = 0 if m.shape[0] == 0 else m
+#         mask = multiplier * mask
+#         if DEBUG and len(neuron_ids) > 0:
+#             print(f'{param_name}, #bias neurons: {len(neuron_ids)}')
+#             print(f'inp mean: {output.mean()}, out mean:{(output * mask).mean()} mask mean: {mask.mean()}, multiplier: {multiplier}')
+#             test_ids = [1,2,3,5]
+#             x = torch.rand(50000, 10)
+#             test_mask = torch.ones_like(x)
+#             test_ratio = x.shape[-1] / (x.shape[-1] - len(test_ids) )
+#             test_mask[:,test_ids] = 0
+#             test_mask = test_mask * test_ratio
+#             out = x * test_mask
+#             print(f'test result, inp mean: ({x.mean():.4f}), out mean: ({out.mean():.4f}).')
+
+#         return output * mask
+#     return prunning_hook
+
+def prunning_neurons(neuron_ids:int, m:torch.Tensor, multiplier:float, param_name:str, DEBUG:bool):
+    def prunning_hook(module, input, output):
+        """ Hook for prunning output during forward pass """
+        # out_dim:  ([bz, seq_len, neuron_num])
+        CLS_TOKEN = 0
+        # bz, seq_len, hidden_dim
+        output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * 0.9
+    return prunning_hook
 
 
+def prunning_biased_neurons(model, seed, NIE_paths, config, method_name, hooks, value = 0.05, DEBUG=False, DEVICE="cuda:0"):
+    from data import get_specific_component, group_layer_params, get_all_model_paths
+    value = config['masking_rate']
+    label_maps = config['label_maps'] 
+    collect_param = config['collect_param']
+    component_mappings = {}
+    mediators  = get_mediators(model)
+    component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+    restore_path = f'../pickles/restore_weight/{method_name}/'
+    restore_path = os.path.join(restore_path, f'masking-{value}')
+    for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
+    from cma import scaling_nie_scores
+    nie_table_df = scaling_nie_scores(config, method_name, NIE_paths, debug=False)
+    m = {row['Neuron_ids']: row['M_MinMax'] for index, row in nie_table_df.iterrows()} 
+    
+    for param_name, param in model.named_parameters():
+        splited_name = param_name.split('.') 
+        if 'encoder' not in splited_name or 'LayerNorm' in splited_name: continue
+        child = splited_name[-1]
+        layer_id, component = get_specific_component(splited_name,component_mappings) 
+        freeze_param_name = splited_name[-1]
+        cur_restore_path = os.path.join(restore_path, f'{seed}_layer{layer_id}_collect_param={collect_param}_components.pickle')
+        with open(cur_restore_path, 'rb') as handle: layer_params = pickle.load(handle)
+        frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
+        biased_neuron_ids = group_layer_params(layer_params, mode='train')
+
+        frozen_num =  len(frozen_neuron_ids[component]) if component in frozen_neuron_ids.keys() else 0
+        train_num =  len(biased_neuron_ids[component]) if component in biased_neuron_ids.keys() else 0
+        neuron_ids = biased_neuron_ids[component] if component in biased_neuron_ids.keys() else []
+
+        num_neurons = config['num_neurons'] if config['criterion'] == 'num_neurons' else config["masking_rate"] * nie_table_df.shape[0]
+        best_neuron_ids = nie_table_df['Neuron_ids'].iloc[:int(num_neurons)].tolist()
+        
+        neuron_ids = [neuron_id for neuron_id in neuron_ids if f'L-{layer_id}-{component}-{neuron_id}' in best_neuron_ids]
+        
+        nie_m = []
+        for neuron_id in neuron_ids: 
+            if f'{component}-{neuron_id}'  in layer_params.train_params[child].keys():
+                nie_m.append(m[f'L-{layer_id}-{component}-{neuron_id}']) 
+
+        if child == 'weight':
+            sum_m = sum(nie_m) if len(nie_m) > 0 else 0 
+            nie_m = len(nie_m) * [0.9]
+            multiplier = param.shape[0] / (param.shape[0] - len(nie_m) + sum(nie_m) )
+            # multiplier = param.shape[0] / (frozen_num + sum_m)
+            nie_m = torch.tensor(nie_m).to(DEVICE)
+            print(f'{param_name}, frozen:{frozen_num}, train:{train_num}, multiplier: {multiplier}, neuron_ids: {len(neuron_ids)}')
+            # ref: https://medium.com/@hunter-j-phillips/a-simple-introduction-to-dropout-3fd41916aaea
+            hooks.append(mediators[component](int(layer_id)).register_forward_hook(prunning_neurons(neuron_ids, nie_m, multiplier, param_name, DEBUG)))
+
+    return model, hooks

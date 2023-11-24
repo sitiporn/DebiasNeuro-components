@@ -32,7 +32,7 @@ class Classifier(nn.Module):
         logits = self.classifier(pooled_output)
         return logits
 
-def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE, all_seeds=False): 
+def collect_counterfactuals(model, model_path, method_name, seed,  counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE, all_seeds=False): 
     """ getting all activation's neurons used as mediators(Z) to compute NIE scores later """
     from utils import load_model
     if model_path is not None: 
@@ -45,6 +45,7 @@ def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, conf
     is_averaged_embeddings = config["is_averaged_embeddings"]
     # getting counterfactual of all components(eg. Q, K) for specific seed
     _counterfactual_paths = counterfactual_paths
+    model = model.to(DEVICE)
     
     # "NIE_paths": [],
     # "is_NIE_exist": [],
@@ -162,12 +163,13 @@ def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, conf
                 pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving to {cur_path} done ! ")
                 
-    with open('../pickles/utilizer_components.pickle', 'wb') as handle: 
+    path = f'../pickles/utilizer/{method_name}/utilizer_{seed}_components.pickle'
+    with open(path, 'wb') as handle: 
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
         # pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         # pickle.dump(experiment_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
         # pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"save utilizer to pickles/utilizer_components.pickle  ! ")
+        print(f"save utilizer to {path}  ! ")
 
 def test_mask(neuron_candidates =[]):
     x  = torch.tensor([[ [1,2,3], 
@@ -200,9 +202,9 @@ def test_mask(neuron_candidates =[]):
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
 
-def geting_counterfactual_paths(config, seed=None):
+def geting_counterfactual_paths(config, method_name, seed=None):
 
-    path = f'../counterfactuals/'
+    path = f'../counterfactuals/{method_name}/'
     path = os.path.join(path, "seed_"+ str( config['seed'] if seed is None else seed ) ) 
     if not os.path.exists(path): os.mkdir(path) 
 
@@ -507,8 +509,8 @@ def trace_counterfactual(do,
             pickle.dump(median, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f'saving NIE scores into : {dist_path}')
 
-def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, is_averaged_embeddings):
-    with open('../pickles/utilizer_components.pickle', 'rb') as handle: 
+def get_hidden_representations(counterfactual_paths, method_name, seed, layers, is_group_by_class, is_averaged_embeddings):
+    with open(f'../pickles/utilizer/{method_name}/utilizer_{seed}_components.pickle', 'rb') as handle: 
         # attention_data = pickle.load(handle)
         counter = pickle.load(handle)
         # experiment_set = pickle.load(handle)
@@ -519,7 +521,7 @@ def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, 
         avg_counterfactual_representations = {}
         for cur_path in counterfactual_paths:
             component = cur_path.split('/')[-1].split('_')[1]
-            seed = cur_path.split('/')[2].split('_')[-1]
+            seed = cur_path.split('/')[3].split('_')[-1]
             if seed not in counterfactual_representations.keys(): counterfactual_representations[seed] = {}
             if seed not in avg_counterfactual_representations.keys(): avg_counterfactual_representations[seed] = {}
             avg_counterfactual_representations[seed][component] = {}
@@ -579,10 +581,10 @@ def get_single_representation(cur_path, do = None, class_name = None):
 
     return hidden_representations
 
-def geting_NIE_paths(config, mode, seed=None):
+def geting_NIE_paths(config, method_name, mode, seed=None):
     NIE_paths = []
     is_NIE_exist = []
-    path = f'../NIE/'
+    path = f'../NIE/{method_name}/'
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
     if not os.path.exists(path): os.mkdir(path) 
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]

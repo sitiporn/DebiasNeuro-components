@@ -17,18 +17,20 @@ import operator
 import torch.nn.functional as F
 import numpy as np
 from torch.optim import Adam
-from data import get_mediators, get_hidden_representations, EncoderParams, get_specific_component, Dev, group_layer_params
+from data import get_mediators, get_hidden_representations, get_specific_component, Dev, group_layer_params
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from cma import get_topk
+from utils import LayerParams
 
-def initial_partition_params(config, model, do, debug=True):
-    """partition candidate parameters used to train main model """
+def initial_partition_params(config, method_name, model, do, collect_param=False, debug=True, seed=None , mode='sorted'):
+    """partition parameters used to freeze  and train(bias parameters)"""
+    from utils import report_gpu
     component_mappings = {}
     freeze_params = {}
     train_params = {}
     total_params = {}
-    seed = config['seed']
+    seed = config['seed'] if seed is None else seed
     k = config['k']
     num_neurons = None
     topk = get_topk(config, k=k, num_top_neurons=num_neurons)
@@ -40,15 +42,20 @@ def initial_partition_params(config, model, do, debug=True):
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     if config['computed_all_layers']:
-        path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle'
+        if mode == 'sorted':
+            path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
+        elif mode == 'random':
+            path = f'../pickles/top_neurons/{method_name}/random_top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
         layers = config['layers']
     else: 
-        path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
+        path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
         layer = config['layer']
-
+    
     # candidate neurons existed bias 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
+        print(f'loading top neurons : {path}')
+    
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     # unfreeze all parameters
     for param in model.parameters(): param.requires_grad = True
@@ -62,29 +69,61 @@ def initial_partition_params(config, model, do, debug=True):
         #  if 'encoder' not in splited_name: continue
         #  if 'LayerNorm' in splited_name: continue
         for name, param in model.named_parameters():
-            cur_name = name.split('.')
+            cur_name = name.split('.') 
             #  To load and save model's parameters
             if 'encoder' in cur_name and 'LayerNorm' not in cur_name:
                 component = None
                 layer_id = int(cur_name[3])
                 count_param  += param.shape[0]
+                # ************* get component *************
                 if 'self' in cur_name:  
                     component = component_mappings[cur_name[-2]]  # to get Q, K, V
                 elif 'attention' in cur_name and 'output' in cur_name: 
                     component = component_mappings['attention.output']  
                 else:
                     component = component_mappings[cur_name[-3]]
+                
                 for neuron_id in range(param.data.shape[0]):
-                    cur_combine = f'L-{layer_id}-{component}-{neuron_id}'
-                    total_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+                    pos = f'L-{layer_id}-{component}-{neuron_id}'
+                    total_params[value][cur_name[-1]][pos] = param.data[neuron_id] if collect_param else None
                     # preparing to restore weight that are not in partition gradients
-                    if cur_combine not in list(top_neuron[value].keys()):
-                        freeze_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+                    if pos not in list(top_neuron[value].keys()):
+                        # used to masking grad
+                        freeze_params[value][cur_name[-1]][pos] = param.data[neuron_id] if collect_param else None
                     else:
-                        train_params[value][cur_name[-1]][cur_combine] = param.data[neuron_id]
+                        # used to reverse gradient
+                        train_params[value][cur_name[-1]][pos] = param.data[neuron_id]  if collect_param else None
             else:
                 print(f'freeze whole tensor: {name}')
                 param.requires_grad = False
+
+        for child in ['weight', 'bias']:
+            assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
+            assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
+            print(f'# {child} train parameters:  {len(train_params[value][child])} ')
+            print(f'# {child} freeze parameters: {len(freeze_params[value][child])} ')
+            print(f'# {child} total oparameters: {len(train_params[value][child]) + len(freeze_params[value][child])} ')
+        print(f'count_param : {count_param}') 
+        
+        for name, param in model.named_parameters(): 
+            if 'encoder' in name.split('.') and 'LayerNorm' not in name.split('.'): 
+                assert param.requires_grad == True, f' Error : {name}'
+            else: 
+                assert param.requires_grad == False, f' Error : {name}'
+        
+        # Todo: rolling out memory
+        encoder_params = [] 
+        for layer_id in range(model.config.num_hidden_layers): 
+            encoder_params.append(LayerParams(layer_id, len(train_params[value]['weight']), len(freeze_params[value]['weight']) ))
+        
+        # collect parameters needed to be frozen while perform optmize step
+        for pos in list(freeze_params[value]['weight'].keys()):
+            layer_id = int(pos.split('-')[1])
+            encoder_params[layer_id].append_frozen(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
+        
+        for pos in list(train_params[value]['weight'].keys()):
+            layer_id = int(pos.split('-')[1])
+            encoder_params[layer_id].append_train(pos, {'weight': train_params[value]['weight'][pos], 'bias': train_params[value]['bias'][pos]})
         
         for child in ['weight', 'bias']:
             assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
@@ -93,29 +132,23 @@ def initial_partition_params(config, model, do, debug=True):
             print(f'# {child} freeze parameters: {len(freeze_params[value][child])} ')
             print(f'# {child} total oparameters: {len(train_params[value][child]) + len(freeze_params[value][child])} ')
 
-        print(f'count_param : {count_param}') 
-        for name, param in model.named_parameters(): 
-            if 'encoder' in name.split('.') and 'LayerNorm' not in name.split('.'): 
-                assert param.requires_grad == True, f' Error : {name}'
-            else: 
-                assert param.requires_grad == False, f' Error : {name}'
-        # Todo: rolling out memory
-        layer_param = [] 
-        for layer_id in range(model.config.num_hidden_layers): 
-            layer_param.append(EncoderParams(layer_id, len(train_params[value]['weight']), len(freeze_params[value]['weight']) ))
-        
-        # collect parameters needed to be frozen while perform optmize step
-        for pos in list(freeze_params[value]['weight'].keys()):
-            layer_param[int(pos.split('-')[1])].append_pos(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
-        
-        restore_path = f'../pickles/restore_weight/'
-        for layer in range(len(layer_param)): 
-            cur_restore_path = os.path.join(restore_path, f'v-{value}')
+        from utils import test_layer_params
+        test_layer_params(encoder_params, freeze_params, train_params, value)
+
+         
+        restore_path = f'../pickles/restore_weight/{method_name}/'
+        for layer in range(len(encoder_params)): 
+            cur_restore_path = os.path.join(restore_path, f'masking-{value}')
             if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
-            cur_restore_path = os.path.join(cur_restore_path,f'layer{layer}_components.pickle')
+            
+            if mode == 'sorted':
+                cur_restore_path = os.path.join(cur_restore_path,f'{seed}_layer{layer}_collect_param={collect_param}_components.pickle')
+            elif mode == 'random':
+                cur_restore_path = os.path.join(cur_restore_path,f'{seed}_radom_layer{layer}_collect_param={collect_param}_components.pickle')
+            
             with open(cur_restore_path, 'wb') as handle:
-                pickle.dump(layer_param[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"saving layer {layer}'s components into pickle files")
+                pickle.dump(encoder_params[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f"saving {layer}'s components into {cur_restore_path}")
     return model
 
 def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False , DEBUG=False):
@@ -206,9 +239,10 @@ def masking_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
           param_name: a neuron type
           grad: gradient used to be masked
     """
-    if DEBUG: print(f'call back masking_grad func : {param_name}, {grad.shape}')
-    mask =  torch.ones_like(grad)
+    mask = torch.ones_like(grad)
     mask[neuron_ids] = 0
+    if DEBUG: print(f'call back masking_grad func: {param_name}, {grad.shape}, {mask[neuron_ids].shape}')
+    
     # masking out gradients 
     return grad  * mask
 
@@ -221,5 +255,162 @@ def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
           param_name: a neuron type
           grad: gradient used to be reversed
     """
-    if DEBUG: print(f'call back reverse gradient func : {param_name}, {grad.shape}')
-    return -grad
+    mask = torch.ones_like(grad)
+    mask[neuron_ids] = -1
+    if DEBUG: print(f'call back reverse gradient func: {param_name}, {grad.shape}, {mask[neuron_ids].shape}')
+    
+    return grad  * mask
+
+def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load_model, method_name, collect=False):
+    # Todo: divide label
+    biased_label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
+    main_label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
+    biased_label_remaps = {v:k for k,v in biased_label_maps.items()}
+    main_label_remaps   = {v:k for k,v in main_label_maps.items()}
+    data_path  = config["data_path"]
+    train_data = config["train_data"]
+    data_path = os.path.join(data_path, train_data)
+    biased_df = pd.read_json(data_path, lines=True)
+    seed = str(seed)
+    
+    predictions = []
+    results = []
+
+    if collect:
+        from data import get_all_model_paths
+        all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+        path = all_paths[seed]
+        if is_load_model:
+            from utils import load_model
+            model = load_model(path=path, model=model)
+            print(f'Loading model from : {path}')
+        else:
+            print(f'Using original model')
+
+        # ************* Biased model **************
+        for index, row in biased_df.iterrows():
+            prediction =  biased_label_remaps[int(torch.argmax(torch.Tensor(row['bias_probs']), dim=0))]
+            predictions.append(prediction)
+            # results.append(prediction  == "entailment")
+            results.append(prediction  == row['gold_label'])
+        
+        biased_df['predictions'] = predictions
+        biased_df['results'] = results
+        biased_df['gold_label_ids'] = biased_df['gold_label'].apply(lambda row : biased_label_maps[row])
+        biased_df['prediction_ids'] = biased_df['predictions'].apply(lambda row : biased_label_maps[row])
+
+        print(f"Bias model acc : {metric.compute(predictions=biased_df['prediction_ids'].tolist() , references=biased_df['gold_label_ids'].tolist() ) }")
+        
+        # ************* Main model **************
+        from data import CustomDataset
+        train_set = CustomDataset(config, label_maps=main_label_maps, data_name="train_data", is_trained=False)
+        train_dataloader = DataLoader(train_set, batch_size = 32, shuffle = False, num_workers=0)
+        tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+        norm = nn.Softmax(dim=-1)
+        main_model = {}
+        for col in ['gold_label', 'sentence1', 'sentence2', 'probs','predictions', 'results']: main_model[col] = []
+        count = 0
+        for inputs in tqdm(train_dataloader):
+            premises, hypothesises,  labels = inputs
+            pair_sentences =  [[premise, hypo] for premise, hypo in zip(premises, hypothesises) ]
+            model_inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+            with torch.no_grad():
+                out = model(**model_inputs)[0]
+                cur_probs = norm(out)
+                cur_preds = torch.argmax(cur_probs, dim=-1)
+                cur_res = cur_preds == labels
+                main_model["sentence1"].extend(premises)
+                main_model["sentence2"].extend(hypothesises)
+                main_model["gold_label"].extend(labels)
+                main_model["probs"].extend(cur_probs)
+                main_model["predictions"].extend(cur_preds)
+                main_model["results"].extend(cur_res)
+        
+        main_df = pd.DataFrame.from_dict(main_model) 
+        main_df['gold_label'] = main_df['gold_label'].apply(lambda row : int(row))
+        main_df['predictions'] = main_df['predictions'].apply(lambda row : int(row))
+        print(f"Main model acc : {metric.compute(predictions=main_df['predictions'].tolist() , references=main_df['gold_label'].tolist() ) }")
+        
+        path = f'../pickles/advantaged/{method_name}_{seed}_inferences.pickle'
+        with open(path, 'wb') as handle: 
+            # nested dict : [component][do][class_name][layer][sample_idx]
+            pickle.dump(main_df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(biased_df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"saving to {path} done ! ")
+        
+        main_df['results'] = main_df['results'].apply(lambda row: bool(row))
+        print(f'bias shape : {biased_df.shape }')
+        print(f'main shape : {main_df.shape}')
+        # select samples base on main model and bias model inferences
+        advantaged  = []
+        for idx in range(main_df.shape[0]):
+            if main_df['results'].iloc[idx] ==  False and biased_df['results'].iloc[idx] == True:
+                advantaged.append(True)
+            else: 
+                advantaged.append(False)
+
+        advantaged_main = main_df[advantaged]
+        advantaged_bias = biased_df[advantaged]
+        disadvantaged_main = main_df[list(~np.array(advantaged))] 
+        disadvantaged_bias = biased_df[list(~np.array(advantaged))] 
+        
+        assert advantaged_main.shape[0] == advantaged_bias.shape[0]
+        assert disadvantaged_main.shape[0] == disadvantaged_bias.shape[0]
+
+        print(f'#advantaged samples: {advantaged_bias.shape[0]}, #disadvantaged samples: {disadvantaged_bias.shape[0]}')
+
+        bias_probs = []
+        for row_idx, row  in advantaged_bias.iterrows():
+            bias_probs.append(row['bias_probs'])
+        bias_probs = torch.tensor(bias_probs)
+
+        probs = {}
+        for idx, row in advantaged_bias.iterrows():
+            for label_text in biased_label_maps.keys():
+                if label_text not in probs.keys(): probs[label_text] = []
+                probs[label_text].append(row['bias_probs'][biased_label_maps[label_text]])
+        for label_text in probs.keys():
+            print(f'{label_text} : {len(probs[label_text])}')
+            advantaged_bias[label_text + '_probs'] = probs[label_text]
+
+        print(f"min: {advantaged_bias['entailment_probs'].min()}, max: {advantaged_bias['entailment_probs'].max()}")
+        path = f'../pickles/advantaged/{method_name}_clean_{seed}_inferences.pickle'
+        with open(path, 'wb') as handle: 
+            # nested dict : [component][do][class_name][layer][sample_idx]
+            pickle.dump(advantaged_main, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(advantaged_bias, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(disadvantaged_main, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(disadvantaged_bias, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"saving to {path} done ! ")
+    else:
+        path = f'../pickles/advantaged/{method_name}_clean_{seed}_inferences.pickle'
+        with open(path, 'rb') as handle: 
+            advantaged_main = pickle.load(handle)
+            advantaged_bias = pickle.load(handle)
+            disadvantaged_main = pickle.load(handle)
+            disadvantaged_bias = pickle.load(handle)
+            print(f"Loading from {path} done ! ")
+        
+    for label_text in biased_label_maps.keys():
+        mask = advantaged_bias.gold_label == label_text
+        label_prob = label_text + '_probs'
+        max = advantaged_bias[mask][label_prob].max()
+        min = advantaged_bias[mask][label_prob].min()
+        mean = advantaged_bias[mask][label_prob].mean()
+        print(f'{label_text}, max:{max}, min:{min}, mean:{mean}  , Total:{advantaged_bias[mask][label_prob].shape[0]}')
+    return  advantaged_main, advantaged_bias
+
+        
+        
+
+
+
+
+
+    
+
+
+
+
+
+
