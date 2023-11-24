@@ -37,7 +37,9 @@
   "computed_all_layers": True,
   "print_config": False,
   #  [42, 3099, 3785, 3990,  409] for experiments
+
   "seed": 409, #42, #null,
+
   # default
   # "topk_neurons": True,
   # together with compute all seeds
@@ -45,12 +47,14 @@
   "distribution": False,
   # To get counterfactual
   "compute_all_seeds": True,
+
   "eval_counterfactual": False,
   "getting_counterfactual": False,
   "compute_nie_scores": False,
   # ******************** Unlearn Bias ********************
   "training_json":  multinli_1.0_train.jsonl, 
   "partition_params": False,
+
   # ******************** soft masking neurons ********************
   # we mask top 5% neurons
   # "weaken_rate": 0.9, # best score on has (0.6299)
@@ -58,6 +62,7 @@
   # "weaken_rate": 0.97,
   # "weaken_rate": 1.0,
   "weaken_rate": null,
+
   "get_masking_value": False,
   # percent of neurons to mask
   "masking_rate": 0.05, 
@@ -79,11 +84,13 @@
     "low":  0, 
     "high": 1,
     "step": 0.1, #0.0001, #0.01, 0.1,
+
     "size": 50,
     "mode": 0o666,
     "acc": {}
     },
   "single_neuron": False,
+
   # do hyperparameter search on value used modify neurons's activations
   "soft_masking_value_search": False, #True,
   # do hyperparameter search on the percentages of all neurons to mask
@@ -92,6 +99,7 @@
   "get_condition_inference_scores": False,
   # ******************** test  stuff ********************
   "eval_model": True,
+
   "traced": False, 
   "traced_params": False,
   "diag": False,
@@ -124,7 +132,9 @@
   "evaluations":  {},
   "to_text": True,
   # "get_result": False,
+
   "get_condition_hans_result": False,
+
   "get_hans_result": True,
   "save_rank": True,
   # neurons components

@@ -158,19 +158,13 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
         # get treatment type
         do = cur_path.split('/')[-1].split('_')[2]
         t.set_description(f"{seed}, {do} : {cur_path}")
-        # if seed not in ranking_nie.keys(): ranking_nie[seed] = {}
+        if seed is None: seed = str(seed)
         for layer in layers:
             # layer = int(cur_path.split('_')[-2][1:-1])
             for component in NIE[do].keys():
                 for neuron_id in NIE[do][component][layer].keys():
                     NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter[do][component][layer][neuron_id]
-                    # if config['computed_all_layers']:
-                    #     ranking_nie[f"L-{layer}-"+ component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
-                    # else:
-                    #     ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
                     ranking_nie[(f"L-{layer}-" if config['computed_all_layers'] else "") + component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
-            # Todo: get component and neuron_id and value 
-        # top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
         # sort layer each
         if not config['computed_all_layers']: 
             all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
