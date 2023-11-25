@@ -200,9 +200,9 @@ def test_mask(neuron_candidates =[]):
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
 
-def geting_counterfactual_paths(config, seed=None):
+def geting_counterfactual_paths(config, method_name, seed=None):
 
-    path = f'../counterfactuals/'
+    path = f'../counterfactuals/{method_name}/'
     path = os.path.join(path, "seed_"+ str( config['seed'] if seed is None else seed ) ) 
     if not os.path.exists(path): os.mkdir(path) 
 
@@ -235,6 +235,7 @@ def geting_counterfactual_paths(config, seed=None):
         is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
 
     return counterfactual_paths, is_counterfactual_exist
+
 
 def get_overlap_thresholds(df, upper_bound, lower_bound):
     
@@ -513,6 +514,7 @@ def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, 
         counter = pickle.load(handle)
         # experiment_set = pickle.load(handle)
         # dataloader, handle = pickle.load(handle)
+    breakpoint()
     if is_averaged_embeddings:
         # get average of [CLS] activations
         counterfactual_representations = {}
