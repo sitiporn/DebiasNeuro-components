@@ -508,8 +508,8 @@ def trace_counterfactual(do,
             pickle.dump(median, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f'saving NIE scores into : {dist_path}')
 
-def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, is_averaged_embeddings):
-    with open('../pickles/utilizer_components.pickle', 'rb') as handle: 
+def get_hidden_representations(counterfactual_paths, method_name, seed, layers, is_group_by_class, is_averaged_embeddings):
+    with open(f'../pickles/utilizer/{method_name}/utilizer_{seed}_components.pickle', 'rb') as handle: 
         # attention_data = pickle.load(handle)
         counter = pickle.load(handle)
         # experiment_set = pickle.load(handle)
@@ -520,7 +520,7 @@ def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, 
         avg_counterfactual_representations = {}
         for cur_path in counterfactual_paths:
             component = cur_path.split('/')[-1].split('_')[1]
-            seed = cur_path.split('/')[2].split('_')[-1]
+            seed = cur_path.split('/')[3].split('_')[-1]
             if seed not in counterfactual_representations.keys(): counterfactual_representations[seed] = {}
             if seed not in avg_counterfactual_representations.keys(): avg_counterfactual_representations[seed] = {}
             avg_counterfactual_representations[seed][component] = {}

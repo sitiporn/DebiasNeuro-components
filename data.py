@@ -256,7 +256,7 @@ class CustomDataset(Dataset):
         return self.tokenized_datasets[idx]
 
 
-def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, seed=None , debug = False):
+def get_conditional_inferences(config, do,  model_path, model, method_name, counterfactual_paths, tokenizer, DEVICE, seed=None , debug = False):
     """ getting inferences while modifiying activations on dev-matched/dev-mm/HANS"""
     import copy
     acc = {}
@@ -292,7 +292,8 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
-    cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
+    # cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
+    cls = get_hidden_representations(counterfactual_paths, method_name, seed, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     cls = cls[seed]
     for eps_id, epsilon in enumerate(t := tqdm(epsilons)): 
         prediction_path = f'../pickles/prediction/seed_{seed}/' 
@@ -1147,7 +1148,7 @@ def group_layer_params(layer_params):
     
     return group_param_names
 
-def masking_representation_exp(config, model, experiment_set, dataloader, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True):
+def masking_representation_exp(config, model, method_name, experiment_set, dataloader, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True):
     """ """
     # load model 
     # prepare biased neuron positions
@@ -1168,7 +1169,7 @@ def masking_representation_exp(config, model, experiment_set, dataloader, LOAD_M
         hooks = []
         # model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
         model_path = path
-        get_conditional_inferences(config, mode[0], model_path, model, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
+        get_conditional_inferences(config, mode[0], model_path, model, method_name, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
         get_condition_inference_scores(config, model, seed)
         
  

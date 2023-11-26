@@ -129,7 +129,7 @@ def main():
     elif config["dev-name"] == 'matched': config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
     elif config["dev-name"] == 'reweight': config["dev_json"]['reweight'] = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
     # find hyperparameters for soft masking method
-    masking_representation_exp(config, model, experiment_set, dataloader, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True)
+    masking_representation_exp(config, model, method_name, experiment_set, dataloader, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True)
     if config['get_condition_inferences']: get_conditional_inferences(config, mode[0], model_path, model, counterfactual_path, tokenizer, DEVICE, debug = False)
     if config['get_condition_inference_scores']: get_condition_inference_scores(config, model, model_path)
     if config['get_masking_value']: get_masking_value(config=config)
