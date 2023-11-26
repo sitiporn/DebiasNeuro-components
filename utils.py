@@ -403,11 +403,12 @@ def get_params(config):
                 elif config['intervention_type'] == "weaken": params[op] = [round(val, digits[op]) for val in np.arange(low, high, step).tolist()]
             else:
                 pass# search hyperparam on masking rate
-        # know hyperparameters
+        # without searching 
         else:
             if op == 'percent': params[op] = [config['masking_rate']] 
             elif op == 'epsilons' and config['weaken_rate'] is not None: params[op] = [config['weaken_rate']]
             elif config['intervention_type'] not in ["remove","weaken"]: params[op] = [0]
+        
     return  params
 
 def get_diagnosis(config):

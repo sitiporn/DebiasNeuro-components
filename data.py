@@ -256,21 +256,23 @@ class CustomDataset(Dataset):
         return self.tokenized_datasets[idx]
 
 
-def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
+def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, seed=None , debug = False):
     """ getting inferences while modifiying activations on dev-matched/dev-mm/HANS"""
+    import copy
     acc = {}
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
-    seed = config['seed']
+    seed = config['seed'] if seed is None else seed
     seed = str(seed)
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
     # Todo: fix loading model using deep copy method
     # load model
     if model_path is not None: 
-        _model = load_model(path= model_path, model=model)
+        _model = load_model(path= model_path, model=copy.deepcopy(model))
     else:
-        _model = model
+        _model = copy.deepcopy(model)
         print(f'using original model : {config["model_name"]}')
+    
     print(f'{config["dev-name"]} : compute on {config["dev_json"]}')
     mediators  = get_mediators(_model)
     params  = get_params(config) 
@@ -280,10 +282,11 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
     dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-    key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
+    select_neuron_mode = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
+    path = f'../pickles/top_neurons/top_neuron_{seed}_{select_neuron_mode}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
     
+    # Todo: recheck top neurons  
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
     
@@ -398,8 +401,8 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
         eval_path =  os.path.join(eval_path, f'v-{round(epsilon, digits[eps_id])}')
         if not os.path.isdir(eval_path): os.mkdir(eval_path)
         eval_path = os.path.join(eval_path, 
-                                f'{key}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
-                                else f'{key}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
+                                f'{select_neuron_mode}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
+                                else f'{select_neuron_mode}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
         
         with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -438,7 +441,7 @@ def get_masking_value(config):
     # 
 
 #  for a masking representation experiment 
-def convert_to_text_ans(config, top_neuron, params, do, text_answer_path = None, raw_distribution_path = None):
+def convert_to_text_ans(config, top_neuron, params, do, seed=None, text_answer_path = None, raw_distribution_path = None):
     
     """changing distributions into text anaswers on hans set
     
@@ -451,8 +454,9 @@ def convert_to_text_ans(config, top_neuron, params, do, text_answer_path = None,
     digits = [ len(str(epsilon).split('.')[-1]) for epsilon in params['epsilons'] ]
     layer = config['layer']
     epsilons = params['epsilons']
-    seed = config['seed']
+    seed = config['seed'] if seed is None else seed
     seed = str(seed)
+
     # select neuron group type 
     topk_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
     prediction_path = '../pickles/prediction/' 
@@ -554,19 +558,18 @@ def format_label(label):
     else:
         return "non-entailment"
 
-def get_condition_inference_scores(config, model, model_path): 
+def get_condition_inference_scores(config, model, seed=None): 
     """ getting scores on modifiying activations on dev-matched, dev-mm and challenge set(HANS)"""
     eval_path = f'../pickles/evaluations/'
     prediction_path = '../pickles/prediction/' 
     # top_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    seed = config['seed']
+    seed = config['seed'] if seed is None else str(seed)
     layer = config["layer"]
     k = config['k']
     num_neurons = None
     from cma import get_topk
     topk = get_topk(config, k=k, num_top_neurons=num_neurons)
     key = list(topk.keys())[0] # masking model eg. percent, k, num_neurons
-    if seed is None: seed = str(seed)
     do = config["eval"]["do"]
     if config['computed_all_layers']:  
         neuron_path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
@@ -581,7 +584,7 @@ def get_condition_inference_scores(config, model, model_path):
     # ********** follow **********
     # ********** original function **********
     # required distribution of hans
-    if config['to_text']: convert_to_text_ans(config, top_neuron, params, do)
+    if config['to_text']: convert_to_text_ans(config, top_neuron, params, do, seed)
  
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
 
@@ -1143,3 +1146,35 @@ def group_layer_params(layer_params):
         group_param_names[component].append(int(neuron_id))
     
     return group_param_names
+
+def masking_representation_exp(config, model, experiment_set, dataloader, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True):
+    """ """
+    # load model 
+    # prepare biased neuron positions
+    import copy
+    from cma_utils import collect_counterfactuals
+    model = copy.deepcopy(model)
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
+    group_counterfactual_paths = {} 
+    
+    # Todo: 
+    for path in counterfactual_paths: 
+        cur_seed = path.split('/')[3]
+        if  cur_seed not in group_counterfactual_paths.keys(): group_counterfactual_paths[cur_seed] = []
+        group_counterfactual_paths[cur_seed].append(path)
+    
+    for seed, path in all_paths.items():
+        hooks = []
+        # model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
+        model_path = path
+        get_conditional_inferences(config, mode[0], model_path, model, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
+        get_condition_inference_scores(config, model, seed)
+        
+ 
+
+        
+
+    
+
+

@@ -61,9 +61,11 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     # ******************** PATH ********************
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
-    #LOAD_MODEL_PATH = '../models/recent_baseline/'
-    LOAD_MODEL_PATH = '../models/developing_baseline/'
+    LOAD_MODEL_PATH = '../models/recent_baseline/'
+    # LOAD_MODEL_PATH = '../models/developing_baseline/'
+    method_name =  'recent_baseline' 
     NIE_paths = []
+    counterfactual_paths = []
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
     model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
@@ -81,29 +83,30 @@ def main():
         for seed, model_path in all_model_paths.items():
             # path to save
             # Done checking path 
-            counterfactual_paths, _ = geting_counterfactual_paths(config, seed=seed)
-            NIE_path, _ = geting_NIE_paths(config, mode, seed=seed)
+            counterfactual_path, _ = geting_counterfactual_paths(config, seed=seed, method_name=method_name)
+            NIE_path, _ = geting_NIE_paths(config, method_name, mode, seed=seed)
             NIE_paths.extend(NIE_path)
+            counterfactual_paths.extend(counterfactual_path)
             if config['getting_counterfactual']: 
                 # Done checking model counterfactual_path and specific model
-                collect_counterfactuals(model, model_path, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
+                collect_counterfactuals(model, model_path, seed, counterfactual_path, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
     else:
         # path to save counterfactuals 
-        counterfactual_paths, _ = geting_counterfactual_paths(config)
+        counterfactual_path, _ = geting_counterfactual_paths(config)
         # path to save NIE scores
         NIE_paths, _ = geting_NIE_paths(config, mode)
         print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
-        for path in counterfactual_paths: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
+        for path in counterfactual_path: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
         print(f'NIE_paths: {NIE_paths}')
         if config['getting_counterfactual']: 
             # Done checking model counterfactual_path and specific model
             seed = config['seed']
-            collect_counterfactuals(model, model_path, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
+            collect_counterfactuals(model, model_path, seed, counterfactual_path, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
     
     if config['compute_nie_scores']:  cma_analysis(config, 
                                                   model_path,
                                                   config['seed'], 
-                                                  counterfactual_paths, 
+                                                  counterfactual_path, 
                                                   NIE_paths, 
                                                   save_nie_set_path = save_nie_set_path, 
                                                   model = model, 
@@ -112,6 +115,9 @@ def main():
                                                   experiment_set = experiment_set, 
                                                   DEVICE = DEVICE, 
                                                   DEBUG = True)
+
+    from data import masking_representation_exp
+    LOAD_MODEL_PATH = '../models/recent_baseline/'     
     
     if config['get_candidate_neurons']: get_candidate_neurons(config, NIE_paths, treatments=mode, debug=False) 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
@@ -123,11 +129,12 @@ def main():
     elif config["dev-name"] == 'matched': config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
     elif config["dev-name"] == 'reweight': config["dev_json"]['reweight'] = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
     # find hyperparameters for soft masking method
-    if config['get_condition_inferences']: get_conditional_inferences(config, mode[0], model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False)
+    masking_representation_exp(config, model, experiment_set, dataloader, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True)
+    if config['get_condition_inferences']: get_conditional_inferences(config, mode[0], model_path, model, counterfactual_path, tokenizer, DEVICE, debug = False)
     if config['get_condition_inference_scores']: get_condition_inference_scores(config, model, model_path)
     if config['get_masking_value']: get_masking_value(config=config)
     # PCGU: optimization 
-    if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], counterfactual_paths, DEVICE)
+    if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], counterfactual_path, DEVICE)
     # ******************** test  stuff ********************
     # Eval models on test and challenge sets for all seeds
     if config['eval_model']: eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model= False, is_optimized_set=False)
