@@ -452,7 +452,7 @@ def get_masking_value(config):
     # 
 
 #  for a masking representation experiment 
-def convert_to_text_ans(config, top_neuron, params, do, seed=None, text_answer_path = None, raw_distribution_path = None):
+def convert_to_text_ans(config, top_neuron, method_name, params, do, seed=None, text_answer_path = None, raw_distribution_path = None):
     
     """changing distributions into text anaswers on hans set
     
@@ -470,7 +470,7 @@ def convert_to_text_ans(config, top_neuron, params, do, seed=None, text_answer_p
 
     # select neuron group type 
     topk_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
-    prediction_path = '../pickles/prediction/' 
+    prediction_path = f'../pickles/prediction/{method_name}' 
     
     for idx, epsilon in enumerate(t := tqdm(epsilons)):  
         # read pickle file used to interpret as text answers later
@@ -595,7 +595,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     # ********** follow **********
     # ********** original function **********
     # required distribution of hans
-    if config['to_text']: convert_to_text_ans(config, top_neuron, params, do, seed)
+    if config['to_text']: convert_to_text_ans(config, top_neuron, method_name, params, do, seed)
  
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
 
