@@ -284,19 +284,19 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, coun
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
     select_neuron_mode = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    path = f'../pickles/top_neurons/top_neuron_{seed}_{select_neuron_mode}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
+    path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{select_neuron_mode}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
     
     # Todo: recheck top neurons  
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
-    
+
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
     # cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     cls = get_hidden_representations(counterfactual_paths, method_name, seed, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     cls = cls[seed]
     for eps_id, epsilon in enumerate(t := tqdm(epsilons)): 
-        prediction_path = f'../pickles/prediction/seed_{seed}/' 
+        prediction_path = f'../pickles/prediction/{method_name}/seed_{seed}/' 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         # where to save modifying activation results
         prediction_path =  os.path.join(prediction_path, f'v-{round(epsilon, digits[eps_id])}')
@@ -397,18 +397,28 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, coun
 
             if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
 
-        eval_path =  f'../pickles/evaluations/seed_{seed}/'
-        if not os.path.isdir(eval_path): os.mkdir(eval_path)
-        eval_path =  os.path.join(eval_path, f'v-{round(epsilon, digits[eps_id])}')
-        if not os.path.isdir(eval_path): os.mkdir(eval_path)
-        eval_path = os.path.join(eval_path, 
-                                f'{select_neuron_mode}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' if config["masking_rate"]
-                                else f'{select_neuron_mode}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle')
+        eval_path  = get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, value, do)
         
         with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving all accuracies into {eval_path} ")
 
+def get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, value, do):
+    eval_path =  f'../pickles/evaluations/{method_name}/'
+    if not os.path.isdir(eval_path): os.mkdir(eval_path)
+    eval_path =  os.path.join(eval_path, f'seed_{seed}')
+    if not os.path.isdir(eval_path): os.mkdir(eval_path)
+    eval_path =  os.path.join(eval_path, f'v-{round(epsilon, digits[eps_id])}')
+    if not os.path.isdir(eval_path): os.mkdir(eval_path)
+    
+    if config["masking_rate"]:
+        pickle_path = f'{select_neuron_mode}_{value}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle' 
+    else: 
+        pickle_path = f'{select_neuron_mode}_{do}_{config["intervention_type"]}_{config["dev-name"]}.pickle'
+    
+    eval_path = os.path.join(eval_path, pickle_path)
+    
+    return eval_path
 
 def get_masking_value(config):
     import glob
@@ -559,10 +569,10 @@ def format_label(label):
     else:
         return "non-entailment"
 
-def get_condition_inference_scores(config, model, seed=None): 
+def get_condition_inference_scores(config, model, method_name, seed=None): 
     """ getting scores on modifiying activations on dev-matched, dev-mm and challenge set(HANS)"""
-    eval_path = f'../pickles/evaluations/'
-    prediction_path = '../pickles/prediction/' 
+    eval_path = f'../pickles/evaluations/{method_name}/'
+    prediction_path = f'../pickles/prediction/{method_name}/' 
     # top_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     seed = config['seed'] if seed is None else str(seed)
     layer = config["layer"]
@@ -735,7 +745,7 @@ def get_condition_inference_scores(config, model, seed=None):
 
             valid_result =  f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_matched.pickle'
             dev_mm_result = f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_mismatched.pickle'
-            eval_path =  f'../pickles/evaluations/seed_{seed}/'
+            eval_path =  f'../pickles/evaluations/{method_name}/seed_{seed}/'
 
             valid_result =  os.path.join(eval_path, epsilon_path, valid_result)
             dev_mm_result =  os.path.join(eval_path, epsilon_path, dev_mm_result)
@@ -1170,7 +1180,7 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
         # model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
         model_path = path
         get_conditional_inferences(config, mode[0], model_path, model, method_name, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
-        get_condition_inference_scores(config, model, seed)
+        get_condition_inference_scores(config, model, method_name, seed)
         
  
 
