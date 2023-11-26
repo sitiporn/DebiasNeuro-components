@@ -514,7 +514,6 @@ def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, 
         counter = pickle.load(handle)
         # experiment_set = pickle.load(handle)
         # dataloader, handle = pickle.load(handle)
-    breakpoint()
     if is_averaged_embeddings:
         # get average of [CLS] activations
         counterfactual_representations = {}
@@ -581,10 +580,10 @@ def get_single_representation(cur_path, do = None, class_name = None):
 
     return hidden_representations
 
-def geting_NIE_paths(config, mode, seed=None):
+def geting_NIE_paths(config, method_name, mode, seed=None):
     NIE_paths = []
     is_NIE_exist = []
-    path = f'../NIE/'
+    path = f'../NIE/{method_name}/'
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
     if not os.path.exists(path): os.mkdir(path) 
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
