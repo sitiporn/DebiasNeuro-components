@@ -1056,7 +1056,6 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
         config['dev-name'] = None
 
         for dataset_name,  json_file in zip(dataset_names, json_files):
-            if dataset_name != 'hans': continue
             config['dev-name'] = dataset_name
             config["dev_json"][dataset_name] = json_file
             get_conditional_inferences(config, mode[0], model_path, model, method_name, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
