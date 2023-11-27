@@ -576,10 +576,12 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     key = list(topk.keys())[0] # masking model eg. percent, k, num_neurons
     do = config["eval"]["do"]
     if config['computed_all_layers']:  
-        neuron_path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
+        neuron_path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
     else:                                                       
-        neuron_path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
-    with open(neuron_path, 'rb') as handle: top_neuron = pickle.load(handle)
+        neuron_path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
+    with open(neuron_path, 'rb') as handle: 
+        top_neuron = pickle.load(handle)
+        print(f'neuron path: {neuron_path}')
     # with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle: top_neuron = pickle.load(handle)
     topk_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
     params = get_params(config)
