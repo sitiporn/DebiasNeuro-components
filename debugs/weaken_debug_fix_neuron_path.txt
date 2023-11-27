@@ -1,0 +1,241 @@
+config: ./configs/tiny_masking_rep.yaml
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+Counterfactual type: ['High-overlap']
+Intervention type : weaken
+current model path : None
+Loading model from ../models/recent_baseline/seed_3990/checkpoint-36500/pytorch_model.bin
+matched : compute on {'matched': 'multinli_1.0_dev_matched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_3990/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_matched.pickle
+loading distributions and labels from : ../pickles/prediction/recent_baseline/seed_3990/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_matched.pickle
+compute_acc modes:['Null', 'Intervene']
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_3990/v-0.9/percent_0.05_High-overlap_weaken_matched.pickle 
+Loading model from ../models/recent_baseline/seed_3990/checkpoint-36500/pytorch_model.bin
+mismatched : compute on {'mismatched': 'multinli_1.0_dev_mismatched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_3990/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+loading distributions and labels from : ../pickles/prediction/recent_baseline/seed_3990/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+compute_acc modes:['Null', 'Intervene']
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_3990/v-0.9/percent_0.05_High-overlap_weaken_mismatched.pickle 
+Loading model from ../models/recent_baseline/seed_3990/checkpoint-36500/pytorch_model.bin
+hans : compute on {'hans': 'heuristics_evaluation_set.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_3990/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_hans.pickle
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_3990/v-0.9/percent_0.05_High-overlap_weaken_hans.pickle 
+neuron path: ../pickles/top_neurons/recent_baseline/top_neuron_3990_percent_High-overlap_all_layers.pickle
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3990/v-0.9/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3990/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9506
+subsequence: 0.9982
+constituent: 0.9972
+Heuristic  non-entailed results:
+lexical_overlap: 0.5036
+subsequence: 0.0528
+constituent: 0.0554
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3990/v-0.9/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9624
+subsequence: 0.9994
+constituent: 0.9992
+Heuristic  non-entailed results:
+lexical_overlap: 0.477
+subsequence: 0.0418
+constituent: 0.027
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3990/v-0.9/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** masking rate : 0.9 **************
+Matched :
+-- Intervene  : 81.88
+-- Null : 81.21
+Dev-mm :
+-- Intervene  : 83.01
+-- Null : 82.45
+HAN scores : 
+-- Intervene  : 58.45
+-- Null  : 59.30
+Loading model from ../models/recent_baseline/seed_409/checkpoint-36500/pytorch_model.bin
+matched : compute on {'matched': 'multinli_1.0_dev_matched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_409/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_matched.pickle
+loading distributions and labels from : ../pickles/prediction/recent_baseline/seed_409/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_matched.pickle
+compute_acc modes:['Null', 'Intervene']
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_409/v-0.9/percent_0.05_High-overlap_weaken_matched.pickle 
+Loading model from ../models/recent_baseline/seed_409/checkpoint-36500/pytorch_model.bin
+mismatched : compute on {'mismatched': 'multinli_1.0_dev_mismatched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_409/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+loading distributions and labels from : ../pickles/prediction/recent_baseline/seed_409/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+compute_acc modes:['Null', 'Intervene']
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_409/v-0.9/percent_0.05_High-overlap_weaken_mismatched.pickle 
+Loading model from ../models/recent_baseline/seed_409/checkpoint-36500/pytorch_model.bin
+hans : compute on {'hans': 'heuristics_evaluation_set.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_409/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_hans.pickle
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_409/v-0.9/percent_0.05_High-overlap_weaken_hans.pickle 
+neuron path: ../pickles/top_neurons/recent_baseline/top_neuron_409_percent_High-overlap_all_layers.pickle
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_409/v-0.9/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_409/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9296
+subsequence: 0.9974
+constituent: 0.9908
+Heuristic  non-entailed results:
+lexical_overlap: 0.5118
+subsequence: 0.0868
+constituent: 0.1202
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_409/v-0.9/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9436
+subsequence: 0.998
+constituent: 0.9928
+Heuristic  non-entailed results:
+lexical_overlap: 0.4882
+subsequence: 0.0756
+constituent: 0.088
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_409/v-0.9/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** masking rate : 0.9 **************
+Matched :
+-- Intervene  : 83.17
+-- Null : 82.47
+Dev-mm :
+-- Intervene  : 82.34
+-- Null : 82.29
+HAN scores : 
+-- Intervene  : 59.77
+-- Null  : 60.61
+Loading model from ../models/recent_baseline/seed_1548/checkpoint-36500/pytorch_model.bin
+matched : compute on {'matched': 'multinli_1.0_dev_matched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_1548/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_matched.pickle
+loading distributions and labels from : ../pickles/prediction/recent_baseline/seed_1548/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_matched.pickle
+compute_acc modes:['Null', 'Intervene']
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_1548/v-0.9/percent_0.05_High-overlap_weaken_matched.pickle 
+Loading model from ../models/recent_baseline/seed_1548/checkpoint-36500/pytorch_model.bin
+mismatched : compute on {'mismatched': 'multinli_1.0_dev_mismatched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_1548/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+loading distributions and labels from : ../pickles/prediction/recent_baseline/seed_1548/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+compute_acc modes:['Null', 'Intervene']
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_1548/v-0.9/percent_0.05_High-overlap_weaken_mismatched.pickle 
+Loading model from ../models/recent_baseline/seed_1548/checkpoint-36500/pytorch_model.bin
+hans : compute on {'hans': 'heuristics_evaluation_set.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_1548/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_hans.pickle
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_1548/v-0.9/percent_0.05_High-overlap_weaken_hans.pickle 
+neuron path: ../pickles/top_neurons/recent_baseline/top_neuron_1548_percent_High-overlap_all_layers.pickle
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_1548/v-0.9/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_1548/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9776
+subsequence: 0.9998
+constituent: 0.999
+Heuristic  non-entailed results:
+lexical_overlap: 0.362
+subsequence: 0.0348
+constituent: 0.0364
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_1548/v-0.9/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9824
+subsequence: 1.0
+constituent: 0.9996
+Heuristic  non-entailed results:
+lexical_overlap: 0.3228
+subsequence: 0.0286
+constituent: 0.0072
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_1548/v-0.9/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** masking rate : 0.9 **************
+Matched :
+-- Intervene  : 82.65
+-- Null : 82.59
+Dev-mm :
+-- Intervene  : 82.92
+-- Null : 83.17
+HAN scores : 
+-- Intervene  : 55.68
+-- Null  : 56.83
+Loading model from ../models/recent_baseline/seed_3099/checkpoint-11000/pytorch_model.bin
+matched : compute on {'matched': 'multinli_1.0_dev_matched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_3099/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_matched.pickle
+loading distributions and labels from : ../pickles/prediction/recent_baseline/seed_3099/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_matched.pickle
+compute_acc modes:['Null', 'Intervene']
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_3099/v-0.9/percent_0.05_High-overlap_weaken_matched.pickle 
+Loading model from ../models/recent_baseline/seed_3099/checkpoint-11000/pytorch_model.bin
+mismatched : compute on {'mismatched': 'multinli_1.0_dev_mismatched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_3099/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+loading distributions and labels from : ../pickles/prediction/recent_baseline/seed_3099/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+compute_acc modes:['Null', 'Intervene']
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_3099/v-0.9/percent_0.05_High-overlap_weaken_mismatched.pickle 
+Loading model from ../models/recent_baseline/seed_3099/checkpoint-11000/pytorch_model.bin
+hans : compute on {'hans': 'heuristics_evaluation_set.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_3099/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_hans.pickle
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_3099/v-0.9/percent_0.05_High-overlap_weaken_hans.pickle 
+neuron path: ../pickles/top_neurons/recent_baseline/top_neuron_3099_percent_High-overlap_all_layers.pickle
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3099/v-0.9/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3099/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.983
+subsequence: 0.9998
+constituent: 0.991
+Heuristic  non-entailed results:
+lexical_overlap: 0.0298
+subsequence: 0.0078
+constituent: 0.028
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3099/v-0.9/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9918
+subsequence: 1.0
+constituent: 0.9996
+Heuristic  non-entailed results:
+lexical_overlap: 0.0142
+subsequence: 0.0032
+constituent: 0.0046
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3099/v-0.9/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** masking rate : 0.9 **************
+Matched :
+-- Intervene  : 82.10
+-- Null : 81.90
+Dev-mm :
+-- Intervene  : 82.84
+-- Null : 82.68
+HAN scores : 
+-- Intervene  : 50.22
+-- Null  : 50.66
+Loading model from ../models/recent_baseline/seed_3785/checkpoint-36500/pytorch_model.bin
+matched : compute on {'matched': 'multinli_1.0_dev_matched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_3785/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_matched.pickle
+loading distributions and labels from : ../pickles/prediction/recent_baseline/seed_3785/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_matched.pickle
+compute_acc modes:['Null', 'Intervene']
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_3785/v-0.9/percent_0.05_High-overlap_weaken_matched.pickle 
+Loading model from ../models/recent_baseline/seed_3785/checkpoint-36500/pytorch_model.bin
+mismatched : compute on {'mismatched': 'multinli_1.0_dev_mismatched.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_3785/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+loading distributions and labels from : ../pickles/prediction/recent_baseline/seed_3785/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_mismatched.pickle
+compute_acc modes:['Null', 'Intervene']
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_3785/v-0.9/percent_0.05_High-overlap_weaken_mismatched.pickle 
+Loading model from ../models/recent_baseline/seed_3785/checkpoint-36500/pytorch_model.bin
+hans : compute on {'hans': 'heuristics_evaluation_set.jsonl'}
+saving distributions and labels into : ../pickles/prediction/recent_baseline/seed_3785/v-0.9/raw_distribution_High-overlap_all_layers_0.05-k_weaken_hans.pickle
+saving all accuracies into ../pickles/evaluations/recent_baseline/seed_3785/v-0.9/percent_0.05_High-overlap_weaken_hans.pickle 
+neuron path: ../pickles/top_neurons/recent_baseline/top_neuron_3785_percent_High-overlap_all_layers.pickle
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/v-0.9/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/v-0.9/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9866
+subsequence: 1.0
+constituent: 0.9988
+Heuristic  non-entailed results:
+lexical_overlap: 0.2902
+subsequence: 0.1382
+constituent: 0.2492
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/v-0.9/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** masking rate : 0.9 **************
+Matched :
+-- Intervene  : 81.76
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 83.03
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 61.05
+-- Null  : 62.54
