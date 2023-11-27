@@ -506,37 +506,28 @@ def convert_to_text_ans(config, top_neuron, method_name, params, do, seed=None, 
 
                 text_answer_path = f'txt_answer_{mode}_{config["dev-name"]}.txt'  
                 
-                # Todo: generalize to all challege sets
-                if  os.path.exists(text_answer_path) and mode == 'Null': continue
-                
-                if mode == 'Intervene': 
-
-                    if config["single_neuron"]:
-
-                        component = [neuron.split('-')[2 if layer == -1 else 0] for neuron, v in top_neuron[neurons].items()][0]
-
-                        text_answer_path = f'txt_answer_{topk_mode}_{mode}_L{layer}_{component}_{config["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
-                    
+                if config["single_neuron"]:
+                    component = [neuron.split('-')[2 if layer == -1 else 0] for neuron, v in top_neuron[neurons].items()][0]
+                    text_answer_path = f'txt_answer_{topk_mode}_{mode}_L{layer}_{component}_{config["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                else:
+                    if config['computed_all_layers']:
+                        text_answer_path = f'txt_answer_{topk_mode}_{mode}_all_layers_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
                     else:
+                        text_answer_path = f'txt_answer_{topk_mode}_{mode}_L{layer}_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+
+                text_answer_path  = os.path.join(os.path.join(prediction_path,f'seed_{seed}' ,epsilon_path), text_answer_path)
+
+                with open(text_answer_path, "w") as fobj:
+
+                    headers = ['pairID', 'gold_label']
+
+                    fobj.write(f'{headers[0]}' + "," + f'{headers[1]}' +"\n")
                     
-                        if config['computed_all_layers']:
-                            text_answer_path = f'txt_answer_{topk_mode}_{mode}_all_layers_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
-                        else:
-                            text_answer_path = f'txt_answer_{topk_mode}_{mode}_L{layer}_{neurons}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                    for sample_id, ans in enumerate(text_answers[mode]):
 
-            text_answer_path  = os.path.join(os.path.join(prediction_path,f'seed_{seed}' ,epsilon_path), text_answer_path)
+                        fobj.write(f"ex{sample_id}" + "," + ans +"\n")
 
-            with open(text_answer_path, "w") as fobj:
-
-                headers = ['pairID', 'gold_label']
-
-                fobj.write(f'{headers[0]}' + "," + f'{headers[1]}' +"\n")
-                
-                for sample_id, ans in enumerate(text_answers[mode]):
-
-                    fobj.write(f"ex{sample_id}" + "," + ans +"\n")
-
-                print(f"saving text answer's bert predictions {mode}: {text_answer_path}")
+                    print(f"saving text answer's bert predictions {mode}: {text_answer_path}")
 
         
 
@@ -604,146 +595,25 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     for idx, epsilon in enumerate(t := tqdm(params['epsilons'])):  
 
         epsilon_path = f'v-{round(epsilon, digits[idx])}'
-
         t.set_description(f"epsilon : {epsilon} ")
-        
         for group in num_neuron_groups:
+            hans_scores = {}
+            for mode in ['Null','Intervene']:
+                # after convert to txt answer 
+                text_answer_path = f'txt_answer_{topk_mode}_{mode}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                result_path = f'result_{topk_mode}_{mode}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
 
-            # after convert to txt answer 
-            text_answer_path = f'txt_answer_{topk_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
-            result_path = f'result_{topk_mode}_{config["eval"]["intervention_mode"]}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                if config['eval']['all_layers']: text_answer_path = f'txt_answer_{topk_mode}_{mode}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                if config['eval']['all_layers']: result_path = f'result_{topk_mode}_{mode}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
 
-            if config['eval']['all_layers']: text_answer_path = f'txt_answer_{topk_mode}_{config["eval"]["intervention_mode"]}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
-            if config['eval']['all_layers']: result_path = f'result_{topk_mode}_{config["eval"]["intervention_mode"]}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
-
-            config['evaluations'][group] = {}
-
-            # text_answer_path = os.path.join(os.path.join(prediction_path, epsilon_path),  text_answer_path)
-            text_answer_path  = os.path.join(os.path.join(prediction_path,f'seed_{seed}' ,epsilon_path), text_answer_path)
-            result_path = os.path.join(os.path.join(eval_path, f'seed_{seed}',epsilon_path),  result_path)
-            # vv = '../pickles/prediction/seed_None/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt'
-            
-            # get_hans_result(cur_raw_distribution_path, config)
-
-            tables = {}
-
-            fi = open(text_answer_path, "r")
-
-            first = True
-            guess_dict = {}
-
-            for line in fi:
-                if first:
-                    first = False
-                    continue
-                else:
-                    parts = line.strip().split(",")
-                    guess_dict[parts[0]] = format_label(parts[1])
-
-            # load from hans set up
-            fi = open("../hans/heuristics_evaluation_set.txt", "r")
-
-            correct_dict = {}
-            first = True
-
-            heuristic_list = []
-            subcase_list = []
-            template_list = []
-
-            for line in fi:
-                if first:
-                    labels = line.strip().split("\t")
-                    idIndex = labels.index("pairID")
-                    first = False
-                    continue
-                else:
-                    parts = line.strip().split("\t")
-                    this_line_dict = {}
-                    for index, label in enumerate(labels):
-                        if label == "pairID":
-                            continue
-                        else:
-                            this_line_dict[label] = parts[index]
-                    correct_dict[parts[idIndex]] = this_line_dict
-
-                    if this_line_dict["heuristic"] not in heuristic_list:
-                        heuristic_list.append(this_line_dict["heuristic"])
-                    if this_line_dict["subcase"] not in subcase_list:
-                        subcase_list.append(this_line_dict["subcase"])
-                    if this_line_dict["template"] not in template_list:
-                        template_list.append(this_line_dict["template"])
-
-            heuristic_ent_correct_count_dict = {}
-            subcase_correct_count_dict = {}
-            template_correct_count_dict = {}
-            heuristic_ent_incorrect_count_dict = {}
-            subcase_incorrect_count_dict = {}
-            template_incorrect_count_dict = {}
-            heuristic_nonent_correct_count_dict = {}
-            heuristic_nonent_incorrect_count_dict = {}
-
-            for heuristic in heuristic_list:
-                heuristic_ent_correct_count_dict[heuristic] = 0
-                heuristic_ent_incorrect_count_dict[heuristic] = 0
-                heuristic_nonent_correct_count_dict[heuristic] = 0 
-                heuristic_nonent_incorrect_count_dict[heuristic] = 0
-
-            for subcase in subcase_list:
-                subcase_correct_count_dict[subcase] = 0
-                subcase_incorrect_count_dict[subcase] = 0
-
-            for template in template_list:
-                template_correct_count_dict[template] = 0
-                template_incorrect_count_dict[template] = 0
-
-            for key in correct_dict:
-                traits = correct_dict[key]
-                heur = traits["heuristic"]
-                subcase = traits["subcase"]
-                template = traits["template"]
-
-                guess = guess_dict[key]
-                correct = traits["gold_label"]
-
-                if guess == correct:
-                    if correct == "entailment":
-                        heuristic_ent_correct_count_dict[heur] += 1
-                    else:
-                        heuristic_nonent_correct_count_dict[heur] += 1
-
-                    subcase_correct_count_dict[subcase] += 1
-                    template_correct_count_dict[template] += 1
-                else:
-                    if correct == "entailment":
-                        heuristic_ent_incorrect_count_dict[heur] += 1
-                    else:
-                        heuristic_nonent_incorrect_count_dict[heur] += 1
-                    subcase_incorrect_count_dict[subcase] += 1
-                    template_incorrect_count_dict[template] += 1
-
-            tables['correct']  = { 'entailed': heuristic_ent_correct_count_dict, 'non-entailed': heuristic_nonent_correct_count_dict}
-            tables['incorrect'] = { 'entailed': heuristic_ent_incorrect_count_dict,  'non-entailed': heuristic_nonent_incorrect_count_dict}
-
-            for cur_class in ['entailed','non-entailed']:
-
-                print(f"Heuristic  {cur_class} results:")
-
-                if cur_class not in config["evaluations"][group].keys():  config["evaluations"][group][cur_class] = {}
-
-                for heuristic in heuristic_list:
-
-                    correct = tables['correct'][cur_class][heuristic]
-                    incorrect = tables['incorrect'][cur_class][heuristic]
-
-                    total = correct + incorrect
-                    percent = correct * 1.0 / total
-                    print(heuristic + ": " + str(percent))
-
-                    config["evaluations"][group][cur_class][heuristic] = percent
-
-            with open(result_path, 'wb') as handle: 
-                pickle.dump(config["evaluations"][group], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f'saving evaluation prediction {group} into : {result_path}')
+                config['evaluations'][group] = {}
+                # text_answer_path = os.path.join(os.path.join(prediction_path, epsilon_path),  text_answer_path)
+                text_answer_path  = os.path.join(os.path.join(prediction_path,f'seed_{seed}' ,epsilon_path), text_answer_path)
+                result_path = os.path.join(os.path.join(eval_path, f'seed_{seed}',epsilon_path),  result_path)
+                # vv = '../pickles/prediction/seed_None/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt'
+                # get_hans_result(cur_raw_distribution_path, config)
+                convert_text_to_hans_scores(text_answer_path, config, result_path, group)
+                hans_scores[mode] = get_avg_score(result_path)
 
             valid_result =  f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_matched.pickle'
             dev_mm_result = f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_mismatched.pickle'
@@ -754,7 +624,6 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
             # f'../pickles/evaluations/seed_None/v-0.9/percent_0.05_High-overlap_weaken_mismatched.pickle'
             with open(valid_result,'rb') as handle: valid_acc = pickle.load(handle)
             with open(dev_mm_result,'rb') as handle: dev_mm_acc = pickle.load(handle)
-            hans_score = get_avg_score(result_path)
             print(f"*********** masking rate : {config['weaken_rate']} **************")
             print(f"Matched :")
             print(f"-- Intervene  : {valid_acc[config['masking_rate']]['Intervene']['all']*100:.2f}")
@@ -762,8 +631,9 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
             print(f"Dev-mm :")
             print(f"-- Intervene  : {dev_mm_acc[config['masking_rate']]['Intervene']['all']*100:.2f}")
             print(f"-- Null : {dev_mm_acc[config['masking_rate']]['Null']['all']*100:.2f}")
-            print(f'HAN score score : ')
-            print(f"-- Intervene  : {hans_score*100:.2f}")
+            print(f'HAN scores : ')
+            print(f"-- Intervene  : {hans_scores['Intervene']*100:.2f}")
+            print(f"-- Null  : {hans_scores['Null']*100:.2f}")
             # print(f"-- Null : 56.72")
              
 
@@ -1115,9 +985,8 @@ def get_hans_result(raw_distribution_path, config):
 def get_avg_score(score_path):
 
     with open(score_path, 'rb') as handle: 
-
         current_score = pickle.load(handle)
-
+    
     cur_score = []
 
     for type in ['entailed','non-entailed']:
@@ -1185,6 +1054,7 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
         config['dev-name'] = None
 
         for dataset_name,  json_file in zip(dataset_names, json_files):
+            if dataset_name != 'hans': continue
             config['dev-name'] = dataset_name
             config["dev_json"][dataset_name] = json_file
             get_conditional_inferences(config, mode[0], model_path, model, method_name, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
@@ -1193,10 +1063,128 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
         get_condition_inference_scores(config, model, method_name, seed)
 
         
- 
+def convert_text_to_hans_scores(text_answer_path, config, result_path, group): 
+    tables = {}
+    fi = open(text_answer_path, "r")
 
-        
+    first = True
+    guess_dict = {}
 
-    
+    for line in fi:
+        if first:
+            first = False
+            continue
+        else:
+            parts = line.strip().split(",")
+            guess_dict[parts[0]] = format_label(parts[1])
+
+    # load from hans set up
+    fi = open("../hans/heuristics_evaluation_set.txt", "r")
+
+    correct_dict = {}
+    first = True
+
+    heuristic_list = []
+    subcase_list = []
+    template_list = []
+
+    for line in fi:
+        if first:
+            labels = line.strip().split("\t")
+            idIndex = labels.index("pairID")
+            first = False
+            continue
+        else:
+            parts = line.strip().split("\t")
+            this_line_dict = {}
+            for index, label in enumerate(labels):
+                if label == "pairID":
+                    continue
+                else:
+                    this_line_dict[label] = parts[index]
+            correct_dict[parts[idIndex]] = this_line_dict
+
+            if this_line_dict["heuristic"] not in heuristic_list:
+                heuristic_list.append(this_line_dict["heuristic"])
+            if this_line_dict["subcase"] not in subcase_list:
+                subcase_list.append(this_line_dict["subcase"])
+            if this_line_dict["template"] not in template_list:
+                template_list.append(this_line_dict["template"])
+
+    heuristic_ent_correct_count_dict = {}
+    subcase_correct_count_dict = {}
+    template_correct_count_dict = {}
+    heuristic_ent_incorrect_count_dict = {}
+    subcase_incorrect_count_dict = {}
+    template_incorrect_count_dict = {}
+    heuristic_nonent_correct_count_dict = {}
+    heuristic_nonent_incorrect_count_dict = {}
+
+    for heuristic in heuristic_list:
+        heuristic_ent_correct_count_dict[heuristic] = 0
+        heuristic_ent_incorrect_count_dict[heuristic] = 0
+        heuristic_nonent_correct_count_dict[heuristic] = 0 
+        heuristic_nonent_incorrect_count_dict[heuristic] = 0
+
+    for subcase in subcase_list:
+        subcase_correct_count_dict[subcase] = 0
+        subcase_incorrect_count_dict[subcase] = 0
+
+    for template in template_list:
+        template_correct_count_dict[template] = 0
+        template_incorrect_count_dict[template] = 0
+
+    for key in correct_dict:
+        traits = correct_dict[key]
+        heur = traits["heuristic"]
+        subcase = traits["subcase"]
+        template = traits["template"]
+
+        guess = guess_dict[key]
+        correct = traits["gold_label"]
+
+        if guess == correct:
+            if correct == "entailment":
+                heuristic_ent_correct_count_dict[heur] += 1
+            else:
+                heuristic_nonent_correct_count_dict[heur] += 1
+
+            subcase_correct_count_dict[subcase] += 1
+            template_correct_count_dict[template] += 1
+        else:
+            if correct == "entailment":
+                heuristic_ent_incorrect_count_dict[heur] += 1
+            else:
+                heuristic_nonent_incorrect_count_dict[heur] += 1
+            subcase_incorrect_count_dict[subcase] += 1
+            template_incorrect_count_dict[template] += 1
+
+    tables['correct']  = { 'entailed': heuristic_ent_correct_count_dict, 'non-entailed': heuristic_nonent_correct_count_dict}
+    tables['incorrect'] = { 'entailed': heuristic_ent_incorrect_count_dict,  'non-entailed': heuristic_nonent_incorrect_count_dict}
+
+    for cur_class in ['entailed','non-entailed']:
+
+        print(f"Heuristic  {cur_class} results:")
+
+        if cur_class not in config["evaluations"][group].keys():  config["evaluations"][group][cur_class] = {}
+
+        for heuristic in heuristic_list:
+
+            correct = tables['correct'][cur_class][heuristic]
+            incorrect = tables['incorrect'][cur_class][heuristic]
+
+            total = correct + incorrect
+            percent = correct * 1.0 / total
+            print(heuristic + ": " + str(percent))
+
+            config["evaluations"][group][cur_class][heuristic] = percent
+
+    with open(result_path, 'wb') as handle: 
+        pickle.dump(config["evaluations"][group], handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f'saving evaluation prediction {group} into : {result_path}')
+
+
+
+
 
 
