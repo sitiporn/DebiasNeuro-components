@@ -92,9 +92,9 @@ def main():
                 collect_counterfactuals(model, model_path, seed, counterfactual_path, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
     else:
         # path to save counterfactuals 
-        counterfactual_path, _ = geting_counterfactual_paths(config)
+        counterfactual_path, _ = geting_counterfactual_paths(config, method_name=method_name)
         # path to save NIE scores
-        NIE_paths, _ = geting_NIE_paths(config, mode)
+        NIE_paths, _ = geting_NIE_paths(config, method_name, mode)
         print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
         for path in counterfactual_path: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
         print(f'NIE_paths: {NIE_paths}')
@@ -102,6 +102,7 @@ def main():
             # Done checking model counterfactual_path and specific model
             seed = config['seed']
             collect_counterfactuals(model, model_path, seed, counterfactual_path, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
+
     
     if config['compute_nie_scores']:  cma_analysis(config, 
                                                   model_path,
