@@ -303,6 +303,7 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, coun
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         t.set_description(f"epsilon : {epsilon} , prediction path : {prediction_path}")
         for value in (n:= tqdm(num_neuron_groups)):
+            n.set_description(f"value : {value}")
             if config['computed_all_layers']:
                 layer_ids  = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
                 components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
@@ -331,7 +332,8 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, coun
                 distributions[mode] = []
                 golden_answers[mode] = []
                 losses[mode] = []
-            for batch_idx, (inputs) in enumerate(dev_loader):
+            for batch_idx, (inputs) in enumerate(b:=tqdm(dev_loader)):
+                b.set_description(f"batch_idx: {batch_idx}")
                 cur_inputs = {} 
                 for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
@@ -746,8 +748,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
             valid_result =  f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_matched.pickle'
             dev_mm_result = f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_mismatched.pickle'
             eval_path =  f'../pickles/evaluations/{method_name}/seed_{seed}/'
-
-            valid_result =  os.path.join(eval_path, epsilon_path, valid_result)
+            valid_result =   os.path.join(eval_path,  epsilon_path, valid_result)
             dev_mm_result =  os.path.join(eval_path, epsilon_path, dev_mm_result)
             # f'../pickles/evaluations/seed_None/v-0.9/percent_0.05_High-overlap_weaken_matched.pickle'
             # f'../pickles/evaluations/seed_None/v-0.9/percent_0.05_High-overlap_weaken_mismatched.pickle'
@@ -763,7 +764,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
             print(f"-- Null : {dev_mm_acc[config['masking_rate']]['Null']['all']*100:.2f}")
             print(f'HAN score score : ')
             print(f"-- Intervene  : {hans_score*100:.2f}")
-            print(f"-- Null : 56.72")
+            # print(f"-- Null : 56.72")
              
 
 def rank_losses(config, do):  
@@ -1168,8 +1169,9 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
     group_counterfactual_paths = {} 
+    json_files = ['multinli_1.0_dev_matched.jsonl', 'multinli_1.0_dev_mismatched.jsonl', 'heuristics_evaluation_set.jsonl']
+    dataset_names = ['matched', 'mismatched', 'hans']
     
-    # Todo: 
     for path in counterfactual_paths: 
         cur_seed = path.split('/')[3]
         if  cur_seed not in group_counterfactual_paths.keys(): group_counterfactual_paths[cur_seed] = []
@@ -1179,8 +1181,17 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
         hooks = []
         # model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
         model_path = path
-        get_conditional_inferences(config, mode[0], model_path, model, method_name, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
+        config["dev_json"] = {}
+        config['dev-name'] = None
+
+        for dataset_name,  json_file in zip(dataset_names, json_files):
+            config['dev-name'] = dataset_name
+            config["dev_json"][dataset_name] = json_file
+            get_conditional_inferences(config, mode[0], model_path, model, method_name, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
+            config["dev_json"].pop(f'{dataset_name}')
+        
         get_condition_inference_scores(config, model, method_name, seed)
+
         
  
 
