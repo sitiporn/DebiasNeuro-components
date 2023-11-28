@@ -265,11 +265,20 @@ def debias_test(do,
                 predictions = torch.argmax(distributions[do][mode][golden],dim=-1).tolist()
 
                 print(f"{mode} : {Counter(predictions)}")
+# ishan
+# def get_ans(ans: int):
 
+#     # Todo: generalize to all challenge  sets 
+#     if ans == 1:
+#         return "entailment"
+#     else:
+#         return "non-entailment"
+
+# ours
 def get_ans(ans: int):
 
     # Todo: generalize to all challenge  sets 
-    if ans == 1:
+    if ans == 0:
         return "entailment"
     else:
         return "non-entailment"
@@ -382,11 +391,6 @@ def get_params(config):
     search_hyper_types = []
     if config["soft_masking_value_search"]: search_hyper_types.append('epsilons')
     if config["masking_rate_search"]: search_hyper_types.append('percent')
-    """
-    if intervention_type == "weaken": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * epsilon
-    elif intervention_type == "neg": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * -1
-    elif intervention_type ==  'remove':
-    """
     # masking rate : known, seach not epsilons
     # epsilons 1. weaken 2. remove
     for op in ['epsilons','percent']:
@@ -401,14 +405,16 @@ def get_params(config):
             if op == 'epsilons':
                 if config['intervention_type'] == "remove": params[op] = (low - high) * torch.rand(size) + high  # the interval (low, high)
                 elif config['intervention_type'] == "weaken": params[op] = [round(val, digits[op]) for val in np.arange(low, high, step).tolist()]
-            else:
-                pass# search hyperparam on masking rate
+            elif op == 'percent':
+                #search hyperparam on masking rate
+                params[op] = [round(val, digits[op]) for val in np.arange(low, high, step).tolist()]
+
         # without searching 
         else:
             if op == 'percent': params[op] = [config['masking_rate']] 
             elif op == 'epsilons' and config['weaken_rate'] is not None: params[op] = [config['weaken_rate']]
             elif config['intervention_type'] not in ["remove","weaken"]: params[op] = [0]
-        
+    
     return  params
 
 def get_diagnosis(config):
