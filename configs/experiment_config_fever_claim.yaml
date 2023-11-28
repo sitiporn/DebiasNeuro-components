@@ -1,0 +1,191 @@
+{
+  # ******************** LOAD STUFF ********************
+  "model_name": "ishan/bert-base-uncased-mnli",
+  "collect_representation": False,
+  "DEBUG": False,
+  "debug": False, 
+  "num_samples": 300,
+  "upper_bound": 95,
+  "lower_bound": 5,
+  "label_maps":  {"SUPPORTS": 0, "REFUTES": 1, "NOT ENOUGH INFO": 2},
+  "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  "claim_only": True,
+  # ******************** PATH ********************
+  "num_top_neurons": null, 
+  "range_percents": True, 
+  'neurons': True, 
+  "model_name": "ishan/bert-base-uncased-mnli",
+  "dev_path": "../data/fact_verification/",
+  "exp_json": "fever.dev.jsonl",
+  "dev_json": {},
+  # data settings
+  "counterfactual_paths": [],
+  "NIE_paths": [],
+  "is_NIE_exist": [],
+  "is_counterfactual_exist": [],
+  # ************ Identifying Bias: Causal Mediation Analysis *************
+  # experiment set 
+  "k":  1, 
+  # rank based on nie scores 
+  "eval_candidates": False,
+  "layer": 11,
+  "treatment": False,
+  "is_group_by_class": False,
+  "is_averaged_embeddings": False,
+  "intervention_type": "replace",
+  "computed_all_layers": False,
+  "print_config": False,
+  #  [42, 3099, 3785, 3990,  409] for experiments
+  "seed": 409,
+  # default
+  # "topk_neurons": True,
+  "get_candidate_neurons": False,
+  "distribution": False,
+  # To get counterfactual
+  "compute_all_seeds": False,
+  "eval_counterfactual": False,
+  "getting_counterfactual": False,
+  "compute_nie_scores": False,
+  # ******************** Unlearn Bias ********************
+  "training_json":  fever.train.jsonl, 
+  "partition_params": False,
+  "get_condition_inferences": False,
+  # ******************** soft masking neurons ********************
+  "get_masking_value": False,
+  "weaken": 0.97,
+  # "weaken": 0.9,
+  # percent of neurons to mask
+  "masking_rate": 0.05, 
+  'get_masking_value': False,
+  # number of neurons to mask
+  "neuron_group": null,
+  "rank_losses": False, 
+  # "rank_losses": True, 
+  # training 
+  # optimizer settings
+  # range 0.0 to 0.10, step = 0.01
+  "percent": {
+    "low": 0.0, 
+    "high": 0.1,
+    "step": 0.01,
+    "size": 50,
+    "mode": 0o666,
+    "acc": {}
+    },
+  # range 0 to 1, step = 0.1
+  "epsilons": {
+    "low": 0.81, 
+    "high": 0.98,
+    "step": 0.01,
+    # "low": 0, 
+    # "high": 1,
+    # "step": 0.1,
+    "size": 50,
+    "mode": 0o666,
+    "acc": {}
+    },
+  "single_neuron": False,
+  # ******************** test  stuff ********************
+  "eval_model": True,
+  "traced": False, 
+  "traced_params": False,
+  "diag": False,
+  # "diag": True,
+  "test_traced_params": False,
+  "debias_test": False,
+  # "dev-name": "mismatched",
+  # "dev-name": "hans",
+  # this set uses matched dataset
+  # "dev-name": "reweight",
+  # "dev-name": "matched",
+  # if know best params
+  # "weaken": null,
+
+
+  # uppper bound test on test set
+  # use to read prediction txt files
+  "prediction_path": '../pickles/prediction/',
+  "evaluations":  {},
+  "to_text": True,
+  # "get_result": False,
+  "get_condition_symm_result": False,
+  "get_symm_result": True,
+  "save_rank": iment_configTrue,
+  # neurons components
+  "attention_components": 3,
+  "nums": {},
+  
+    "dataset_reader": {
+    "type": "snli",
+    "tokenizer": {
+      "type": "pretrained_transformer",
+      "model_name": "bert-base-uncased",
+      "add_special_tokens": false
+    }
+  },
+    
+  # Tokenizer
+  "tokens": {
+    "type": "pretrained_transformer",
+    "model_name": "bert-base-uncased", 
+    "max_length": 512
+  },
+  
+  # dataset
+  "data_path": "../data/fact_verification/",
+  "train_data": "fever.train.jsonl",
+  "validation_data": "fever.val.jsonl", 
+  "test_data": "fever.dev.jsonl",
+  
+  # dataloader
+  "data_loader": {
+    "batch_sampler": {
+       # bucket type in allenlp by grouping by length and dynamic padding
+      "group_by_length": True, 
+      "dynamic_padding": True,
+      "batch_size" : 32 
+    }
+  },
+
+  # models; 
+  # follow allennlp setups, the rest is the default of bert-base-uncased
+  "model": {
+    "model_name": "bert-base-uncased",
+    transformer_model,
+    "max_length": 512
+  },
+  "dropout": 0.1,
+  "namespace": "tags",
+  
+  # Trainer
+  "num_epochs": 3,
+  # recheck in Trainer 
+  "validation_metric": "accuracy",
+  "learning_rate_scheduler": {
+    "type": "slanted_triangular", # override from allennlp
+    "cut_frac": 0.06
+  },
+  "optimizer": {
+    # using optimizer from the transformers package
+    "type": "huggingface_adamw", 
+    "lr": 2e-5,
+    "weight_decay": 0.1,
+  },
+  "cuda_device" : 3,
+  # 1548, 3990, 409, 3099
+  #  [1548, 3099, 3785, 3990,  409] for experiments
+  "seed": 42,   
+  "evaluation_strategy": "steps",
+  "eval_steps": 500,
+  "load_best_model_at_end": True,
+  "save_total_limit": 1,
+  # "use_amp" in allennlp
+  "half_precision_backend": "amp",
+}
+
+
+
+
+    
+         
