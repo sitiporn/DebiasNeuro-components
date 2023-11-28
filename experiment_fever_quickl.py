@@ -64,7 +64,7 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     # ******************** PATH ********************
 
-    LOAD_MODEL_PATH = '../models/claimonly_fever/'
+    LOAD_MODEL_PATH = '../models/baseline_fever/'
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
  
     

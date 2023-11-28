@@ -931,7 +931,7 @@ def get_analysis(config):
 def get_all_model_paths(LOAD_MODEL_PATH):
     import pathlib
     seed_path_ind = 3
-    num_seeds = 1
+    num_seeds = 5
     model_files = pathlib.Path(LOAD_MODEL_PATH)
     model_files.rglob('*.bin')
     all_model_files = {} 
@@ -1109,7 +1109,7 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                     pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
                 # ignore label_ids when running experiment on hans
                 else:
-                    pair_sentences = [[sentence1, sentence2] for sentence1, sentence2 in zip(cur_inputs['evidence'], cur_inputs['claim'])]
+                    pair_sentences = [[sentence1, sentence2] for sentence1, sentence2 in zip(cur_inputs['evidence_sentence'], cur_inputs['claim'])]
                     pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
                     pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
                 # ignore label_ids when running experiment on hans
@@ -1164,7 +1164,7 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 # symm_avg += cur_hans_score
                 # print(f'symm score :{cur_hans_score}')
     
-    print(f'==================== Avearge scores ===================')
+    print(f'==================== Average scores ===================')
     print(f"average overall acc : {acc_avg / len(all_paths)}")
     print(f"averge REFUTES acc : {refute_avg / len(all_paths)}")
     print(f"average SUPPORTS acc : {support_avg   / len(all_paths)}")
