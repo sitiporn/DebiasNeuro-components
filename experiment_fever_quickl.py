@@ -45,7 +45,7 @@ def main():
 
     # ******************** LOAD STUFF ********************
     # config_path = "./configs/masking_representation.yaml"
-    config_path = "./configs/experiment_config_fever.yaml"
+    config_path = "./configs/experiment_config_fever_claim.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(f'config: {config_path}')
@@ -64,7 +64,7 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     # ******************** PATH ********************
 
-    LOAD_MODEL_PATH = '../models/baseline_fever/'
+    LOAD_MODEL_PATH = '../models/claimonly_fever/'
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
  
     

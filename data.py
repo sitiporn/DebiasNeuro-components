@@ -307,7 +307,8 @@ class FeverDataset(Dataset):
         self.dataset = HugginfaceDataset.from_pandas(df_new)
         self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
         self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
-   
+        
+        self.my_keys = ['label', 'input_ids', 'token_type_ids', 'attention_mask']
     def to_label_id(self, text_label): 
         return self.label_maps[text_label]
     
@@ -336,7 +337,8 @@ class FeverDatasetClaimOnly(Dataset):
         self.dataset = HugginfaceDataset.from_pandas(df_new)
         self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'],model_max_length=config['tokens']['max_length'])
         self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
-   
+        
+        self.my_keys =  ['label', 'input_ids', 'token_type_ids', 'attention_mask']
     def to_label_id(self, text_label): 
         return self.label_maps[text_label]
     
@@ -347,7 +349,11 @@ class FeverDatasetClaimOnly(Dataset):
         return self.tokenized_datasets.shape[0]
     
     def __getitem__(self, idx):
-        return self.tokenized_datasets[idx]        
+        temp_dict = {}
+        for key in  self.my_keys:
+            temp_dict[key]=self.tokenized_datasets[idx][key]
+        # return self.tokenized_datasets[idx]    
+        return temp_dict    
 
 
 def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
@@ -931,7 +937,7 @@ def get_analysis(config):
 def get_all_model_paths(LOAD_MODEL_PATH):
     import pathlib
     seed_path_ind = 3
-    num_seeds = 5
+    num_seeds = 1
     model_files = pathlib.Path(LOAD_MODEL_PATH)
     model_files.rglob('*.bin')
     all_model_files = {} 
