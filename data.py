@@ -256,9 +256,10 @@ class CustomDataset(Dataset):
         return self.tokenized_datasets[idx]
 
 
-def get_conditional_inferences(config, do,  model_path, model, method_name, counterfactual_paths, tokenizer, DEVICE, seed=None , debug = False):
+def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_paths, counterfactual_paths, tokenizer, DEVICE, seed=None , debug = False):
     """ getting inferences while modifiying activations on dev-matched/dev-mm/HANS"""
     import copy
+    from cma import scaling_nie_scores
     acc = {}
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
@@ -280,39 +281,50 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, coun
     total_neurons = get_num_neurons(config)
     epsilons = params['epsilons']
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
+    
     dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+    
     select_neuron_mode = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{select_neuron_mode}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
     
-    # Todo: recheck top neurons  
-    with open(path, 'rb') as handle: 
-        top_neuron = pickle.load(handle) 
-
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
+    if config['masking_rate_search']: num_neuron_groups = params['percent']
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
+
+    nie_table_df = scaling_nie_scores(config, method_name, NIE_paths, debug=False)
+    m = {row['Neuron_ids']: row['M_MinMax'] for index, row in nie_table_df.iterrows()} 
+
     # cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     cls = get_hidden_representations(counterfactual_paths, method_name, seed, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     cls = cls[seed]
+    # iterate throught all weaken rates
     for eps_id, epsilon in enumerate(t := tqdm(epsilons)): 
         prediction_path = f'../pickles/prediction/{method_name}/seed_{seed}/' 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         # where to save modifying activation results
-        prediction_path =  os.path.join(prediction_path, f'v-{round(epsilon, digits[eps_id])}')
+        prediction_path =  os.path.join(prediction_path, f'esp-{round(epsilon, digits[eps_id])}')
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         t.set_description(f"epsilon : {epsilon} , prediction path : {prediction_path}")
-        for value in (n:= tqdm(num_neuron_groups)):
-            n.set_description(f"value : {value}")
+        # iterate through all top-k 
+        for masking_rate in (n:= tqdm(num_neuron_groups)):
+            n.set_description(f"masking_rate : {masking_rate}")
+            cur_num_neurons = nie_table_df.shape[0] * masking_rate
+            cur_num_neurons = int(cur_num_neurons)
+            # Todo: recheck top neurons  
+            # with open(path, 'rb') as handle: 
+            #     top_neuron = pickle.load(handle) 
             if config['computed_all_layers']:
-                layer_ids  = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
-                components = [neuron.split('-')[2] for neuron, v in top_neuron[value].items()]
-                neuron_ids = [neuron.split('-')[3] for neuron, v in top_neuron[value].items()]
+                layer_ids  = [neuron['Neuron_ids'].split('-')[1] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+                components = [neuron['Neuron_ids'].split('-')[2] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+                neuron_ids = [neuron['Neuron_ids'].split('-')[3] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
             else:
-                components = [neuron.split('-')[0] for neuron, v in top_neuron[value].items()]
-                neuron_ids = [neuron.split('-')[1] for neuron, v in top_neuron[value].items()]
-                layer_ids  =  [layer] * len(components)
-            
+                # Todo: customize for specific layers
+                components = [neuron['Neuron_ids'].split('-')[0] for row, neuron in nie_table_df.iterrows()]
+                neuron_ids = [neuron['Neuron_ids'].split('-')[1] for row, neuron in nie_table_df.iterrows()]
+                layer_ids  = [layer] * len(components)
+
             if config['single_neuron']: 
                 layer_ids  =  [layer]
                 components = [components[0]]
@@ -320,9 +332,9 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, coun
                 raw_distribution_path = f'raw_distribution_{do}_L{layer}_{component}_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
             else:
                 if config['computed_all_layers']:
-                    raw_distribution_path = f'raw_distribution_{do}_all_layers_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
+                    raw_distribution_path = f'raw_distribution_{do}_all_layers_{masking_rate}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
                 else:
-                    raw_distribution_path = f'raw_distribution_{do}_L{layer}_{value}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
+                    raw_distribution_path = f'raw_distribution_{do}_L{layer}_{masking_rate}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
             
             distributions = {}
             losses = {}
@@ -397,9 +409,9 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, coun
                 pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving distributions and labels into : {raw_distribution_path}')
 
-            if dev_set.dev_name != 'hans': acc[value] = compute_acc(raw_distribution_path, config["label_maps"])
+            if dev_set.dev_name != 'hans': acc[masking_rate] = compute_acc(raw_distribution_path, config["label_maps"])
 
-        eval_path  = get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, value, do)
+        eval_path  = get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, masking_rate, do)
         
         with open(eval_path,'wb') as handle:
             pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -476,7 +488,7 @@ def convert_to_text_ans(config, top_neuron, method_name, params, do, seed=None, 
     
     for idx, epsilon in enumerate(t := tqdm(epsilons)):  
         # read pickle file used to interpret as text answers later
-        epsilon_path = f'v-{round(epsilon, digits[idx])}'
+        epsilon_path = f'esp-{round(epsilon, digits[idx])}'
 
         for neurons in (n:= tqdm(num_neuron_groups)):
 
@@ -596,7 +608,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
 
     for idx, epsilon in enumerate(t := tqdm(params['epsilons'])):  
 
-        epsilon_path = f'v-{round(epsilon, digits[idx])}'
+        epsilon_path = f'esp-{round(epsilon, digits[idx])}'
         t.set_description(f"epsilon : {epsilon} ")
         for group in num_neuron_groups:
             hans_scores = {}
@@ -1030,7 +1042,7 @@ def group_layer_params(layer_params):
     
     return group_param_names
 
-def masking_representation_exp(config, model, method_name, experiment_set, dataloader, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True):
+def masking_representation_exp(config, model, method_name, experiment_set, dataloader, NIE_paths, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True):
     """ """
     # load model 
     # prepare biased neuron positions
@@ -1042,7 +1054,8 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
     group_counterfactual_paths = {} 
     json_files = ['multinli_1.0_dev_matched.jsonl', 'multinli_1.0_dev_mismatched.jsonl', 'heuristics_evaluation_set.jsonl']
     dataset_names = ['matched', 'mismatched', 'hans']
-    
+    if not config['compute_all_seeds']: all_paths = {str(config["seed"]):all_paths[str(config['seed'])]} 
+
     for path in counterfactual_paths: 
         cur_seed = path.split('/')[3]
         if  cur_seed not in group_counterfactual_paths.keys(): group_counterfactual_paths[cur_seed] = []
@@ -1051,18 +1064,16 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
     for seed, path in all_paths.items():
         hooks = []
         # model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
-        model_path = path
-        config["dev_json"] = {}
-        config['dev-name'] = None
+        # model_path = path
+        # config["dev_json"] = {}
+        # config['dev-name'] = None
 
-        for dataset_name,  json_file in zip(dataset_names, json_files):
-            config['dev-name'] = dataset_name
-            config["dev_json"][dataset_name] = json_file
-            get_conditional_inferences(config, mode[0], model_path, model, method_name, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
-            config["dev_json"].pop(f'{dataset_name}')
-        
+        # for dataset_name,  json_file in zip(dataset_names, json_files):
+        #     config['dev-name'] = dataset_name
+        #     config["dev_json"][dataset_name] = json_file
+        #     get_conditional_inferences(config, mode[0], model_path, model, method_name, NIE_paths, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
+        #     config["dev_json"].pop(f'{dataset_name}')
         get_condition_inference_scores(config, model, method_name, seed)
-
         
 def convert_text_to_hans_scores(text_answer_path, config, result_path, group): 
     tables = {}
