@@ -260,7 +260,6 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_
     """ getting inferences while modifiying activations on dev-matched/dev-mm/HANS"""
     import copy
     from cma import scaling_nie_scores
-    acc = {}
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
     seed = config['seed'] if seed is None else seed
@@ -312,9 +311,8 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_
             n.set_description(f"masking_rate : {masking_rate}")
             cur_num_neurons = nie_table_df.shape[0] * masking_rate
             cur_num_neurons = int(cur_num_neurons)
-            # Todo: recheck top neurons  
-            # with open(path, 'rb') as handle: 
-            #     top_neuron = pickle.load(handle) 
+            acc = {}
+            
             if config['computed_all_layers']:
                 layer_ids  = [neuron['Neuron_ids'].split('-')[1] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
                 components = [neuron['Neuron_ids'].split('-')[2] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
@@ -402,27 +400,26 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_
 
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
 
-
             with open(raw_distribution_path, 'wb') as handle: 
                 pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving distributions and labels into : {raw_distribution_path}')
+            if dev_set.dev_name != 'hans': 
+                acc[masking_rate] = compute_acc(raw_distribution_path, config["label_maps"])
 
-            if dev_set.dev_name != 'hans': acc[masking_rate] = compute_acc(raw_distribution_path, config["label_maps"])
-
-        eval_path  = get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, masking_rate, do)
-        
-        with open(eval_path,'wb') as handle:
-            pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f"saving all accuracies into {eval_path} ")
+                eval_path  = get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, masking_rate, do)
+            
+                with open(eval_path,'wb') as handle:
+                    pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    print(f"saving all accuracies into {eval_path} ")
 
 def get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, value, do):
     eval_path =  f'../pickles/evaluations/{method_name}/'
     if not os.path.isdir(eval_path): os.mkdir(eval_path)
     eval_path =  os.path.join(eval_path, f'seed_{seed}')
     if not os.path.isdir(eval_path): os.mkdir(eval_path)
-    eval_path =  os.path.join(eval_path, f'v-{round(epsilon, digits[eps_id])}')
+    eval_path =  os.path.join(eval_path, f'esp-{round(epsilon, digits[eps_id])}')
     if not os.path.isdir(eval_path): os.mkdir(eval_path)
     
     if config["masking_rate"]:
@@ -476,6 +473,8 @@ def convert_to_text_ans(config, top_neuron, method_name, params, do, seed=None, 
     
     """
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
+    if config['masking_rate_search']: num_neuron_groups = params['percent']
+    
     digits = [ len(str(epsilon).split('.')[-1]) for epsilon in params['epsilons'] ]
     layer = config['layer']
     epsilons = params['epsilons']
@@ -492,7 +491,6 @@ def convert_to_text_ans(config, top_neuron, method_name, params, do, seed=None, 
 
         for neurons in (n:= tqdm(num_neuron_groups)):
 
-        
             # dont touch this 
             raw_distribution_path = f'raw_distribution_{do}_all_layers_{neurons}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
             raw_distribution_path = os.path.join(os.path.join(prediction_path, f'seed_{seed}',epsilon_path),  raw_distribution_path)
@@ -605,6 +603,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     if config['to_text']: convert_to_text_ans(config, top_neuron, method_name, params, do, seed)
  
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
+    if config['masking_rate_search']: num_neuron_groups = params['percent']
 
     for idx, epsilon in enumerate(t := tqdm(params['epsilons'])):  
 
@@ -622,7 +621,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
 
                 config['evaluations'][group] = {}
                 # text_answer_path = os.path.join(os.path.join(prediction_path, epsilon_path),  text_answer_path)
-                text_answer_path  = os.path.join(os.path.join(prediction_path,f'seed_{seed}' ,epsilon_path), text_answer_path)
+                text_answer_path  = os.path.join(os.path.join(prediction_path, f'seed_{seed}' ,epsilon_path), text_answer_path)
                 result_path = os.path.join(os.path.join(eval_path, f'seed_{seed}',epsilon_path),  result_path)
                 # vv = '../pickles/prediction/seed_None/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt'
                 # get_hans_result(cur_raw_distribution_path, config)
@@ -631,20 +630,19 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
 
             valid_result =  f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_matched.pickle'
             dev_mm_result = f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_mismatched.pickle'
-            eval_path =  f'../pickles/evaluations/{method_name}/seed_{seed}/'
-            valid_result =   os.path.join(eval_path,  epsilon_path, valid_result)
-            dev_mm_result =  os.path.join(eval_path, epsilon_path, dev_mm_result)
+            valid_result =   os.path.join(eval_path, f'seed_{seed}', epsilon_path, valid_result)
+            dev_mm_result =  os.path.join(eval_path, f'seed_{seed}', epsilon_path, dev_mm_result)
             # f'../pickles/evaluations/seed_None/v-0.9/percent_0.05_High-overlap_weaken_matched.pickle'
             # f'../pickles/evaluations/seed_None/v-0.9/percent_0.05_High-overlap_weaken_mismatched.pickle'
             with open(valid_result,'rb') as handle: valid_acc = pickle.load(handle)
             with open(dev_mm_result,'rb') as handle: dev_mm_acc = pickle.load(handle)
-            print(f"*********** masking rate : {config['weaken_rate']} **************")
+            print(f"*********** esp: {epsilon}, masking rate : {group} **************")
             print(f"Matched :")
-            print(f"-- Intervene  : {valid_acc[config['masking_rate']]['Intervene']['all']*100:.2f}")
-            print(f"-- Null : {valid_acc[config['masking_rate']]['Null']['all']*100:.2f}")
+            print(f"-- Intervene  : {valid_acc[group]['Intervene']['all']*100:.2f}")
+            print(f"-- Null : {valid_acc[group]['Null']['all']*100:.2f}")
             print(f"Dev-mm :")
-            print(f"-- Intervene  : {dev_mm_acc[config['masking_rate']]['Intervene']['all']*100:.2f}")
-            print(f"-- Null : {dev_mm_acc[config['masking_rate']]['Null']['all']*100:.2f}")
+            print(f"-- Intervene  : {dev_mm_acc[group]['Intervene']['all']*100:.2f}")
+            print(f"-- Null : {dev_mm_acc[group]['Null']['all']*100:.2f}")
             print(f'HAN scores : ')
             print(f"-- Intervene  : {hans_scores['Intervene']*100:.2f}")
             print(f"-- Null  : {hans_scores['Null']*100:.2f}")
@@ -1064,15 +1062,15 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
     for seed, path in all_paths.items():
         hooks = []
         # model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
-        # model_path = path
-        # config["dev_json"] = {}
-        # config['dev-name'] = None
+        model_path = path
+        config["dev_json"] = {}
+        config['dev-name'] = None
 
-        # for dataset_name,  json_file in zip(dataset_names, json_files):
-        #     config['dev-name'] = dataset_name
-        #     config["dev_json"][dataset_name] = json_file
-        #     get_conditional_inferences(config, mode[0], model_path, model, method_name, NIE_paths, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
-        #     config["dev_json"].pop(f'{dataset_name}')
+        for dataset_name,  json_file in zip(dataset_names, json_files):
+            config['dev-name'] = dataset_name
+            config["dev_json"][dataset_name] = json_file
+            get_conditional_inferences(config, mode[0], model_path, model, method_name, NIE_paths, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
+            config["dev_json"].pop(f'{dataset_name}')
         get_condition_inference_scores(config, model, method_name, seed)
         
 def convert_text_to_hans_scores(text_answer_path, config, result_path, group): 
