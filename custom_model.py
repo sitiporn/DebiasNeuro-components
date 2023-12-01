@@ -277,6 +277,7 @@ class BertForSequenceClassificationReweight(BertPreTrainedModel):
         if bias_probs is not None:
             reweight_coeff = bias_probs[range(labels.shape[0]),labels]
             reweight_coeff = 1-reweight_coeff
+            # breakpoint()
             # reweight_coeff = reweight_coeff**-1
         loss = None
         if labels is not None:
