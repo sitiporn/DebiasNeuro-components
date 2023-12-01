@@ -45,7 +45,7 @@ def main():
 
     # ******************** LOAD STUFF ********************
     # config_path = "./configs/masking_representation.yaml"
-    config_path = "./configs/experiment_config_fever_claim.yaml"
+    config_path = "./configs/experiment_config_fever.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(f'config: {config_path}')
@@ -53,7 +53,7 @@ def main():
     debug = False # for tracing top counterfactual 
     group_path_by_seed = {}
     # torch.manual_seed(config['seed'])
-    DEVICE = torch.device("cuda:4" if torch.cuda.is_available() else "cpu")
+    DEVICE = torch.device("cuda:5" if torch.cuda.is_available() else "cpu")
     print(config['model_name'])
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'],padding=True, truncation="max_length")
     model = BertForSequenceClassification.from_pretrained(config["model_name"])
@@ -64,7 +64,7 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     # ******************** PATH ********************
 
-    LOAD_MODEL_PATH = '../models/claimonly_fever/'
+    LOAD_MODEL_PATH = '../models/baseline_fever/'
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
  
     

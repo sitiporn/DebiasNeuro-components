@@ -937,7 +937,7 @@ def get_analysis(config):
 def get_all_model_paths(LOAD_MODEL_PATH):
     import pathlib
     seed_path_ind = 3
-    num_seeds = 1
+    num_seeds = 5
     model_files = pathlib.Path(LOAD_MODEL_PATH)
     model_files.rglob('*.bin')
     all_model_files = {} 
@@ -1071,6 +1071,9 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
     support_avg = 0
     refute_avg = 0
     notenough_avg = 0
+    symm_support_avg = 0
+    symm_refute_avg = 0
+    symm_notenough_avg = 0
     symm_avg = 0
     computed_acc_count = 0
     computed_symm_count = 0
@@ -1162,8 +1165,8 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 # print(f"neutral acc : {acc['neutral']}")
 
                 symm_avg += acc_symm['all']
-                # symm_refute_avg += acc_symm['REFUTES']
-                # symm_support_avg += acc_symm['SUPPORTS']
+                symm_refute_avg += acc_symm['REFUTES']
+                symm_support_avg += acc_symm['SUPPORTS']
                 computed_symm_count += 1
                 # breakpoint()
                 # cur_hans_score = get_symm_result(cur_raw_distribution_path, config)
@@ -1175,6 +1178,8 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
     print(f"averge REFUTES acc : {refute_avg / len(all_paths)}")
     print(f"average SUPPORTS acc : {support_avg   / len(all_paths)}")
     print(f'avarge symm score : { symm_avg  / len(all_paths)}')
+    print(f"averge symm REFUTES acc : {symm_refute_avg / len(all_paths)}")
+    print(f"average symm SUPPORTS acc : {symm_support_avg   / len(all_paths)}") 
 
 
 def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path):
