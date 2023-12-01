@@ -405,6 +405,7 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_
                 pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f'saving distributions and labels into : {raw_distribution_path}')
+            
             if dev_set.dev_name != 'hans': 
                 acc[masking_rate] = compute_acc(raw_distribution_path, config["label_maps"])
 
@@ -576,6 +577,9 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     """ getting scores on modifiying activations on dev-matched, dev-mm and challenge set(HANS)"""
     eval_path = f'../pickles/evaluations/{method_name}/'
     prediction_path = f'../pickles/prediction/{method_name}/' 
+    all_valid_scores = {}
+    all_test_scores = {}
+    all_hans_scores = {}
     # top_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     seed = config['seed'] if seed is None else str(seed)
     layer = config["layer"]
@@ -606,9 +610,13 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     if config['masking_rate_search']: num_neuron_groups = params['percent']
 
     for idx, epsilon in enumerate(t := tqdm(params['epsilons'])):  
-
         epsilon_path = f'esp-{round(epsilon, digits[idx])}'
         t.set_description(f"epsilon : {epsilon} ")
+
+        if epsilon not in all_valid_scores.keys(): all_valid_scores[epsilon] = {}
+        if epsilon not in all_test_scores.keys():  all_test_scores[epsilon]  = {}
+        if epsilon not in all_hans_scores.keys():  all_hans_scores[epsilon]  = {}
+        
         for group in num_neuron_groups:
             hans_scores = {}
             for mode in ['Null','Intervene']:
@@ -646,8 +654,17 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
             print(f'HAN scores : ')
             print(f"-- Intervene  : {hans_scores['Intervene']*100:.2f}")
             print(f"-- Null  : {hans_scores['Null']*100:.2f}")
-            # print(f"-- Null : 56.72")
-             
+            if  group not in all_valid_scores.keys(): all_valid_scores[epsilon][group]  = valid_acc[group]
+            if  group not in all_test_scores.keys():   all_test_scores[epsilon][group]  = dev_mm_acc[group]
+            if  group not in all_hans_scores.keys():   all_hans_scores[epsilon][group]  = hans_scores
+
+    all_masking_score_path = os.path.join(eval_path, f'seed_{seed}', 'all_masking_scores.pickle')
+    
+    with open(all_masking_score_path, 'wb') as handle: 
+        pickle.dump(all_valid_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(all_test_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(all_hans_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f'saving all scores into : {all_masking_score_path}')
 
 def rank_losses(config, do):  
 
@@ -1065,12 +1082,13 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
         model_path = path
         config["dev_json"] = {}
         config['dev-name'] = None
-
+        
         for dataset_name,  json_file in zip(dataset_names, json_files):
             config['dev-name'] = dataset_name
             config["dev_json"][dataset_name] = json_file
             get_conditional_inferences(config, mode[0], model_path, model, method_name, NIE_paths, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
             config["dev_json"].pop(f'{dataset_name}')
+        
         get_condition_inference_scores(config, model, method_name, seed)
         
 def convert_text_to_hans_scores(text_answer_path, config, result_path, group): 

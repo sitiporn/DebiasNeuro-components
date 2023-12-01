@@ -61,9 +61,14 @@ def main():
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     # ******************** PATH ********************
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
-    LOAD_MODEL_PATH = '../models/recent_baseline/'
+    # LOAD_MODEL_PATH = '../models/recent_baseline/'
+    # LOAD_MODEL_PATH = '../models/reweight2/'
+    LOAD_MODEL_PATH = '../models/poe2/'
     # LOAD_MODEL_PATH = '../models/developing_baseline/'
-    method_name =  'recent_baseline' 
+    # method_name =  'recent_baseline' 
+    # method_name =  'reweight2' 
+    method_name =  'poe2' 
+    
     NIE_paths = []
     counterfactual_paths = []
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
@@ -98,6 +103,7 @@ def main():
         print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
         for path in counterfactual_path: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
         print(f'NIE_paths: {NIE_paths}')
+        counterfactual_paths.extend(counterfactual_path)
         if config['getting_counterfactual']: 
             # Done checking model counterfactual_path and specific model
             seed = config['seed']
@@ -130,7 +136,7 @@ def main():
     elif config["dev-name"] == 'matched': config["dev_json"]['matched'] = 'multinli_1.0_dev_matched.jsonl'
     elif config["dev-name"] == 'reweight': config["dev_json"]['reweight'] = 'dev_prob_korn_lr_overlapping_sample_weight_3class.jsonl'
     # find hyperparameters for soft masking method
-    masking_representation_exp(config, model, method_name, experiment_set, dataloader, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True)
+    masking_representation_exp(config, model, method_name, experiment_set, dataloader, NIE_paths, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True)
     if config['get_condition_inferences']: get_conditional_inferences(config, mode[0], model_path, model, counterfactual_path, tokenizer, DEVICE, debug = False)
     if config['get_condition_inference_scores']: get_condition_inference_scores(config, model, model_path)
     if config['get_masking_value']: get_masking_value(config=config)
