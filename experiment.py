@@ -45,7 +45,7 @@ def main():
 
     # ******************** LOAD STUFF ********************
     # config_path = "./configs/masking_representation.yaml"
-    config_path = "./configs/experiment_config.yaml"
+    config_path = "./configs/experiment_config_re.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(f'config: {config_path}')
@@ -54,6 +54,7 @@ def main():
     group_path_by_seed = {}
     # torch.manual_seed(config['seed'])
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(config['model_name'])
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
     model = BertForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
@@ -63,7 +64,7 @@ def main():
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
     # LOAD_MODEL_PATH = '../models/recent_baseline/'
     #LOAD_MODEL_PATH = '../models/developing_baseline/'
-    LOAD_MODEL_PATH = '../models/reweight/'
+    LOAD_MODEL_PATH = '../models/reweight_clark_ipw2/'
     NIE_paths = []
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)

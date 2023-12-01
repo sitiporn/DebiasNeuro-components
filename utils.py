@@ -330,9 +330,12 @@ def new_features(v):
     print(v)
     return v
     
-def load_model(path, model):
+def load_model(path, model,device=None):
     print(f'Loading model from {path}')
-    model.load_state_dict(torch.load(path))
+    if device is not None:
+        model.load_state_dict(torch.load(path))
+    else:
+        model.load_state_dict(torch.load(path,map_location=device))
     return model
 
 def compute_acc(raw_distribution_path, label_maps):
@@ -358,7 +361,13 @@ def compute_acc(raw_distribution_path, label_maps):
             acc[mode]['all'].append(prediction == int(label))
             # acc[label_remaps[label]].append(label_remaps[prediction] == label) 
             acc[mode][label_remaps[int(label)]].append(prediction == int(label))
-        acc[mode] = { k: sum(acc[mode][k]) / len(acc[mode][k]) for k in list(acc[mode].keys()) }
+        to_pop = []
+        for key in acc[mode].keys():
+            if len(acc[mode][key])==0:
+                to_pop.append(key)
+        for p in to_pop:
+            acc[mode].pop(p, None)
+        acc[mode] = { k: sum(acc[mode][k]) / len(acc[mode][k]) for k in list(acc[mode].keys())}
     
     return acc
 

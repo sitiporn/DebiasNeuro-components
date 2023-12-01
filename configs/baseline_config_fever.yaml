@@ -58,10 +58,10 @@
     "lr": 2e-5,
     "weight_decay": 0.1,
   },
-  "cuda_device" : 0,
+  "cuda_device" : 4,
   # 1548, 3990, 409, 3099
   #  [1548, 3099, 3785, 3990,  409] for experiments
-  "seed": 409,   
+  "seed": 42,   
   "evaluation_strategy": "steps",
   "eval_steps": 500,
   "load_best_model_at_end": True,

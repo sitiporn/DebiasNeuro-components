@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH --output=slurm-%j.out
-#SBATCH --job-name=TPanCon
+#SBATCH --job-name=love_DPK
 #SBATCH --mem=64GB
 #SBATCH --time=48:0:0     # Runing time 
 #SBATCH --gpus=1

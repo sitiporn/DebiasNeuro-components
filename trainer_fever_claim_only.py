@@ -645,7 +645,7 @@ def main():
     print(f'Config of dataloader') 
     print(f'Group by len : {config["data_loader"]["batch_sampler"]["group_by_length"]}')
     print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")
-    
+    # breakpoint()
     training_args = TrainingArguments(output_dir = output_dir,
                                     report_to="none",
                                     overwrite_output_dir = True,

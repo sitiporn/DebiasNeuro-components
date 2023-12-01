@@ -276,7 +276,9 @@ class BertForSequenceClassificationReweight(BertPreTrainedModel):
         reweight_coeff = torch.ones_like(labels,  dtype=pooled_output.dtype)
         if bias_probs is not None:
             reweight_coeff = bias_probs[range(labels.shape[0]),labels]
-            reweight_coeff = reweight_coeff**-1
+            reweight_coeff = 1-reweight_coeff
+            # breakpoint()
+            # reweight_coeff = reweight_coeff**-1
         loss = None
         if labels is not None:
             if self.config.problem_type is None:
@@ -394,6 +396,7 @@ class BertForSequenceClassificationPoE(BertPreTrainedModel):
                     PoE = log_probs + bias_log_probs
                     PoE = torch.nn.functional.log_softmax(PoE, dim=-1)
                     loss_fct = torch.nn.NLLLoss(reduction='mean')
+                    loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
                 else:
                     # normal loss
                     
