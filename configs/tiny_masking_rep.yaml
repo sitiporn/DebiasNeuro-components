@@ -7,8 +7,8 @@
   "num_samples": 300,
   "upper_bound": 95,
   "lower_bound": 5,
-  # "label_maps": {"contradiction": 0, "entailment": 1, "neutral": 2}, # ishan
-  "label_maps": {"entailment": 0, "contradiction": 1, "neutral": 2}, 
+  # "label_maps": {"contradiction": 0, "entailment": 1, "neutral": 2}, # ishan-bert-mnli 
+  "label_maps": {"entailment": 0, "contradiction": 1, "neutral": 2}, # Ours
   "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   
