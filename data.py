@@ -33,7 +33,7 @@ from utils import load_model
 from utils import compare_frozen_weight, prunning_biased_neurons
 
 class ExperimentDataset(Dataset):
-    def __init__(self, config, encode, DEBUG=False) -> None: 
+    def __init__(self, config, encode, dataset_name, DEBUG=False) -> None: 
         
         data_path =  config['dev_path']
         json_file =  config['exp_json']
@@ -66,17 +66,23 @@ class ExperimentDataset(Dataset):
 
         if DEBUG: print(self.df.columns)
 
+
         for i in range(len(self.df)):
             pair_and_label.append(
-                (self.df['sentence1'][i], self.df['sentence2'][i], self.df['gold_label'][i]))
+                (self.df["evidence" if dataset_name == "fever" else 'sentence1'][i], 
+                 self.df["claim" if dataset_name == "fever" else 'sentence2'][i], 
+                 self.df['gold_label'][i]))
 
         self.df['pair_label'] = pair_and_label
-        
-        thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound)
+        # Todo: 
+        from counter import count_negations
+        thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound, dataset_name)
 
         # get HOL and LOL set
         self.df['Treatment'] = self.df.apply(lambda row: group_by_treatment(
-            thresholds, row.overlap_scores, row.gold_label), axis=1)
+            thresholds, 
+            row.count_negations if dataset_name == 'fever' else row.overlap_scores, 
+            row.gold_label), axis=1)
 
         print(f"== statistic ==")
         pprint(thresholds)
@@ -84,9 +90,8 @@ class ExperimentDataset(Dataset):
         self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
                            "Low-overlap":  self.get_low_shortcut()}
         
-        
         for do in ["High-overlap", "Low-overlap"]:
-            for type in ["contradiction","entailment","neutral"]:
+            for type in config['label_maps'].keys():
 
                 type_selector = self.df_exp_set[do].gold_label == type 
 
@@ -97,14 +102,19 @@ class ExperimentDataset(Dataset):
         self.type_balance = min({min(d.values()) for d in nums.values()})
         self.balance_sets = {}
 
+        if dataset_name == 'fever': 
+            treatments = ["High-overlap"]
+        else:
+            treatments = ["High-overlap", "Low-overlap"]
+        
         # Randomized Controlled Trials (RCTs)
-        for do in ["High-overlap", "Low-overlap"]:
+        for do in treatments:
             
             self.balance_sets[do] = None
             frames = []
 
             # create an Empty DataFrame object
-            for type in ["contradiction","entailment","neutral"]:
+            for type in config['label_maps'].keys():
                 
                 # samples data
                 ids = list(torch.randint(0, self.sets[do][type].shape[0], size=(self.type_balance,)))
@@ -115,7 +125,7 @@ class ExperimentDataset(Dataset):
             
             self.balance_sets[do] =  pd.concat(frames).reset_index(drop=True)
 
-            assert self.balance_sets[do].shape[0] == (self.type_balance * 3)
+            assert self.balance_sets[do].shape[0] == (self.type_balance * len(config['label_maps']))
 
             if self.is_group_by_class:
                 
@@ -124,7 +134,7 @@ class ExperimentDataset(Dataset):
                 self.labels[do] = {}
                 self.intervention[do] = {}
                 
-                for type in ["contradiction","entailment","neutral"]:
+                for type in config['label_maps'].keys():
 
                     self.premises[do][type]  = list(self.sets[do][type].sentence1)
                     self.hypothesises[do][type]  = list(self.sets[do][type].sentence2)
@@ -144,7 +154,6 @@ class ExperimentDataset(Dataset):
                                         premises = self.premises[do],
                                         hypothesises = self.hypothesises[do]
                                     )
-
     def get_high_shortcut(self):
 
         # get high overlap score pairs
@@ -176,7 +185,7 @@ class ExperimentDataset(Dataset):
                 pair_sentences[do] = {}
                 labels[do] = {}
 
-                for type in ["contradiction","entailment","neutral"]:
+                for type in config['label_maps'].keys():
 
                     pair_sentences[do][type] = self.intervention[do][type].pair_sentences[idx]
                     labels[do][type] = self.labels[do][type][idx]
@@ -1192,3 +1201,26 @@ def group_layer_params(layer_params, mode):
         group_param_names[component].append(int(neuron_id))
     
     return group_param_names
+class FeverDataset(Dataset):
+    def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
+        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+        df = preprocss(df)
+        df.rename(columns = {'evidence_sentence':'evidence'}, inplace = True)
+        df.rename(columns = {'gold_label':'label'}, inplace = True)
+        if "bias_probs" in df.columns:
+          df_new = df[['evidence', 'claim', 'label','bias_probs']]  
+        else:
+            df_new = df[['evidence', 'claim', 'label']]
+        self.label_maps = label_maps
+        df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
+        from datasets import Dataset as HugginfaceDataset
+        self.dataset = HugginfaceDataset.from_pandas(df_new)
+        self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+        self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+        
+        self.my_keys = ['label', 'input_ids', 'token_type_ids', 'attention_mask']
+    def to_label_id(self, text_label): 
+        return self.label_maps[text_label]
+    
+    def tokenize_function(self, examples):
+        return self.tokenizer(examples["evidence"], examples["claim"], truncation=True) 
