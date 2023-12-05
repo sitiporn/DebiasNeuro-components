@@ -1,0 +1,34 @@
+config: ./configs/masking_representation.yaml
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+Counterfactual type: ['High-overlap']
+Intervention type : weaken
+current model path : None
+Loading path for single at seed:None, layer: 11
+Q: ../counterfactuals/seed_None/avg_Q_counterfactual_representation.pickle
+K: ../counterfactuals/seed_None/avg_K_counterfactual_representation.pickle
+V: ../counterfactuals/seed_None/avg_V_counterfactual_representation.pickle
+AO: ../counterfactuals/seed_None/avg_AO_counterfactual_representation.pickle
+I: ../counterfactuals/seed_None/avg_I_counterfactual_representation.pickle
+O: ../counterfactuals/seed_None/avg_O_counterfactual_representation.pickle
+NIE_paths: ['../NIE/seed_None/avg_embeddings_High-overlap_computed_all_layers_.pickle']
+saving text answer's bert predictions Intervene: ../pickles/prediction/seed_None/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9242
+subsequence: 0.9826
+constituent: 0.971
+Heuristic  non-entailed results:
+lexical_overlap: 0.4814
+subsequence: 0.1762
+constituent: 0.2446
+saving evaluation prediction 0.05 into : ../pickles/evaluations/seed_None/v-0.9/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** masking rate : 0.9 **************
+Matched :
+-- Intervene  : 83.99
+-- Null : 84.58
+Dev-mm :
+-- Intervene  : 84.27
+-- Null : 84.88
+HAN score score : 
+-- Intervene  : 63.00
+-- Null : 56.72
