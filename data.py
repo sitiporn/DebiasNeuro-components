@@ -45,15 +45,21 @@ class ExperimentDataset(Dataset):
         # combine these two set
         self.encode = encode
 
-        self.premises = {}
-        self.hypothesises = {}
+        self.sentences1 = {}
+        self.sentences2 = {}
         self.labels = {}
         self.intervention = {}
         pair_and_label = []
         self.is_group_by_class = is_group_by_class
         
-        self.sets = {"High-overlap": {}, "Low-overlap": {} } 
-        nums = {"High-overlap": {}, "Low-overlap": {} }
+        if dataset_name == 'fever': 
+            self.treatments = ["High-overlap"]
+            self.sets = {"High-overlap": {}} 
+            nums = {"High-overlap": {}}
+        else:
+            self.treatments = ["High-overlap", "Low-overlap"]
+            self.sets = {"High-overlap": {}, "Low-overlap": {} } 
+            nums = {"High-overlap": {}, "Low-overlap": {} }
         
         torch.manual_seed(42)
         
@@ -90,7 +96,7 @@ class ExperimentDataset(Dataset):
         self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
                            "Low-overlap":  self.get_low_shortcut()}
         
-        for do in ["High-overlap", "Low-overlap"]:
+        for do in self.treatments:
             for type in config['label_maps'].keys():
 
                 type_selector = self.df_exp_set[do].gold_label == type 
@@ -102,13 +108,9 @@ class ExperimentDataset(Dataset):
         self.type_balance = min({min(d.values()) for d in nums.values()})
         self.balance_sets = {}
 
-        if dataset_name == 'fever': 
-            treatments = ["High-overlap"]
-        else:
-            treatments = ["High-overlap", "Low-overlap"]
         
         # Randomized Controlled Trials (RCTs)
-        for do in treatments:
+        for do in self.treatments:
             
             self.balance_sets[do] = None
             frames = []
@@ -125,35 +127,34 @@ class ExperimentDataset(Dataset):
             
             self.balance_sets[do] =  pd.concat(frames).reset_index(drop=True)
 
-            assert self.balance_sets[do].shape[0] == (self.type_balance * len(config['label_maps']))
+            assert self.balance_sets[do].shape[0] == (self.type_balance * len(config['label_maps'].keys()))
 
             if self.is_group_by_class:
                 
-                self.premises[do] =  {}
-                self.hypothesises[do] =  {}
+                self.sentences1[do] =  {}
+                self.sentences2[do] =  {}
                 self.labels[do] = {}
                 self.intervention[do] = {}
                 
                 for type in config['label_maps'].keys():
 
-                    self.premises[do][type]  = list(self.sets[do][type].sentence1)
-                    self.hypothesises[do][type]  = list(self.sets[do][type].sentence2)
+                    self.sentences1[do][type]  = list(self.sets[do][type].sentence1)
+                    self.sentences2[do][type]  = list(self.sets[do][type].sentence2)
                     self.labels[do][type]  = list(self.sets[do][type].gold_label)
                 
                     self.intervention[do][type] = Intervention(encode = self.encode,
-                                        premises = self.premises[do][type],
-                                        hypothesises = self.hypothesises[do][type]
+                                        sentences1 = self.sentences1[do][type],
+                                        sentences2 = self.sentences2[do][type]
                                     )
             else:
-
-                self.premises[do] = list(self.balance_sets[do].sentence1)
-                self.hypothesises[do] = list(self.balance_sets[do].sentence2)
+                self.sentences1[do] = list(self.balance_sets[do]["evidence" if dataset_name == "fever" else 'sentence1'])
+                self.sentences2[do] = list(self.balance_sets[do]["claim" if dataset_name == "fever" else 'sentence2'])
                 self.labels[do] = list(self.balance_sets[do].gold_label)
-
                 self.intervention[do] = Intervention(encode = self.encode,
-                                        premises = self.premises[do],
-                                        hypothesises = self.hypothesises[do]
+                                        sentences1 = self.sentences1[do],
+                                        sentences2 = self.sentences2[do]
                                     )
+    
     def get_high_shortcut(self):
 
         # get high overlap score pairs
@@ -180,7 +181,7 @@ class ExperimentDataset(Dataset):
         labels = {}
 
         if self.is_group_by_class:
-            for do in ["High-overlap", "Low-overlap"]:
+            for do in self.treatments:
                 
                 pair_sentences[do] = {}
                 labels[do] = {}
@@ -191,7 +192,7 @@ class ExperimentDataset(Dataset):
                     labels[do][type] = self.labels[do][type][idx]
         else:
 
-            for do in ["High-overlap", "Low-overlap"]:
+            for do in self.treatments:
                 
                 pair_sentences[do] = self.intervention[do].pair_sentences[idx]
                 labels[do] = self.labels[do][idx]
@@ -221,7 +222,7 @@ class Dev(Dataset):
             self.df['sentence2'] = self.df.hypothesis
         
         for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
-        # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
+        # self.sentences1 = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
         # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
         # self.labels = self.df.gold_label.tolist()
 
@@ -258,8 +259,8 @@ class CustomDataset(Dataset):
             self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
         else: 
             self.df = df_new
-            self.premises = list(self.df.sentence1)
-            self.hypothesises = list(self.df.sentence2)
+            self.sentences1 = list(self.df.sentence1)
+            self.sentences2 = list(self.df.sentence2)
             self.labels = list(self.df.label)
 
 
@@ -270,13 +271,13 @@ class CustomDataset(Dataset):
         return self.tokenizer(examples["sentence1"], examples["sentence2"], padding='max_length', truncation=True, return_tensors="pt") 
    
     def __len__(self): 
-        return self.tokenized_datasets.shape[0] if self.is_trained else len(self.premises)
+        return self.tokenized_datasets.shape[0] if self.is_trained else len(self.sentences1)
     
     def __getitem__(self, idx):
         if self.is_trained:
             return self.tokenized_datasets[idx]
         else:
-            return self.premises[idx], self.hypothesises[idx], self.labels[idx]
+            return self.sentences1[idx], self.sentences2[idx], self.labels[idx]
 
 def get_conditional_inferences(config, do,  model_path, model, counterfactual_paths, tokenizer, DEVICE, debug = False):
     """ getting inferences while modifiying activations on dev-matched/dev-mm """
