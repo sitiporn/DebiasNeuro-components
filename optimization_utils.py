@@ -311,16 +311,16 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
         for col in ['gold_label', 'sentence1', 'sentence2', 'probs','predictions', 'results']: main_model[col] = []
         count = 0
         for inputs in tqdm(train_dataloader):
-            premises, hypothesises,  labels = inputs
-            pair_sentences =  [[premise, hypo] for premise, hypo in zip(premises, hypothesises) ]
+            sentences1, sentences2,  labels = inputs
+            pair_sentences =  [[sent1, sent2] for sent1, sent2  in zip(sentences1, sentences2) ]
             model_inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
             with torch.no_grad():
                 out = model(**model_inputs)[0]
                 cur_probs = norm(out)
                 cur_preds = torch.argmax(cur_probs, dim=-1)
                 cur_res = cur_preds == labels
-                main_model["sentence1"].extend(premises)
-                main_model["sentence2"].extend(hypothesises)
+                main_model["sentence1"].extend(sentences1)
+                main_model["sentence2"].extend(sentences2)
                 main_model["gold_label"].extend(labels)
                 main_model["probs"].extend(cur_probs)
                 main_model["predictions"].extend(cur_preds)

@@ -44,11 +44,9 @@ from optimization import intervene_grad
 def main():
 
     # ******************** LOAD STUFF ********************
-
-    config_path = "./configs/pcgu_config.yaml"
+    # config_path = "./configs/pcgu_config.yaml"
     # config_path = "./configs/experiment_config.yaml"
-
-    
+    config_path = "./configs/pcgu_config_fever.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(f'config: {config_path}')
@@ -60,8 +58,9 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
     model = BertForSequenceClassification.from_pretrained(config["model_name"])
     model = model.to(DEVICE)
-    experiment_set = ExperimentDataset(config, encode = tokenizer)                            
+    experiment_set = ExperimentDataset(config, encode = tokenizer, dataset_name=config['dataset_name'])                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
+    
     # ******************** PATH ********************
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
     
@@ -77,12 +76,13 @@ def main():
     # method_name =  'poe2' 
     
     # for prunning model
-    LOAD_MODEL_PATH = '../models/recent_baseline/' 
+    # LOAD_MODEL_PATH = '../models/recent_baseline/' 
     # LOAD_MODEL_PATH = '../models/debug_reweight2/'
     # LOAD_MODEL_PATH = '../models/recheck_poe2/'
 
     # for eval
     # LOAD_MODEL_PATH = '../models/debug_baseline/' 
+    LOAD_MODEL_PATH = '../models/baseline_fever/' 
    
     NIE_paths = []
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
@@ -95,14 +95,15 @@ def main():
 
 
     from utils import compare_frozen_weight, prunning_biased_neurons
-    
 
     # if config['compare_frozen_weight']: compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, method_name)
 
     if config['eval_counterfactual'] and config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
             # see the result of the counterfactual of modifying proportional bias
-            evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True)
+            # evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True)
+            evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True, DEBUG=True)
+    return
     if config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
             # path to save

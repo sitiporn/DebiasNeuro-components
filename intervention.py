@@ -100,7 +100,8 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
         inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
         with torch.no_grad(): 
             # Todo: generalize to distribution if the storage is enough
-            probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
+            # probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
+            probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["REFUTES"]]
         # To store all positions
         probs['intervene'] = {}
         # run one full neuron intervention experiment
@@ -132,7 +133,8 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
                                                                                                             debug=False)))
                         with torch.no_grad(): 
                             intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
-                            entail_probs = intervene_probs[:, label_maps["entailment"]]
+                            # entail_probs = intervene_probs[:, label_maps["entailment"]]
+                            entail_probs = intervene_probs[:, label_maps["REFUTES"]]
                         if neuron_id not in NIE[do][component][layer].keys():
                             NIE[do][component][layer][neuron_id] = 0
                             counter[do][component][layer][neuron_id] = 0
@@ -256,26 +258,26 @@ class Intervention():
     """Wrapper all possible interventions """
     def __init__(self, 
                 encode, 
-                premises: list, 
-                hypothesises: list, 
+                sentences1: list, 
+                sentences2: list, 
                 device = 'cpu') -> None:
 
         super()
         
         self.encode = encode
-        self.premises = premises
-        self.hypothesises = hypothesises
+        self.sentences1 = sentences1
+        self.sentences2 = sentences2
         
         self.pair_sentences = []
         
-        for premise, hypothesis in zip(self.premises, self.hypothesises):
+        for sent1, sent2 in zip(self.sentences1, self.sentences2):
 
             # Encode a pair of sentences and make a prediction
-            self.pair_sentences.append([premise, hypothesis])
+            self.pair_sentences.append([sent1, sent2])
 
         # Todo : sort text before encode to reduce  matrix size of each batch
         # self.batch_tok = collate_tokens([self.encode(pair[0], pair[1]) for pair in self.batch_of_pairs], pad_idx=1)
-        # self.batch_tok = self.encode(self.premises, self.hypothesises,truncation=True, padding="max_length")
+        # self.batch_tok = self.encode(self.sentence1, self.sentences2,truncation=True, padding="max_length")
 
         """
         # All the initial strings
