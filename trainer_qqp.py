@@ -65,7 +65,7 @@ from transformers.utils import logging
 from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
 import math
 import time
-from data import FeverDataset
+from data import QQPDataset
 from transformers.deepspeed import deepspeed_init, is_deepspeed_zero3_enabled
 from transformers.trainer_callback import (
     CallbackHandler,
@@ -614,7 +614,7 @@ def main():
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/baseline_qqp/' 
+    output_dir = '../models/baseline_qqp_mysplit/' 
     label_maps = {"not_duplicate": 0, "duplicate": 1}
     
     # random seed
@@ -641,11 +641,14 @@ def main():
     # 2. freeze weight's all inputs corresponding to specific neurons
    
     from datasets import load_dataset, load_metric
-    dataset = load_dataset("glue", "qqp")
-    tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
-    tokenized_datasets['train_data']=dataset['train'].map(lambda x: tokenizer(x["question1"],x["question2"], truncation=True))
-    tokenized_datasets['validation_data']=dataset['validation'].map(lambda x: tokenizer(x["question1"],x["question2"], truncation=True))
-    tokenized_datasets['test_data']=dataset['test'].map(lambda x: tokenizer(x["question1"],x["question2"], truncation=True))
+    # dataset = load_dataset("glue", "qqp")
+    # tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+    # tokenized_datasets['train_data']=dataset['train'].map(lambda x: tokenizer(x["question1"],x["question2"], truncation=True))
+    # tokenized_datasets['validation_data']=dataset['validation'].map(lambda x: tokenizer(x["question1"],x["question2"], truncation=True))
+    # tokenized_datasets['test_data']=dataset['test'].map(lambda x: tokenizer(x["question1"],x["question2"], truncation=True))
+    for data_name in ["train_data", "validation_data", "test_data"]:
+        print(f'========= {data_name} ===========')
+        tokenized_datasets[data_name] = QQPDataset(config, label_maps=label_maps, data_name=data_name)
     print(f'Config of dataloader') 
     print(f'Group by len : {config["data_loader"]["batch_sampler"]["group_by_length"]}')
     print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")
