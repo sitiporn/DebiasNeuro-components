@@ -19,10 +19,10 @@
   },
   
   # dataset
-  "data_path": "../data/paraphrase_identification/",
-  "train_data": "qqp.train.jsonl",
-  "validation_data": "qqp.val.jsonl", 
-  "test_data": "qqp.dev.jsonl",
+  "data_path": "../data/fact_verification/",
+  "train_data": "weighted_fever.train.jsonl",
+  "validation_data": "fever.val.jsonl", 
+  "test_data": "fever.dev.jsonl",
   
   # dataloader
   "data_loader": {
@@ -61,7 +61,7 @@
   "cuda_device" : 0,
   # 1548, 3990, 409, 3099
   #  [1548, 3099, 3785, 3990,  409] for experiments
-  "seed": 3785,   
+  "seed": 409,   
   "evaluation_strategy": "steps",
   "eval_steps": 500,
   "load_best_model_at_end": True,

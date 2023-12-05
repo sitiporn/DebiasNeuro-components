@@ -221,6 +221,35 @@ class Dev(Dataset):
         
         return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
 
+
+class DevQQP(Dataset):
+    def __init__(self, 
+                data_path, 
+                json_file, 
+                DEBUG=False) -> None: 
+        
+        # Todo: generalize dev apth and json file to  mateched
+        self.inputs = {}
+        # dev_path = "debias_fork_clean/debias_nlu_clean/data/nli/"
+        # dev_path = os.path.join(os.path.join(dev_path, file))
+        self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
+        data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
+        self.df = pd.read_json(data_path, lines=True)
+        self.df.rename(columns = {'is_duplicate':'label'}, inplace = True)
+
+   
+        
+        for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
+        # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
+        # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
+        # self.labels = self.df.gold_label.tolist()
+
+    def __len__(self): return self.df.shape[0]
+
+    def __getitem__(self, idx):
+        
+        return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
+
         # return pair_sentence , label
 
 
@@ -279,6 +308,36 @@ class CustomDataset(Dataset):
         self.dataset = HugginfaceDataset.from_pandas(df_new)
         self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
         self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+    def to_label_id(self, text_label): 
+        return self.label_maps[text_label]
+    
+    def tokenize_function(self, examples):
+        return self.tokenizer(examples["sentence1"], examples["sentence2"], truncation=True) 
+   
+    def __len__(self): 
+        return self.tokenized_datasets.shape[0]
+    
+    def __getitem__(self, idx):
+        return self.tokenized_datasets[idx]
+
+class QQPDataset(Dataset):
+    def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
+        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+        # df = preprocss(df)
+        # df.rename(columns = {'evidence_sentence':'evidence'}, inplace = True)
+        df.rename(columns = {'is_duplicate':'label'}, inplace = True)
+        if "bias_probs" in df.columns:
+          df_new = df[['sentence1', 'sentence2', 'label','bias_probs']]  
+        else:
+            df_new = df[['sentence1', 'sentence2', 'label']]
+        self.label_maps = label_maps
+        # df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
+        from datasets import Dataset as HugginfaceDataset
+        self.dataset = HugginfaceDataset.from_pandas(df_new)
+        self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+        self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+        
+        self.my_keys = ['label', 'input_ids', 'token_type_ids', 'attention_mask']
     def to_label_id(self, text_label): 
         return self.label_maps[text_label]
     
@@ -1180,6 +1239,122 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
     print(f'avarge symm score : { symm_avg  / len(all_paths)}')
     print(f"averge symm REFUTES acc : {symm_refute_avg / len(all_paths)}")
     print(f"average symm SUPPORTS acc : {symm_support_avg   / len(all_paths)}") 
+
+def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
+    """ to get predictions and score on test and challenge sets"""
+    distributions = {}
+    losses = {}
+    golden_answers = {}
+
+    
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    OPTIMIZED_SET_JSONL = config['dev_json']
+    # datasets
+    IN_DISTRIBUTION_SET_JSONL = 'qqp.dev.jsonl'
+    CHALLENGE_SET_JSONL = 'paws.dev_and_test.jsonl' 
+    RESULT_PATH = f'../pickles/performances/'
+    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
+    acc_avg = 0
+    is_dup_avg = 0
+    not_dup_avg = 0   
+    paws_is_dup_avg = 0
+    paws_not_dup_avg = 0   
+    paws_avg = 0
+    computed_acc_count = 0
+    computed_paws_count = 0
+    for seed, path in all_paths.items():
+        if is_load_model:
+            from utils import load_model
+            model = load_model(path=path, model=model,device=DEVICE)
+        else:
+            print(f'Using original model')
+        for cur_json in json_sets:
+            name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+            distributions = []
+            losses = []
+            golden_answers = []
+            data_name = "test_data"
+            
+            dev_set = DevQQP(config['dev_path'] , cur_json)
+            dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+
+            # tokenized_datasets = {}
+            # tokenized_datasets[data_name] = FeverDatasetClaimOnly(config, label_maps=config['label_maps'])
+            # data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+            # def collator(input_samples):
+            #     x = data_collator(input_samples)
+            #     for i in x:
+            #         i.pop("claim",None)
+            #     return x
+            
+            # dev_loader = DataLoader(tokenized_datasets[data_name], batch_size = 32, shuffle = False,  collate_fn=collator)
+            model.eval()
+            for batch_idx, (inputs) in enumerate( t := tqdm(dev_loader)):
+                
+                cur_inputs = {} 
+                t.set_description(f'{name_set} batch_idx {batch_idx}/{len(dev_loader)}')
+                for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
+                # get the inputs 
+                pair_sentences = [[sentence1, sentence2] for sentence1, sentence2 in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+                pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+                label_ids = torch.tensor([label for label in cur_inputs['label']]) 
+                if label_ids is not None: label_ids = label_ids.to(DEVICE)
+
+                with torch.no_grad(): 
+                    # Todo: generalize to distribution if the storage is enough
+                    outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
+                    distributions.extend(F.softmax(outs.logits.cpu() , dim=-1))
+                    golden_answers.extend(label_ids.cpu() if label_ids is not None else cur_inputs['label'])
+
+            cur_raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
+            
+            with open(cur_raw_distribution_path, 'wb') as handle: 
+                pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                # pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving without condition distribution into : {cur_raw_distribution_path}')
+            
+            if 'paws' not in cur_json: 
+                acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in acc.keys():
+                    acc = acc['Null']
+                print(f"overall acc : {acc['all']}")
+                print(f"is_duplicate acc : {acc['is_duplicate']}")
+                print(f"not_duplicate acc : {acc['not_duplicate']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                acc_avg += acc['all']
+                is_dup_avg += acc['is_duplicate']
+                not_dup_avg += acc['not_duplicate']
+                computed_acc_count += 1
+            elif config['get_paws_result'] and 'paws'in cur_json: 
+                acc_paws = compute_acc(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in acc_paws.keys():
+                    acc_paws = acc_paws['Null']
+                print(f"overall paws acc : {acc_paws['all']}")
+                print(f"not_dup paws acc : {acc_paws['not_duplicate']}")
+                print(f"is_dup paws acc : {acc_paws['is_duplicate']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                paws_avg += acc_paws['all']
+                paws_not_dup_avg += acc_paws['not_duplicate']
+                paws_is_dup_avg += acc_paws['is_duplicate']
+                computed_paws_count += 1
+                # breakpoint()
+                # cur_hans_score = get_symm_result(cur_raw_distribution_path, config)
+                # symm_avg += cur_hans_score
+                # print(f'symm score :{cur_hans_score}')
+    
+    print(f'==================== Average scores ===================')
+    print(f"average overall acc : {acc_avg / len(all_paths)}")
+    print(f"averge not dup acc : {not_dup_avg / len(all_paths)}")
+    print(f"average is dup acc : {is_dup_avg   / len(all_paths)}")
+    print(f'avarge paws score : { paws_avg  / len(all_paths)}')
+    print(f"averge paws not dup acc : {paws_not_dup_avg / len(all_paths)}")
+    print(f"average paws dup SUPPORTS acc : {paws_is_dup_avg   / len(all_paths)}") 
 
 
 def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path):
