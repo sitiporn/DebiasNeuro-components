@@ -69,10 +69,10 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
         nie_dataloader = pickle.load(handle)
         print(f"loading nie sets from pickle {save_nie_set_path} !")        
     # mediator used to intervene corresponding to changing _model's seed
-    mediators["Q"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
-    mediators["K"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.key
-    mediators["V"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.value
-    mediators["AO"]  = lambda layer : _model.bert.encoder.layer[layer].attention.output
+    mediators["Q"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
+    mediators["K"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.key
+    mediators["V"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.value
+    mediators["AO"] = lambda layer : _model.bert.encoder.layer[layer].attention.output
     mediators["I"]  = lambda layer : _model.bert.encoder.layer[layer].intermediate
     mediators["O"]  = lambda layer : _model.bert.encoder.layer[layer].output
 
@@ -83,7 +83,7 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
         # Dont need model as input because we load counterfactual from -> counterfactual_paths
         # dont need head to specify components
         # cls shape: [seed][component][do][layer][neuron_ids]
-        cls = get_hidden_representations(counterfactual_paths, method_name, seed,layers, config['is_group_by_class'], config['is_averaged_embeddings'])
+        cls = get_hidden_representations(config, counterfactual_paths, method_name, seed,layers, config['is_group_by_class'], config['is_averaged_embeddings'])
         # mediators:change respect to seed
         # cls: change respect to seed
         high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter , counter_predictions, layers, _model, config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
@@ -226,19 +226,21 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
     global count_num_seed 
 
     count_num_seed += 1
-
     computing_embeddings= ComputingEmbeddings(label_maps, tokenizer=tokenizer)
     
     if model_path is not None: 
         model = load_model(path= model_path, model=model)
+        model = model.to(DEVICE)
+        print(f'loading model: {model_path}')
     else:
         print(f'using original model as input to this function')
         
     classifier = Classifier(model=model)
     representation_loader = DataLoader(experiment_set, batch_size = 64, shuffle = False, num_workers=0)
-        
+    treatments = ['High-overlap'] if config['dataset_name'] == 'fever' else ['High-overlap','Low-overlap']
+    
     for batch_idx, (sentences, labels) in enumerate(tqdm(representation_loader, desc=f"representation_loader")):
-        for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+        for idx, do in enumerate(tqdm(treatments, desc="Do-overlap")):
             if do not in computing_embeddings.representations.keys():
                 if is_group_by_class:
                     computing_embeddings.representations[do] = {}
@@ -254,11 +256,19 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
                     computing_embeddings.counter[do] = 0
                 
                     computing_embeddings.acc[do] = []
-                    computing_embeddings.class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
-                    computing_embeddings.confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
+                    computing_embeddings.class_acc[do] = {}
+                    computing_embeddings.confident[do] = {}
+                    
+                    for label_name in config['label_maps'].keys():
+                        if label_name not in computing_embeddings.class_acc[do].keys(): computing_embeddings.class_acc[do][label_name] = []
+                        if label_name not in computing_embeddings.confident[do].keys(): computing_embeddings.confident[do][label_name] = 0
+                    # computing_embeddings.class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
+                    # computing_embeddings.confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
             
             if do not in average_all_seed_distributions.keys():
-                average_all_seed_distributions[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
+                # average_all_seed_distributions[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
+                average_all_seed_distributions[do] = {}
+                for label_name in config['label_maps'].keys(): average_all_seed_distributions[do][label_name] = 0
 
             if experiment_set.is_group_by_class:
                 for class_name in sentences[do].keys():
@@ -277,11 +287,11 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
                 forward_pair_sentences(sentences[do], computing_embeddings, labels[do], do, model, DEVICE)
     
     # **************** Compute for classifier output distributions given avg representation(High vs Low bias as input) to use as counterfactuals ****************
-    if DEBUG: print(f"==== Classifier Output Distributions Given Averaging representations  as Input =====")
-    for do in ['High-overlap','Low-overlap']:
-        if DEBUG: print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+    if DEBUG: print(f"************* Classifier Output Distributions Given Averaging representations  as Input ************")
+    for do in treatments:
+        if DEBUG: print(f"{do}:")
         if experiment_set.is_group_by_class:
-            for class_name in ["contradiction", "entailment", "neutral"]:
+            for class_name in config['label_maps'].keys():
                 computing_embeddings.representations[do][class_name] = torch.stack(computing_embeddings.representations[do][class_name], dim=0)
                 average_representation = torch.mean(computing_embeddings.representations[do][class_name], dim=0 ).unsqueeze(dim=0)
                 out = classifier(average_representation).squeeze(dim=0)
@@ -301,14 +311,15 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
                 average_all_seed_distributions[do][cur_class] += cur_distribution[label_maps[cur_class]]
 
     if DEBUG:
-        for do in ['High-overlap','Low-overlap']:
+        print(f"************* Stats ************")
+        for do in treatments:
             if is_group_by_class:
-                print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+                print(f">>{do}:")
                 for cur_class in label_maps.keys():
                     computing_embeddings.confident[do][class_name] = computing_embeddings.confident[do][class_name].squeeze(dim=0)
                     print(f"{class_name} set ; confident: {computing_embeddings.confident[do][class_name] / computing_embeddings.counter[do][class_name]}")
             else:
-                print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+                print(f">>{do}:")
                 print(f'Accuracies:')
                 print(f"avg over all acc: {sum(computing_embeddings.acc[do]) / len(computing_embeddings.acc[do])}")
                 for cur_class in label_maps.keys():
@@ -324,7 +335,7 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
     
     if summarize and count_num_seed == 5:
         print('********** Counterfactual Model Output Distribution Summary **********')
-        for do in ['High-overlap','Low-overlap']:
+        for do in treatments:
             print(f'>> {do}')
             for cur_class in label_maps.keys():
                 print(f" {cur_class}: {average_all_seed_distributions[do][cur_class]/ count_num_seed}")
@@ -545,6 +556,7 @@ def forward_pair_sentences(sentences, computing_embeddings, labels, do, model, D
 
                 computing_embeddings.confident[do][computing_embeddings.label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
                 computing_embeddings.class_acc[do][computing_embeddings.label_remaps[label]].extend([int(predictions[idx]) == label])
+                
 
         else:
 
