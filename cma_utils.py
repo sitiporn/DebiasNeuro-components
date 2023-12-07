@@ -37,6 +37,7 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
     from utils import load_model
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
+        print(f'loading original model: {model_path}')
     else:
         _model = model
         print(f'using original model as input to this function')
@@ -91,7 +92,7 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
     for component in (["Q","K","V","AO","I","O"]):
         hidden_representations[component] = {}
     # **** collecting all counterfactual representations ****    
-    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"Intervene_set_loader")):
+    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"counterfactual_set_loader")):
         for idx, do in enumerate(tqdm(treatments, desc="Do-overlap")):
             if do not in hidden_representations[component].keys():
                 for component in (["Q","K","V","AO","I","O"]):
@@ -163,12 +164,12 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
             # hidden_representations[component][do][class_name][layer][sample_idx]
             with open(cur_path,'wb') as handle: 
                 pickle.dump(hidden_representations[component][do][class_name], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"saving to {cur_path} done ! ")
+                print(f"saving counterfactual representations into {cur_path} done ! ")
         else:
             with open(cur_path, 'wb') as handle: 
                 # nested dict : [component][do][class_name][layer][sample_idx]
                 pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"saving to {cur_path} done ! ")
+                print(f"saving counterfactual representations into {cur_path} done ! ")
                 
     path = f'../pickles/utilizer/{method_name}/utilizer_{seed}_components.pickle'
     with open(path, 'wb') as handle: 
@@ -253,6 +254,7 @@ def get_overlap_thresholds(df, upper_bound, lower_bound, dataset_name):
         df['count_negations']  = df['claim'].apply(count_negations)
     else:
         df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
+        
 
     biased_scores = df['count_negations'] if dataset_name == 'fever'  else df['overlap_scores'] 
 
@@ -325,15 +327,15 @@ def get_overlap_score(pair_label):
     prem_words = []
     hyp_words = []
 
-    premise = pair_label[0].strip()
-    hypothesis = pair_label[1].strip()
-    gold_label = pair_label[2].strip()
+    sentence1 = pair_label[0].strip()
+    sentence2 = pair_label[1].strip()
+    gold_label = pair_label[2].strip() 
 
-    for word in premise.split():
+    for word in sentence1.split():
         if word not in [".", "?", "!"]:
             prem_words.append(word.lower())
 
-    for word in hypothesis.split():
+    for word in sentence2.split():
         if word not in [".", "?", "!"]:
             hyp_words.append(word.lower())
 
