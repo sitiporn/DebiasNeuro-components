@@ -51,6 +51,7 @@ class ExperimentDataset(Dataset):
         self.intervention = {}
         pair_and_label = []
         self.is_group_by_class = is_group_by_class
+        self.label_remaps = {v:k for k,v in config['label_maps'].items()}
         
         if dataset_name == 'fever': 
             self.treatments = ["High-overlap"]
@@ -61,17 +62,19 @@ class ExperimentDataset(Dataset):
             self.sets = {"High-overlap": {}, "Low-overlap": {} } 
             nums = {"High-overlap": {}, "Low-overlap": {} }
         
-        torch.manual_seed(42)
-        
         data_path = os.path.join(data_path, json_file)
-
         self.df = pd.read_json(data_path, lines=True)
+        
 
-        if '-' in self.df.gold_label.unique():
-            self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
+        if config['dataset_name'] != 'qqp':
+            if '-' in self.df.gold_label.unique():
+                self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
 
         if DEBUG: print(self.df.columns)
-
+        
+        if config['dataset_name'] == 'qqp': 
+            self.df.rename(columns = {'is_duplicate':'gold_label_id'}, inplace = True)
+            self.df['gold_label'] = self.df['gold_label_id'].apply(lambda row : self.label_remaps[row] )
 
         for i in range(len(self.df)):
             pair_and_label.append(
@@ -81,7 +84,7 @@ class ExperimentDataset(Dataset):
 
         self.df['pair_label'] = pair_and_label
         # Todo: 
-        from counter import count_negations
+        # from counter import count_negations
         thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound, dataset_name)
 
         # get HOL and LOL set
@@ -95,6 +98,7 @@ class ExperimentDataset(Dataset):
         
         self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
                            "Low-overlap":  self.get_low_shortcut()}
+
         
         for do in self.treatments:
             for type in config['label_maps'].keys():
@@ -107,7 +111,6 @@ class ExperimentDataset(Dataset):
         # get minimum size of samples
         self.type_balance = min({min(d.values()) for d in nums.values()})
         self.balance_sets = {}
-
         
         # Randomized Controlled Trials (RCTs)
         for do in self.treatments:
@@ -117,7 +120,6 @@ class ExperimentDataset(Dataset):
 
             # create an Empty DataFrame object
             for type in config['label_maps'].keys():
-                
                 # samples data
                 ids = list(torch.randint(0, self.sets[do][type].shape[0], size=(self.type_balance,)))
                 self.sets[do][type] = self.sets[do][type].loc[ids].reset_index(drop=True)
@@ -156,7 +158,6 @@ class ExperimentDataset(Dataset):
                                     )
     
     def get_high_shortcut(self):
-
         # get high overlap score pairs
         return self.df[self.df['Treatment'] == "HOL"]
 
@@ -241,14 +242,27 @@ def preprocss(df):
     return df
 
 class CustomDataset(Dataset):
-    def __init__(self, config, label_maps, data_name = 'train_data', is_trained=True, DEBUG=False, data=None) -> None: 
-        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True) if data is None else data
-        df = preprocss(df)
-        if "bias_probs" in df.columns:
-          df_new = df[['sentence1', 'sentence2', 'gold_label','bias_probs']]  
+    def __init__(self, config, label_maps, data_mode = 'train_data', is_trained=True, DEBUG=False, adv_samples=None) -> None: 
+        df = pd.read_json(os.path.join(config['data_path'], config[data_mode]), lines=True) if adv_samples is None else adv_samples
+        if config['dataset_name'] == 'qqp': 
+            # qqp
+            df.rename(columns = {'is_duplicate':'label'}, inplace = True) 
         else:
-            df_new = df[['sentence1', 'sentence2', 'gold_label']]
-        df_new.rename(columns = {'gold_label':'label'}, inplace = True)
+            # mnli or fever
+            df = preprocss(df)
+            df.rename(columns = {'gold_label':'label'}, inplace = True)
+
+        # fever
+        if config['dataset_name'] == 'fever': 
+            df.rename(columns = {'evidence':'sentence1'}, inplace = True)
+            df.rename(columns = {'claim':'sentence2'}, inplace = True)
+
+        # mnli 
+        if "bias_probs" in df.columns:
+            df_new = df[['sentence1', 'sentence2', 'label','bias_probs']]  
+        else:
+            df_new = df[['sentence1', 'sentence2', 'label']]
+        
         self.label_maps = label_maps
         self.is_trained = is_trained
         df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
@@ -474,7 +488,6 @@ def get_masking_value(config):
         # cur_digits = len(str(best_val).split('.')[-1])
         print(f"Null : {acc[value]['Null']['all']*100:.2f}, Intervene at {best_val}:{scores[cur_best_key]*100:.2f}")
     # get new high and low value unitil up to max_num_digits 
-    breakpoint()
     # get digits
     # get of new 
     # add digits by one
@@ -1208,10 +1221,12 @@ class FeverDataset(Dataset):
         df = preprocss(df)
         df.rename(columns = {'evidence_sentence':'evidence'}, inplace = True)
         df.rename(columns = {'gold_label':'label'}, inplace = True)
+
         if "bias_probs" in df.columns:
           df_new = df[['evidence', 'claim', 'label','bias_probs']]  
         else:
-            df_new = df[['evidence', 'claim', 'label']]
+          df_new = df[['evidence', 'claim', 'label']]
+        
         self.label_maps = label_maps
         df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
         from datasets import Dataset as HugginfaceDataset
