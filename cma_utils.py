@@ -248,14 +248,17 @@ def geting_counterfactual_paths(config, method_name, seed=None):
 
 def get_overlap_thresholds(df, upper_bound, lower_bound, dataset_name):
     from counter import count_negations 
+     
     thresholds = {"High-overlap": None, "Low-overlap": None}
     
     if dataset_name == 'fever':
         df['count_negations']  = df['claim'].apply(count_negations)
-    else:
+    elif dataset_name == 'qqp':
+        df['overlap_scores'] = df['pair_label'].apply(get_qqp_bias_scores)
+        # df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
+    else:    
         df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
         
-
     biased_scores = df['count_negations'] if dataset_name == 'fever'  else df['overlap_scores'] 
 
     thresholds["Low-overlap"]  = 0.0 if dataset_name == 'fever' else np.percentile(biased_scores, lower_bound)
@@ -338,7 +341,7 @@ def get_overlap_score(pair_label):
     for word in sentence2.split():
         if word not in [".", "?", "!"]:
             hyp_words.append(word.lower())
-
+    
     prem_filtered = " ".join(prem_words)
     hyp_filtered = " ".join(hyp_words)
 
@@ -350,6 +353,39 @@ def get_overlap_score(pair_label):
     overlap_score = count/len(hyp_words)        
 
     return overlap_score
+
+def get_qqp_bias_scores(pair_label):
+    # order of word are not import important  for pharaphasing 
+    sent1 = []
+    sent2 = []
+
+    sentence1 = pair_label[0].strip()
+    sentence2 = pair_label[1].strip()
+    gold_label = pair_label[2].strip() 
+
+    sentence1 = set(sentence1.split())
+    sentence2 = set(sentence2.split())
+
+    for ignore  in [".", "?", "!"]:
+        if ignore in sentence1: sentence1.remove(ignore)
+        if ignore in sentence2: sentence2.remove(ignore)
+
+    if sentence1 == sentence2:
+        return 2.0
+    else:
+        sent = {}
+        major_sent = sentence1 if len(sentence1) > len(sentence2) else sentence2
+        minor_sent = sentence1 if len(sentence1) < len(sentence2) else sentence2
+    
+        count = 0
+        for word in minor_sent:
+            if word in major_sent:
+                count+=1
+    
+        overlap_score = count/len(minor_sent)        
+
+        return overlap_score
+
 
 def trace_counterfactual(do, 
                         layer, 
