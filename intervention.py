@@ -85,7 +85,8 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
     else:
         # when using original model
         cls = cls[str(seed)]
-    
+    CANDIDATED_CLASS = config['candidated_class'][0] 
+    print(f'Candidated class for intervention: {CANDIDATED_CLASS}')
     components = cls.keys() # 
     assert len(components) == 6, f"don't cover all component types of transformer modules" 
     assert len(layers) == 12, f"the computation does not cover follow all layers"
@@ -101,7 +102,7 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
         with torch.no_grad(): 
             # Todo: generalize to distribution if the storage is enough
             # probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
-            probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["REFUTES"]]
+            probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps[CANDIDATED_CLASS]]
         # To store all positions
         probs['intervene'] = {}
         # run one full neuron intervention experiment
@@ -134,7 +135,7 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
                         with torch.no_grad(): 
                             intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
                             # entail_probs = intervene_probs[:, label_maps["entailment"]]
-                            entail_probs = intervene_probs[:, label_maps["REFUTES"]]
+                            entail_probs = intervene_probs[:, label_maps[CANDIDATED_CLASS]]
                         if neuron_id not in NIE[do][component][layer].keys():
                             NIE[do][component][layer][neuron_id] = 0
                             counter[do][component][layer][neuron_id] = 0
