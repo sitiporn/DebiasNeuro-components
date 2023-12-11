@@ -137,6 +137,8 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
     k = config['k']
     # select candidates based on the number of neurons
     num_top_neurons = config['num_top_neurons']
+    top_neuron_path = f'../pickles/top_neurons/{method_name}/'
+    if not os.path.exists(top_neuron_path): os.mkdir(top_neuron_path)
     top_neurons = {}
     num_neurons = None
     topk = get_topk(config, k=k, num_top_neurons=num_neurons)
@@ -173,7 +175,7 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
                 num_neurons = int(num_neurons) 
                 print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
                 top_neurons[round(value, 2) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
-            with open(f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_{layer}.pickle', 'wb') as handle:
+            with open(os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_{layer}.pickle'), 'wb') as handle:
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !") 
         # sort whole layers
@@ -192,11 +194,11 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
                     top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
             
             if mode == 'random':
-                with open(f'../pickles/top_neurons/{method_name}/random_top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle:
+                with open(os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers.pickle'), 'wb') as handle:
                     pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     print(f"Done saving random top neurons into pickle !") 
             elif mode == 'sorted':
-                with open(f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle:
+                with open(os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_all_layers.pickle'), 'wb') as handle:
                     pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     print(f"Done saving top neurons into pickle !") 
             

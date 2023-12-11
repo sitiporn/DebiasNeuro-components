@@ -171,7 +171,10 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
                 pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving counterfactual representations into {cur_path} done ! ")
                 
-    path = f'../pickles/utilizer/{method_name}/utilizer_{seed}_components.pickle'
+    path = f'../pickles/utilizer/{method_name}/'
+    if not os.path.exists(path): os.mkdir(path)
+    path = os.path.join(path, f'utilizer_{seed}_components.pickle')
+    
     with open(path, 'wb') as handle: 
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
         # pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -213,6 +216,7 @@ def test_mask(neuron_candidates =[]):
 def geting_counterfactual_paths(config, method_name, seed=None):
 
     path = f'../counterfactuals/{method_name}/'
+    if not os.path.exists(path): os.mkdir(path) 
     path = os.path.join(path, "seed_"+ str( config['seed'] if seed is None else seed ) ) 
     if not os.path.exists(path): os.mkdir(path) 
 
@@ -634,6 +638,7 @@ def geting_NIE_paths(config, method_name, mode, seed=None):
     NIE_paths = []
     is_NIE_exist = []
     path = f'../NIE/{method_name}/'
+    if not os.path.exists(path): os.mkdir(path) 
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
     if not os.path.exists(path): os.mkdir(path) 
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
