@@ -135,8 +135,9 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
         from utils import test_layer_params
         test_layer_params(encoder_params, freeze_params, train_params, value)
 
-         
         restore_path = f'../pickles/restore_weight/{method_name}/'
+        if not os.path.exists(restore_path): os.mkdir(restore_path)
+        
         for layer in range(len(encoder_params)): 
             cur_restore_path = os.path.join(restore_path, f'masking-{value}')
             if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
@@ -261,7 +262,7 @@ def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
     
     return grad  * mask
 
-def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load_model, method_name, collect=False):
+def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load_model, method_name, device, collect=False):
     # Todo: divide label
     biased_label_maps = config['label_maps']
     main_label_maps = config['label_maps']
@@ -282,19 +283,20 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
         path = all_paths[seed]
         if is_load_model:
             from utils import load_model
-            model = load_model(path=path, model=model)
+            model = load_model(path=path, model=model, device=device)
             print(f'Loading model from : {path}')
         else:
             print(f'Using original model')
-
         # # ************* Biased model **************
         for index, row in biased_df.iterrows():
             prediction =  biased_label_remaps[int(torch.argmax(torch.Tensor(row['bias_probs']), dim=0))]
             predictions.append(prediction)
-            results.append(prediction  == row['gold_label'])
+            # results.append(prediction  == row['gold_label'])
+            results.append(prediction  == candidated_class)
         
         biased_df['predictions'] = predictions
         biased_df['results'] = results
+        if config['dataset_name'] == 'qqp': biased_df['gold_label'] = biased_df['is_duplicate'].apply(lambda row : biased_label_remaps[row])
         biased_df['gold_label_ids'] = biased_df['gold_label'].apply(lambda row : biased_label_maps[row])
         biased_df['prediction_ids'] = biased_df['predictions'].apply(lambda row : biased_label_maps[row])
 
@@ -318,16 +320,17 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
             sentences1, sentences2,  labels = inputs
             pair_sentences =  [[sent1, sent2] for sent1, sent2  in zip(sentences1, sentences2) ]
             model_inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+            model_inputs = {k:v.to(device) for k,v in model_inputs.items()}
             with torch.no_grad():
                 out = model(**model_inputs)[0]
                 cur_probs = norm(out)
-                cur_preds = torch.argmax(cur_probs, dim=-1)
+                cur_preds = torch.argmax(cur_probs, dim=-1).cpu()
                 cur_res = cur_preds == labels
                 main_model["sentence1"].extend(sentences1)
                 main_model["sentence2"].extend(sentences2)
                 main_model["gold_label"].extend(labels)
-                main_model["probs"].extend(cur_probs)
-                main_model["predictions"].extend(cur_preds)
+                main_model["probs"].extend(cur_probs.cpu())
+                main_model["predictions"].extend(cur_preds.cpu())
                 main_model["results"].extend(cur_res)
         
         main_df = pd.DataFrame.from_dict(main_model) 
@@ -351,7 +354,8 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
         # select samples base on main model and bias model inferences
         advantaged  = []
         for idx in range(main_df.shape[0]):
-            if main_df['results'].iloc[idx] ==  False and biased_df['results'].iloc[idx] == True and biased_df['gold_label'].iloc[idx] == candidated_class:
+            # if main_df['results'].iloc[idx] ==  False and biased_df['results'].iloc[idx] == True and biased_df['gold_label'].iloc[idx] == candidated_class:
+            if main_df['results'].iloc[idx] ==  False and biased_df['results'].iloc[idx] == True:  
                 advantaged.append(True)
             else: 
                 advantaged.append(False)
@@ -408,8 +412,8 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
         mean = advantaged_bias[mask][label_prob].mean()
         print(f'{label_text}, max:{max}, min:{min}, mean:{mean}')
 
-    assert len(advantaged_bias.gold_label.unique()) == 1
-    assert candidated_class in advantaged_bias.gold_label.unique()
+    # assert len(advantaged_bias.gold_label.unique()) == 1
+    # assert candidated_class in advantaged_bias.gold_label.unique()
     print(f'#advantaged samples: {advantaged_bias.shape[0]}, #disadvantaged samples: {disadvantaged_bias.shape[0]}')
     
     return  advantaged_main, advantaged_bias
