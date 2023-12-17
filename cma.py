@@ -58,6 +58,7 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
     NIE_path = { sorted(path.split('_'),key=len)[1 if config['dataset_name'] == 'qqp' else 0  ]: path for path in NIE_paths} 
     NIE_path =  NIE_path['all'] if 'all' in NIE_path.keys() else NIE_path[str(config['layer'])]
     print(f"perform Causal Mediation analysis...")
+    
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
     else:
@@ -79,9 +80,6 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
     if config['is_averaged_embeddings']: 
         NIE = {}
         counter = {}
-        # Done checking counterfactual_paths change according to seed
-        # Dont need model as input because we load counterfactual from -> counterfactual_paths
-        # dont need head to specify components
         # cls shape: [seed][component][do][layer][neuron_ids]
         cls = get_hidden_representations(config, counterfactual_paths, method_name, seed,layers, config['is_group_by_class'], config['is_averaged_embeddings'])
         # mediators:change respect to seed
@@ -133,6 +131,17 @@ def get_topk(config, k=None, num_top_neurons=None):
     return topk
 
 def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=False, mode='sorted'):
+    print(f'get_candidate_neurons: {mode}')
+    # random seed
+    seed = config['seed'] 
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+    else: 
+        seed = str(seed)
+
     # select candidates  based on percentage
     k = config['k']
     # select candidates based on the number of neurons
@@ -186,31 +195,40 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
                 num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
                 num_neurons = int(num_neurons)
                 print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
+                
                 if mode == 'random':
+                    from operator import itemgetter
                     cur_neurons = sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)
                     random.shuffle(cur_neurons)
                     top_neurons[round(value, 2) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
+                    # ids = []
+                    # while len(set(ids)) < num_neurons:
+                    #     id = int(torch.randint(num_neurons, len(cur_neurons), size=(1,)))
+                    #     ids.append(id)
+                    #     ids = list(set(ids))
+                    # assert len(ids) == len(set(ids)), f"len {len(ids)}, set len: {len(set(ids))}"
+                    # assert len(ids) == num_neurons
+                    # top_neurons[round(value, 2) if key == 'percent' else value] = dict(itemgetter(*ids)(cur_neurons))
                 elif mode == 'sorted':
                     top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
             
             if mode == 'random':
-                with open(os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers.pickle'), 'wb') as handle:
+                save_path = os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers.pickle')
+                with open(save_path, 'wb') as handle:
                     pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    print(f"Done saving random top neurons into pickle !") 
-            elif mode == 'sorted':
-                with open(os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_all_layers.pickle'), 'wb') as handle:
-                    pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    print(f"Done saving top neurons into pickle !") 
+                    print(f"Done saving random top neurons into pickle! : {save_path}") 
             
+            elif mode == 'sorted':
+                save_path = os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_all_layers.pickle')
+                with open(save_path, 'wb') as handle:
+                    pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    print(f"Done saving top neurons into pickle!: {save_path}") 
+             
             if debug:
                 print(f"neurons:")
                 print(list(top_neurons[0.01].keys())[:20])
                 print(f"NIE values :")
                 print(list(top_neurons[0.01].values())[:20])
-        # with open(f'../pickles/top_neurons/top_neuron_{}_{key}_{do}_all_layers.pickle', 'rb') as handle:
-        #     cur_top_neurons = pickle.load(handle)
-        #     print(f"loading top neurons from pickles !") 
-
 
 average_all_seed_distributions = {}
 count_num_seed = 0
