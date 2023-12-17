@@ -70,9 +70,13 @@ def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, in
             output.masked_scatter_(scatter_mask, neuron_values)
         if debug:
             print(f'******** After Intervention Hook  *************')
+            print(f'intervention mode : {intervention_type}')
             print(f"component-neuron_ids-value: {component}-{neuron_ids}-{value[neuron_ids]}")
             print(output[:2,:3, neuron_ids])
             # print(output[:2,:3, :2])
+
+        breakpoint()
+        
     return intervention_hook
 
 # ************  intervention  *******************
@@ -84,9 +88,10 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
         cls = cls[seed]
     else:
         # when using original model
-        cls = cls[str(seed)]
-    CANDIDATED_CLASS = config['candidated_class'][0] 
-    print(f'Candidated class for intervention: {CANDIDATED_CLASS}')
+        cls = cls[str(seed)] 
+    INTERVENTION_CLASS = config['intervention_class'][0] 
+    print(f'Intervention Class: {INTERVENTION_CLASS}')
+    print(f'Intervention mode: {config["intervention_type"]}')
     components = cls.keys() # 
     assert len(components) == 6, f"don't cover all component types of transformer modules" 
     assert len(layers) == 12, f"the computation does not cover follow all layers"
@@ -102,7 +107,7 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
         with torch.no_grad(): 
             # Todo: generalize to distribution if the storage is enough
             # probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps["entailment"]]
-            probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps[CANDIDATED_CLASS]]
+            probs['null'] = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps[INTERVENTION_CLASS]]
         # To store all positions
         probs['intervene'] = {}
         # run one full neuron intervention experiment
@@ -117,8 +122,7 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
                     NIE[do][component] = {}
                     counter[do][component] = {}
                 # cover single components
-                for layer in (l := tqdm(layers)):
-                    l.set_description(f"batch_idx:{batch_idx}, component:{component},layer: {layer}")
+                for layer in layers:
                     if  layer not in NIE[do][component].keys(): 
                         NIE[do][component][layer] = {}
                         counter[do][component][layer] = {}
@@ -135,7 +139,7 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
                         with torch.no_grad(): 
                             intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
                             # entail_probs = intervene_probs[:, label_maps["entailment"]]
-                            entail_probs = intervene_probs[:, label_maps[CANDIDATED_CLASS]]
+                            entail_probs = intervene_probs[:, label_maps[INTERVENTION_CLASS]]
                         if neuron_id not in NIE[do][component][layer].keys():
                             NIE[do][component][layer][neuron_id] = 0
                             counter[do][component][layer][neuron_id] = 0
@@ -225,6 +229,74 @@ def intervene(dataloader, components, mediators, cls, NIE, counter, probs, count
                                     probs['intervene'][do][component][layer][neuron_id].append(intervene_probs)
                                     for hook in hooks: hook.remove() 
                                     
+
+def ablation_intervention(config, nie_dataloader, intervene_num, intervene_tables, group, mediators, cls, counter_predictions, layers, model, label_maps, tokenizer, treatments, DEVICE, seed=None):
+    """ used for single intervention"""
+    if seed is not None:
+        print(f'high level intervention seed:{seed}')
+        if isinstance(seed, int): seed = str(seed)
+        cls = cls[seed]
+    else:
+        # when using original model
+        cls = cls[str(seed)] 
+    INTERVENTION_CLASS = config['intervention_class'][0] 
+    print(f'Intervention Class: {INTERVENTION_CLASS}')
+    print(f'Intervention type : {config["intervention_type"]}')
+    components = cls.keys() # 
+    assert len(components) == 6, f"don't cover all component types of transformer modules" 
+    assert len(layers) == 12, f"the computation does not cover follow all layers"
+
+    layer_ids  = [row for index, row in intervene_tables[group]['Layers'].items()]
+    components = [row for index, row in intervene_tables[group]['Components'].items()]
+    neuron_ids = [row for index, row in intervene_tables[group]['Neuron'].items()]
+    layer_ids  =  layer_ids[:intervene_num]
+    components =  components[:intervene_num]
+    neuron_ids =  neuron_ids[:intervene_num]
+    do = treatments[0]
+    probs = {'null': [], 'intervene': []}
+    counter = 0
+    
+    # collect Null model 
+    for batch_idx, (sentences, labels) in (t := tqdm(enumerate(nie_dataloader))):
+        t.set_description(f"NIE_dataloader:Null mode: batch_idx : {batch_idx}")
+        premise, hypo = sentences
+        pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
+        # distributions 
+        inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+        inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+        with torch.no_grad(): 
+            probs['null'].extend(F.softmax(model(**inputs).logits , dim=-1)[:, label_maps[INTERVENTION_CLASS]])
+
+    hooks = [] 
+    # registering model for intervention    
+    for layer_id, component, neuron_id in zip(layer_ids, components, neuron_ids):
+        Z = cls[component][do][int(layer_id)]
+        hooks.append(mediators[component](int(layer_id)).register_forward_hook(neuron_intervention(neuron_ids = [int(neuron_id)], 
+                                                                                            component=component,
+                                                                                            DEVICE = DEVICE,
+                                                                                            value=Z,
+                                                                                            intervention_type=config['intervention_type'],
+                                                                                            debug=False)))
+
+    # collect distributions intervention mode 
+    for batch_idx, (sentences, labels) in (t := tqdm(enumerate(nie_dataloader))):
+        t.set_description(f"NIE_dataloader:Intervene mode: batch_idx : {batch_idx}")
+        premise, hypo = sentences
+        pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
+        # distributions 
+        inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+        inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
+        with torch.no_grad(): 
+            probs['intervene'].extend(F.softmax(model(**inputs).logits , dim=-1)[:, label_maps[INTERVENTION_CLASS]])
+
+    ratio = (torch.Tensor(probs['intervene'])/torch.Tensor(probs['null'])) 
+    counter = len(ratio)
+    NIE = torch.sum(ratio - 1, dim=0) / counter
+    for hook in hooks: hook.remove() 
+
+    return NIE, counter
+      
+
 def prunning(model, layers):
 
     # Todo: generalize for any models
