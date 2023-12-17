@@ -177,9 +177,6 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
     
     with open(path, 'wb') as handle: 
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # pickle.dump(experiment_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"save utilizer to {path}  ! ")
 
 def test_mask(neuron_candidates =[]):
