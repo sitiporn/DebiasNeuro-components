@@ -61,10 +61,11 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
     
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
+        print(f'Loading CMA model: {model_path}')
     else:
         _model = model
         print(f'using original model as input to this function')
-    
+    breakpoint() 
     with open(save_nie_set_path, 'rb') as handle:
         nie_dataset = pickle.load(handle)
         nie_dataloader = pickle.load(handle)

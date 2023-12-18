@@ -37,7 +37,7 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
     from utils import load_model
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
-        print(f'loading original model: {model_path}')
+        print(f'Loading Counterfactual model: {model_path}')
     else:
         _model = model
         print(f'using original model as input to this function')
