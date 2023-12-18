@@ -58,14 +58,15 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
     NIE_path = { sorted(path.split('_'),key=len)[1 if config['dataset_name'] == 'qqp' else 0  ]: path for path in NIE_paths} 
     NIE_path =  NIE_path['all'] if 'all' in NIE_path.keys() else NIE_path[str(config['layer'])]
     print(f"perform Causal Mediation analysis...")
-    
+    import copy 
     if model_path is not None: 
-        _model = load_model(path= model_path, model=model)
+        _model = load_model(path= model_path, model=copy.deepcopy(model))
         print(f'Loading CMA model: {model_path}')
     else:
-        _model = model
+        _model = copy.deepcopy(model)
+        _model = _model.to(DEVICE)
         print(f'using original model as input to this function')
-    breakpoint() 
+    
     with open(save_nie_set_path, 'rb') as handle:
         nie_dataset = pickle.load(handle)
         nie_dataloader = pickle.load(handle)
