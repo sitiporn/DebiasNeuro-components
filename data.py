@@ -23,7 +23,7 @@ from pprint import pprint
 from utils import  EncoderParams
 from cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
 from intervention import Intervention, neuron_intervention, get_mediators
-from utils import get_ans, compute_acc
+from utils import get_ans, compute_acc, compute_maf1
 from utils import get_num_neurons, get_params, relabel, give_weight
 from torch.optim import Adam
 from transformers import AutoTokenizer, BertForSequenceClassification
@@ -1017,6 +1017,7 @@ def get_all_model_paths(LOAD_MODEL_PATH):
         # load best model is trained up to the end
         checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
         clean_model_files.append(checkpoint[-1])
+    print( clean_model_files) 
     assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
@@ -1041,6 +1042,8 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
     hans_avg = 0
     computed_acc_count = 0
     computed_hans_count = 0
+    acc_in = []
+    acc_out = []
     for seed, path in all_paths.items():
         if is_load_model:
             from utils import load_model
@@ -1094,6 +1097,7 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
                 print(f"neutral acc : {acc['neutral']}")
 
                 acc_avg += acc['all']
+                acc_in.append(acc_avg)
                 entail_avg += acc['entailment']
                 neutral_avg += acc['neutral']
                 contradiction_avg += acc['contradiction']
@@ -1101,15 +1105,18 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
 
             elif config['get_hans_result'] and 'heuristics'in cur_json: 
                 cur_hans_score = get_hans_result(cur_raw_distribution_path, config)
+                acc_out.append(cur_hans_score.item())
                 hans_avg += cur_hans_score
                 computed_hans_count +=1
                 print(f'has score :{cur_hans_score}')
     
     print(f'==================== Avearge scores ===================')
+    print(acc_in)
     print(f"average overall acc : {acc_avg / len(all_paths)}")
     print(f"averge contradiction acc : {contradiction_avg / len(all_paths)}")
     print(f"average entailment acc : {entail_avg   / len(all_paths)}")
     print(f"average neutral acc : {neutral_avg /  len(all_paths)}")
+    print(acc_out)
     print(f'avarge hans score : { hans_avg  / len(all_paths)}')
 
 def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
@@ -1276,13 +1283,13 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
     CHALLENGE_SET_JSONL = 'paws.dev_and_test.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
     json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
-    acc_avg = 0
+    maf1_avg = 0
     is_dup_avg = 0
     not_dup_avg = 0   
     paws_is_dup_avg = 0
     paws_not_dup_avg = 0   
     paws_avg = 0
-    computed_acc_count = 0
+    computed_maf1_count = 0
     computed_paws_count = 0
     for seed, path in all_paths.items():
         if is_load_model:
@@ -1338,32 +1345,31 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
                 print(f'saving without condition distribution into : {cur_raw_distribution_path}')
             
             if 'paws' not in cur_json: 
-                acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
+                maf1 = compute_maf1(cur_raw_distribution_path, config["label_maps"])
                
-                if 'Null' in acc.keys():
-                    acc = acc['Null']
-                print(f"overall acc : {acc['all']}")
-                print(f"is_duplicate acc : {acc['is_duplicate']}")
-                print(f"not_duplicate acc : {acc['not_duplicate']}")
+                if 'Null' in maf1.keys():
+                    maf1 = maf1['Null']
+                print(f"overall maf1 : {maf1['all']}")
+                print(f"is_duplicate maf1 : {maf1['is_duplicate']}")
+                print(f"not_duplicate maf1 : {maf1['not_duplicate']}")
                 # print(f"neutral acc : {acc['neutral']}")
-
-                acc_avg += acc['all']
-                is_dup_avg += acc['is_duplicate']
-                not_dup_avg += acc['not_duplicate']
-                computed_acc_count += 1
+                maf1_avg += maf1['all']
+                is_dup_avg += maf1['is_duplicate']
+                not_dup_avg += maf1['not_duplicate']
+                computed_maf1_count += 1
             elif config['get_paws_result'] and 'paws'in cur_json: 
-                acc_paws = compute_acc(cur_raw_distribution_path, config["label_maps"])
+                maf1_paws = compute_maf1(cur_raw_distribution_path, config["label_maps"])
                
-                if 'Null' in acc_paws.keys():
-                    acc_paws = acc_paws['Null']
-                print(f"overall paws acc : {acc_paws['all']}")
-                print(f"not_dup paws acc : {acc_paws['not_duplicate']}")
-                print(f"is_dup paws acc : {acc_paws['is_duplicate']}")
+                if 'Null' in maf1_paws.keys():
+                    maf1_paws = maf1_paws['Null']
+                print(f"overall paws maf1 : {maf1_paws['all']}")
+                print(f"not_dup paws maf1 : {maf1_paws['not_duplicate']}")
+                print(f"is_dup paws maf1 : {maf1_paws['is_duplicate']}")
                 # print(f"neutral acc : {acc['neutral']}")
 
-                paws_avg += acc_paws['all']
-                paws_not_dup_avg += acc_paws['not_duplicate']
-                paws_is_dup_avg += acc_paws['is_duplicate']
+                paws_avg += maf1_paws['all']
+                paws_not_dup_avg += maf1_paws['not_duplicate']
+                paws_is_dup_avg += maf1_paws['is_duplicate']
                 computed_paws_count += 1
                 # breakpoint()
                 # cur_hans_score = get_symm_result(cur_raw_distribution_path, config)
@@ -1371,12 +1377,12 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
                 # print(f'symm score :{cur_hans_score}')
     
     print(f'==================== Average scores ===================')
-    print(f"average overall acc : {acc_avg / len(all_paths)}")
-    print(f"averge not dup acc : {not_dup_avg / len(all_paths)}")
-    print(f"average is dup acc : {is_dup_avg   / len(all_paths)}")
+    print(f"average overall maf1 : {maf1_avg / len(all_paths)}")
+    print(f"averge not dup maf1 : {not_dup_avg / len(all_paths)}")
+    print(f"average is dup maf1 : {is_dup_avg   / len(all_paths)}")
     print(f'avarge paws score : { paws_avg  / len(all_paths)}')
-    print(f"averge paws not dup acc : {paws_not_dup_avg / len(all_paths)}")
-    print(f"average paws dup SUPPORTS acc : {paws_is_dup_avg   / len(all_paths)}") 
+    print(f"averge paws not dup maf1 : {paws_not_dup_avg / len(all_paths)}")
+    print(f"average paws dup SUPPORTS maf1 : {paws_is_dup_avg   / len(all_paths)}") 
 
 
 def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path):
