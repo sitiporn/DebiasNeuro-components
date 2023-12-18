@@ -1,0 +1,26 @@
+config: ./configs/pcgu_config.yaml
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+Counterfactual type: ['High-overlap']
+Intervention type : weaken
+loading NIE : ../NIE/recent_baseline/seed_3990/avg_embeddings_High-overlap_computed_all_layers_.pickle
+++++++++ Component-Neuron_id: 0.0 neurons :+++++++++
+Done saving top neurons into pickle !
+loading NIE : ../NIE/recent_baseline/seed_409/avg_embeddings_High-overlap_computed_all_layers_.pickle
+++++++++ Component-Neuron_id: 0.0 neurons :+++++++++
+Done saving top neurons into pickle !
+loading NIE : ../NIE/recent_baseline/seed_1548/avg_embeddings_High-overlap_computed_all_layers_.pickle
+++++++++ Component-Neuron_id: 0.0 neurons :+++++++++
+Done saving top neurons into pickle !
+loading NIE : ../NIE/recent_baseline/seed_3099/avg_embeddings_High-overlap_computed_all_layers_.pickle
+++++++++ Component-Neuron_id: 0.0 neurons :+++++++++
+Done saving top neurons into pickle !
+loading NIE : ../NIE/recent_baseline/seed_3785/avg_embeddings_High-overlap_computed_all_layers_.pickle
+++++++++ Component-Neuron_id: 0.0 neurons :+++++++++
+Done saving top neurons into pickle !
+loading top neurons : ../pickles/top_neurons/recent_baseline/top_neuron_409_percent_High-overlap_all_layers.pickle
+freeze whole tensor: bert.embeddings.word_embeddings.weight
+freeze whole tensor: bert.embeddings.position_embeddings.weight
+freeze whole tensor: bert.embeddings.token_type_embeddings.weight
+freeze whole tensor: bert.embeddings.LayerNorm.weight
+freeze whole tensor: bert.embeddings.LayerNorm.bias

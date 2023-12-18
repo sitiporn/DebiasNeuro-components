@@ -1,0 +1,1665 @@
+config: ./configs/tiny_masking_rep.yaml
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+Counterfactual type: ['High-overlap']
+Intervention type : weaken
+current model path : ../models/recent_baseline/seed_3785/checkpoint-36500/pytorch_model.bin
+Loading path for single at seed:3785, layer: 11
+Q: ../counterfactuals/recent_baseline/seed_3785/avg_Q_counterfactual_representation.pickle
+K: ../counterfactuals/recent_baseline/seed_3785/avg_K_counterfactual_representation.pickle
+V: ../counterfactuals/recent_baseline/seed_3785/avg_V_counterfactual_representation.pickle
+AO: ../counterfactuals/recent_baseline/seed_3785/avg_AO_counterfactual_representation.pickle
+I: ../counterfactuals/recent_baseline/seed_3785/avg_I_counterfactual_representation.pickle
+O: ../counterfactuals/recent_baseline/seed_3785/avg_O_counterfactual_representation.pickle
+NIE_paths: ['../NIE/recent_baseline/seed_3785/avg_embeddings_High-overlap_computed_all_layers_.pickle']
+neuron path: ../pickles/top_neurons/recent_baseline/top_neuron_3785_percent_High-overlap_all_layers.pickle
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.0/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.0/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.0/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.0/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.0/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.0/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.0/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.0/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.0/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.0/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.1/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.1/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.1/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.1/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.1/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.1/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.1/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.1/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.1/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.1/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.2/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.2/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.2/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.2/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.2/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.2/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.2/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.2/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.2/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.2/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.3/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.3/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.3/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.3/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.3/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.3/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.3/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.3/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.3/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.3/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.4/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.4/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.4/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.4/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.4/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.4/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.4/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.4/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.4/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.4/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.5/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.5/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.5/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.5/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.5/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.5/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.5/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.5/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.5/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.5/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.6/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.6/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.6/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.6/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.6/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.6/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.6/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.6/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.6/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.6/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.7/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.7/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.7/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.7/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.7/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.7/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.7/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.7/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.7/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.7/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.8/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.8/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.8/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.8/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.8/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.8/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.8/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.8/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.8/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.8/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.9/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.9/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.9/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.9/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.9/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.9/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.9/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-0.9/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-0.9/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-1.0/txt_answer_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-1.0/txt_answer_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-1.0/txt_answer_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-1.0/txt_answer_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-1.0/txt_answer_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-1.0/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-1.0/txt_answer_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-1.0/txt_answer_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Null: ../pickles/prediction/recent_baseline/seed_3785/esp-1.0/txt_answer_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+saving text answer's bert predictions Intervene: ../pickles/prediction/recent_baseline/seed_3785/esp-1.0/txt_answer_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.0/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.0/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 0.0, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.0/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.0/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 0.0, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 46.01
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 45.94
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.0/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.0/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 0.0, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 35.67
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 35.52
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.0/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.0/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 0.0, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 35.47
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 35.24
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.0/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.0/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 0.0, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 35.46
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 35.23
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.1/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.1/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 0.1, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.1/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0006
+constituent: 0.0
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.1/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 0.1, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 56.73
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 57.43
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.01
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.1/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.1/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 0.1, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 37.39
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 37.15
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.1/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.1/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 0.1, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 35.81
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 35.59
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.1/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.1/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 0.1, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 35.77
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 35.58
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.2/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.2/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 0.2, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.2/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0116
+subsequence: 0.0052
+constituent: 0.0082
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.2/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 0.2, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 71.19
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 70.92
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.42
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.2/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.2/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 0.2, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 47.11
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 47.31
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.2/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.2/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 0.2, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 41.48
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 41.41
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.2/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.2/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 0.2, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 41.01
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 40.55
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.3/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.3/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 0.3, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.3/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9994
+subsequence: 0.9998
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0652
+subsequence: 0.031
+constituent: 0.0586
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.3/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 0.3, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 78.62
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 78.41
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 52.57
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.3/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0056
+subsequence: 0.0018
+constituent: 0.0002
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.3/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 0.3, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 68.13
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 67.97
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.13
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.3/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0008
+subsequence: 0.0004
+constituent: 0.0
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.3/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 0.3, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 63.24
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 62.85
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.02
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.3/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0
+subsequence: 0.0
+constituent: 0.0
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.3/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 0.3, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 61.00
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 60.25
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.00
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.4/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.4/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 0.4, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.4/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9982
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.1206
+subsequence: 0.0516
+constituent: 0.0986
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.4/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 0.4, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 80.97
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 81.16
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 54.48
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.4/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9998
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0508
+subsequence: 0.02
+constituent: 0.006
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.4/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 0.4, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 77.58
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 77.28
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 51.28
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.4/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0204
+subsequence: 0.0074
+constituent: 0.0012
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.4/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 0.4, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 75.47
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 75.41
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.48
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.4/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 1.0
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.01
+subsequence: 0.003
+constituent: 0.0004
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.4/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 0.4, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 73.66
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 73.60
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 50.22
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.5/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.5/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 0.5, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.5/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9966
+subsequence: 1.0
+constituent: 0.9996
+Heuristic  non-entailed results:
+lexical_overlap: 0.1602
+subsequence: 0.0766
+constituent: 0.1302
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.5/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 0.5, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 81.82
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.24
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 56.05
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.5/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9986
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.107
+subsequence: 0.046
+constituent: 0.0314
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.5/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 0.5, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 80.64
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 80.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 53.05
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.5/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9994
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0724
+subsequence: 0.033
+constituent: 0.0116
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.5/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 0.5, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 79.76
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 79.56
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 51.94
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.5/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9996
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.0564
+subsequence: 0.024
+constituent: 0.0062
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.5/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 0.5, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 78.96
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 78.65
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 51.44
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.6/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.6/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 0.6, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.6/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9946
+subsequence: 1.0
+constituent: 0.9996
+Heuristic  non-entailed results:
+lexical_overlap: 0.2004
+subsequence: 0.0942
+constituent: 0.1648
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.6/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 0.6, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 82.23
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.64
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 57.56
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.6/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9968
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.158
+subsequence: 0.075
+constituent: 0.0882
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.6/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 0.6, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 81.61
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 81.84
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 55.30
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.6/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9984
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.1328
+subsequence: 0.0604
+constituent: 0.0558
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.6/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 0.6, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 81.24
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 81.39
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 54.12
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.6/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9984
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.1176
+subsequence: 0.0534
+constituent: 0.038
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.6/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 0.6, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 80.90
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 81.00
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 53.46
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.7/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.7/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 0.7, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.7/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9936
+subsequence: 1.0
+constituent: 0.9992
+Heuristic  non-entailed results:
+lexical_overlap: 0.2328
+subsequence: 0.1114
+constituent: 0.1984
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.7/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 0.7, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 81.96
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.91
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 58.92
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.7/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9948
+subsequence: 1.0
+constituent: 0.9996
+Heuristic  non-entailed results:
+lexical_overlap: 0.2082
+subsequence: 0.0998
+constituent: 0.151
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.7/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 0.7, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 82.24
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.63
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 57.56
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.7/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9954
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.1904
+subsequence: 0.0908
+constituent: 0.1244
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.7/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 0.7, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 82.06
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.31
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 56.68
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.7/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.996
+subsequence: 1.0
+constituent: 1.0
+Heuristic  non-entailed results:
+lexical_overlap: 0.1806
+subsequence: 0.0874
+constituent: 0.1032
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.7/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 0.7, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 81.86
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.05
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 56.12
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.8/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.8/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 0.8, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.8/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9902
+subsequence: 1.0
+constituent: 0.999
+Heuristic  non-entailed results:
+lexical_overlap: 0.2668
+subsequence: 0.1266
+constituent: 0.231
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.8/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 0.8, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 81.76
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 83.10
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 60.23
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.8/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9924
+subsequence: 1.0
+constituent: 0.9994
+Heuristic  non-entailed results:
+lexical_overlap: 0.2496
+subsequence: 0.1196
+constituent: 0.1972
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.8/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 0.8, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 82.07
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 83.02
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 59.30
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.8/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9938
+subsequence: 1.0
+constituent: 0.9994
+Heuristic  non-entailed results:
+lexical_overlap: 0.2378
+subsequence: 0.1164
+constituent: 0.1852
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.8/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 0.8, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 82.12
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.90
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 58.88
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.8/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9938
+subsequence: 1.0
+constituent: 0.9994
+Heuristic  non-entailed results:
+lexical_overlap: 0.2332
+subsequence: 0.114
+constituent: 0.1734
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.8/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 0.8, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 82.23
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.83
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 58.56
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.9/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.9/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 0.9, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.9/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9856
+subsequence: 1.0
+constituent: 0.9988
+Heuristic  non-entailed results:
+lexical_overlap: 0.3
+subsequence: 0.14
+constituent: 0.2598
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.9/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 0.9, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 81.59
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 83.02
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 61.40
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.9/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9866
+subsequence: 1.0
+constituent: 0.9988
+Heuristic  non-entailed results:
+lexical_overlap: 0.2902
+subsequence: 0.1382
+constituent: 0.2492
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.9/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 0.9, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 81.76
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 83.03
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 61.05
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.9/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9878
+subsequence: 1.0
+constituent: 0.999
+Heuristic  non-entailed results:
+lexical_overlap: 0.285
+subsequence: 0.1368
+constituent: 0.2434
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.9/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 0.9, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 81.80
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 83.11
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 60.87
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.9/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.989
+subsequence: 1.0
+constituent: 0.9992
+Heuristic  non-entailed results:
+lexical_overlap: 0.283
+subsequence: 0.1356
+constituent: 0.2356
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-0.9/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 0.9, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 81.81
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 83.08
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 60.71
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-1.0/result_percent_Null_all_layers_0.0-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.0 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-1.0/result_percent_Intervene_all_layers_0.0-k_High-overlap_weaken_hans.txt
+*********** esp: 1.0, masking rate : 0.0 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-1.0/result_percent_Null_all_layers_0.025-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.025 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-1.0/result_percent_Intervene_all_layers_0.025-k_High-overlap_weaken_hans.txt
+*********** esp: 1.0, masking rate : 0.025 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-1.0/result_percent_Null_all_layers_0.05-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.05 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-1.0/result_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt
+*********** esp: 1.0, masking rate : 0.05 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-1.0/result_percent_Null_all_layers_0.075-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.075 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-1.0/result_percent_Intervene_all_layers_0.075-k_High-overlap_weaken_hans.txt
+*********** esp: 1.0, masking rate : 0.075 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-1.0/result_percent_Null_all_layers_0.1-k_High-overlap_weaken_hans.txt
+Heuristic  entailed results:
+lexical_overlap: 0.98
+subsequence: 0.9998
+constituent: 0.9984
+Heuristic  non-entailed results:
+lexical_overlap: 0.3322
+subsequence: 0.1542
+constituent: 0.288
+saving evaluation prediction 0.1 into : ../pickles/evaluations/recent_baseline/seed_3785/esp-1.0/result_percent_Intervene_all_layers_0.1-k_High-overlap_weaken_hans.txt
+*********** esp: 1.0, masking rate : 0.1 **************
+Matched :
+-- Intervene  : 81.41
+-- Null : 81.41
+Dev-mm :
+-- Intervene  : 82.78
+-- Null : 82.78
+HAN scores : 
+-- Intervene  : 62.54
+-- Null  : 62.54
