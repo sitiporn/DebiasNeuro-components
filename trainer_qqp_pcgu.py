@@ -11,9 +11,6 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from utils import  report_gpu
 from cma_utils import collect_counterfactuals, trace_counterfactual, geting_counterfactual_paths, get_single_representation, geting_NIE_paths
 from optimization_utils import test_restore_weight
-from optimization_utils import trace_optimized_params, initial_partition_params
-from optimization import partition_param_train, restore_original_weight
-
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -22,25 +19,27 @@ import operator
 import torch.nn.functional as F
 import numpy as np
 from pprint import pprint
+from cma import get_candidate_neurons 
 #from nn_pruning.patch_coordinator import (
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-from data import ExperimentDataset, Dev, print_config
+from data import ExperimentDataset, Dev, get_conditional_inferences, eval_model, print_config
+from optimization_utils import trace_optimized_params, initial_partition_params
+from optimization import partition_param_train, restore_original_weight
 from data import rank_losses
-
 from intervention import intervene, high_level_intervention
-# from cma import cma_analysis, get_distribution, get_top_k
+from cma import cma_analysis,  get_distribution
 from utils import debias_test
 from cma_utils import get_nie_set_path
 import yaml
 from utils import get_num_neurons, get_params, get_diagnosis
 from data import get_analysis 
 from transformers import AutoTokenizer, BertForSequenceClassification
-from optimization import exclude_grad
+from optimization import intervene_grad
 from transformers import Trainer
 # from torch.utils.data import Dataset, DataLoader
-from transformers import TrainingArguments, Trainer, AdamW, DataCollatorWithPadding
+from transformers import TrainingArguments, Trainer, DataCollatorWithPadding
 from datasets import Dataset
 from torch.utils.data import IterableDataset, RandomSampler, Sampler
 import evaluate
@@ -82,8 +81,8 @@ from torch.utils.data.distributed import DistributedSampler
 from transformers.trainer_pt_utils import IterableDatasetShard
 from transformers.utils import is_torch_tpu_available
 from transformers.trainer_utils import speed_metrics, TrainOutput
+from data import get_all_model_paths
 
-from custom_model import BertForSequenceClassificationReweight
 logger = logging.get_logger(__name__)
 
 def get_max_padding_lenght(input_ids:torch.Tensor):
@@ -100,7 +99,7 @@ def get_max_padding_lenght(input_ids:torch.Tensor):
         max_pad_len = 0
     print(f'padding len : {max_pad_len}')
 
-class ReweightTrainer(Trainer):
+class CustomTrainer(Trainer):
     def __init__(self,
                  model: Union[PreTrainedModel, nn.Module] = None,
                  args: TrainingArguments = None,
@@ -131,7 +130,6 @@ class ReweightTrainer(Trainer):
         
         self._loss = torch.nn.CrossEntropyLoss()
     
-    # Todo: custom where scheduler being created
     def create_scheduler(self, num_training_steps: int, optimizer: torch.optim.Optimizer = None):
         """
         Setup the scheduler. The optimizer of the trainer must have been set up either before this method is called or
@@ -142,9 +140,6 @@ class ReweightTrainer(Trainer):
         """
         cut_frac = 0.06
 
-        # bugs: lr_scheuduler is no get_lr()[0]
-        # Scheduler -> slanted override 
-        # Allennlp -> override from
         if self.lr_scheduler is None:
             self.lr_scheduler = SlantedTriangular(optimizer = self.optimizer, 
                                            num_epochs = self.args.num_train_epochs,
@@ -201,7 +196,6 @@ class ReweightTrainer(Trainer):
         self._train_batch_size = batch_size
         # Data loader and number of training steps
         train_dataloader = self.get_train_dataloader()
-        # breakpoint()
         from transformers.debug_utils import DebugOption, DebugUnderflowOverflow
         # Setting up training control variables:
         # number of training epochs: num_train_epochs
@@ -583,11 +577,8 @@ class ReweightTrainer(Trainer):
         else:
             labels = None
         
-        # from intervention import compute_nie
         outputs = model(**inputs)
-        # Todo: get nie scores
-        # Todo: get nie scores
-        # compute_nie(inputs, counterfactual=None, model=model)
+        
         # Save past state if it exists
         # TODO: this needs to be fixed and made cleaner later.
         if self.args.past_index >= 0:
@@ -597,8 +588,8 @@ class ReweightTrainer(Trainer):
             loss = self.label_smoother(outputs, labels)
         else:
             # We don't use .loss here since the model may return tuples instead of ModelOutput.
-            # breakpoint()
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+            # loss = -loss # like PCGU
             # self._loss(outputs['logits'], inputs['labels'].long().view(-1))
 
         return (loss, outputs) if return_outputs else loss
@@ -613,40 +604,159 @@ def main():
     global label_maps
     global metric
 
+    # Todo: changing  
+    # config
+    # model
+    # dataset 
+    # custom dataset
 
-    config_path = "./configs/reweight_config.yaml"
+    config_path = "./configs/pcgu_config_qqp.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/reweight/' 
-    label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
+    NIE_paths = []
+    mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
+    # DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    dataset_name = config['dataset_name']
+    print(f'current dataset_name: {dataset_name}')
+    # ******************** PATH ********************
+    # used to save model training on PCGU
+    # output_dir = '../models/pcgu_qqp_reweight/' 
+    # Here
+    # output_dir = '../models/pcgu_qqp_poe/' 
+    # output_dir = '../models/pcgu_qqp_pred_correct_only_baseline/' 
+    # output_dir = '../models/pcgu_qqp_pred_correct_only_reweight/' 
+    output_dir = '../models/pcgu_qqp_pred_correct_only_poe_/'
+            
+    # Read
+    # used to train 
+    # LOAD_MODEL_PATH = '../models/baseline_qqp_mysplit/' 
+    # Here
+    # LOAD_MODEL_PATH = '../models/reweight_qqp_mysplit/' 
+    LOAD_MODEL_PATH = '../models/poe_qqp_mysplit/' 
+    # method_name =  'poe_qqp_mysplit' #LOAD_MODEL_PATH.split('/')[-2] #reweight2' # 'poe2'
+    # method_name =  'baseline_qqp_mysplit' 
+    # Here
+    # method_name =  'reweight_qqp_mysplit' 
+    method_name =  'poe_qqp_mysplit' 
     
+    if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
+    # prepare validation for computing NIE scores
+    tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+    # Todo: get experiment on FEVER set
+    experiment_set = ExperimentDataset(config, encode = tokenizer, dataset_name=dataset_name)                            
+    exp_loader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
+    save_nie_set_path = f'../pickles/{dataset_name}_class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/{dataset_name}_nie_{config["num_samples"]}_samples.pickle'
+    if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
+    counterfactual_paths, _ = geting_counterfactual_paths(config, method_name)
+    # path to save NIE scores
+    NIE_paths, _ = geting_NIE_paths(config, method_name, mode)
+    print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
+    for path in counterfactual_paths: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
+    print(f'NIE_paths: {NIE_paths}')
+
+    from optimization_utils import get_advantaged_samples
+
     # random seed
-    seed = config['seed'] #random.randint(0,10000)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
+    seed = config['seed'] 
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+    else: 
+        seed = str(seed)
+    
+    print(f'current {method_name} : seed : {seed}')
+    
+
+    if not os.path.exists(output_dir): os.mkdir(output_dir) 
     output_dir = os.path.join(output_dir, "seed_"+ str(seed))
     if not os.path.exists(output_dir): os.mkdir(output_dir) 
-    # "validation_metric": "+accuracy"?
+    
+    # *************** Train model stuff ***************
+    label_maps = config['label_maps'] 
     metric = evaluate.load(config["validation_metric"])
     model_config = BertConfig(config['model']["model_name"])
     model_config.num_labels = len(label_maps.keys())
-    tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
-    model = BertForSequenceClassificationReweight.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
+    model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
+    reference_model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer) if config['data_loader']['batch_sampler']['dynamic_padding'] else None
-    dataset = {}
-    tokenized_datasets = {}
-
-    for data_name in ["train_data", "validation_data", "test_data"]:
-        print(f'========= {data_name} ===========')
-        tokenized_datasets[data_name] = CustomDataset(config, label_maps=label_maps, data_name=data_name)
+    # Todo: get top_neurons
+    # Done checking model counterfactual_path and specific model
+    # collect_counterfactuals(model, model_path, dataset_name, method_name, seed, counterfactual_paths, config, experiment_set, exp_loader, tokenizer, DEVICE=DEVICE) 
+    # cma_analysis(config, 
+    #             model_path,
+    #             method_name, 
+    #             seed, 
+    #             counterfactual_paths, 
+    #             NIE_paths, 
+    #             save_nie_set_path = save_nie_set_path, 
+    #             model = model, 
+    #             treatments = mode, 
+    #             tokenizer = tokenizer, 
+    #             experiment_set = experiment_set, 
+    #             DEVICE = DEVICE, 
+    #             DEBUG = True)   
+    
+    get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False, mode=config['top_neuron_mode']) 
+    # ************************** PCGU ***************************
+    # NOTE: scale gradient by confident scores <- kind of reweighting (sample base)
+    # spatial adaptive gradient scaler by NIE scores (NIE base)
+    from optimization import partition_param_train, restore_original_weight
+    hooks = []
+    advantaged_bias = None
+    advantaged_main, advantaged_bias = get_advantaged_samples(config, model, seed, metric=metric, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model=True, method_name=method_name,device=DEVICE,collect=config['collect_adv'])
+    
+    if config['model']['is_load_trained_model']:
+        from utils import load_model
+        all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+        path = all_paths[str(seed)]
+        model = load_model(path=path, model=model, device=DEVICE)
+        print(f'Loading updated model from : {path} to optimize on PCGU done!')
+        reference_model = load_model(path=path, model=reference_model, device=DEVICE)
+        print(f'Loading reference model from : {path} done!')
+    else:
+        print(f'Using original model to optimize on PCGU')
+    
+    from utils import compare_weight
+    
+    model = initial_partition_params(config, method_name, model, do=mode[0], collect_param=config['collect_param'], mode=config['top_neuron_mode']) 
+    model, hooks = intervene_grad(model, hooks=hooks, method_name=method_name, config=config, collect_param=config['collect_param'], DEBUG=False)
+    compare_weight(updated_model=model, reference_model=reference_model)
+    
+    for data_mode in ["train_data", "validation_data", "test_data"]:
+        print(f'************ {data_mode} ************')
+        adv_samples =  advantaged_bias if data_mode  == "train_data" else None
+        tokenized_datasets[data_mode] = CustomDataset(config, label_maps=label_maps, data_mode=data_mode, adv_samples=adv_samples)
+    
     print(f'Config of dataloader') 
     print(f'Group by len : {config["data_loader"]["batch_sampler"]["group_by_length"]}')
     print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")
     
+    # ************************** Training ***************************
+    lr = float(config['optimizer']['lr']) # follow PCGU papers
+    pcgu_epochs = 15
+    pcgu_num_batch_per_epoch = 4
+    pcgu_batch_size = 64
+    our_samples = len(advantaged_bias) * config['num_epochs']
+    pcgu_samples = (pcgu_batch_size * pcgu_num_batch_per_epoch * pcgu_epochs)
+    lr = (pcgu_samples /  our_samples) * lr
+
+    print(f'Our Learning samples : {our_samples}')
+    print(f'Pcgu Learning samples : {pcgu_samples}')
+    print(f'learning_rate : {lr}')
+    print(f'Total epochs : {config["num_epochs"]}')
+    print(f'random advantaged samples: {config["random_adv"]}')
+    print(f'top neruon mode : {config["top_neuron_mode"]}')
+    print(f'#advantaged sampled len: {len(advantaged_bias)}')
+    print(f'Predict candidated class correct : {config["correct_pred"]}')
+    print(f'Collect advantaged samples : {config["collect_adv"]}')
+
     training_args = TrainingArguments(output_dir = output_dir,
                                     report_to="none",
                                     overwrite_output_dir = True,
@@ -668,31 +778,39 @@ def main():
                                     group_by_length = config["data_loader"]["batch_sampler"]["group_by_length"],
                                     )
     
-    opitmizer = AdamW(params=model.parameters(),
-                    lr= float(config['optimizer']['lr']) , 
-                    weight_decay = config['optimizer']['weight_decay'])
+    from optimization import CustomAdamW
+    from transformers import AdamW
+    import torch.optim as optim
 
-    # NOTE: for baseline just change 
-    # config: baseline_config.yaml
-    # model: BertForSequenceClassification
-
-    trainer = ReweightTrainer(
+    opitmizer = CustomAdamW(params=model.parameters(),
+                            original_model= reference_model,
+                            seed = seed,
+                            method_name=method_name,
+                            DEVICE=DEVICE,
+                            collect_param=config['collect_param'],
+                            lr= lr , 
+                            weight_decay = config['optimizer']['weight_decay'])
+    
+    trainer = CustomTrainer(
         model,
         training_args,
         train_dataset= tokenized_datasets["train_data"],
         eval_dataset= tokenized_datasets["validation_data"],
         tokenizer =tokenizer, 
-        # "validation_metric": "+accuracy"?
         compute_metrics=compute_metrics,
         optimizers = (opitmizer, None),
         data_collator=data_collator,
         )
     
-   
     trainer.train()
-    
+    # NOTE:
+    # biased_scores = count_negations(claim_sentences) 
+    # intervention: compute nie; ratio RF
+    # advantaged samples -> RF class-only
+    # focal loss is suitable for training whole model 
+    # distance loss 
+    # objective is to let model learn to deviate distributions from bias model by using adv samples
 
 if __name__ == "__main__":
     main()
      
-
