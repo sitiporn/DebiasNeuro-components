@@ -1,0 +1,41 @@
+config: ./configs/pcgu_config.yaml
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+Counterfactual type: ['High-overlap']
+Intervention type : weaken
+Loading path for single at seed:409, layer: 11
+Q: ../counterfactuals/reweight2/seed_409/avg_Q_counterfactual_representation.pickle
+K: ../counterfactuals/reweight2/seed_409/avg_K_counterfactual_representation.pickle
+V: ../counterfactuals/reweight2/seed_409/avg_V_counterfactual_representation.pickle
+AO: ../counterfactuals/reweight2/seed_409/avg_AO_counterfactual_representation.pickle
+I: ../counterfactuals/reweight2/seed_409/avg_I_counterfactual_representation.pickle
+O: ../counterfactuals/reweight2/seed_409/avg_O_counterfactual_representation.pickle
+NIE_paths: ['../NIE/reweight2/seed_409/avg_embeddings_High-overlap_computed_all_layers_.pickle']
+Loading model from ../models/debug_baseline/seed_409/checkpoint-2000/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_multinli.pickle
+loading distributions and labels from : ../pickles/performances/inference_multinli.pickle
+compute_acc modes:['Null']
+overall acc : 0.8065500406834825
+contradiction acc : 0.8842592592592593
+entailment acc : 0.75541438059486
+neutral acc : 0.782678171939917
+saving without condition distribution into : ../pickles/performances/inference_heuristics.pickle
+hans loading from : ../pickles/performances/inference_heuristics.pickle
+saving text answer's bert predictions: ../pickles/performances/hans_text_answers.txt
+Heuristic  entailed results:
+lexical_overlap: 0.8652
+subsequence: 0.9864
+constituent: 0.9198
+Heuristic  non-entailed results:
+lexical_overlap: 0.653
+subsequence: 0.1538
+constituent: 0.5214
+saving evaluation predictoins into : ../pickles/performances/hans_scores.txt
+average score : 0.6832666397094727
+has score :0.6832666397094727
+==================== Avearge scores ===================
+average overall acc : 0.8065500406834825
+averge contradiction acc : 0.8842592592592593
+average entailment acc : 0.75541438059486
+average neutral acc : 0.782678171939917
+avarge hans score : 0.6832666397094727
