@@ -39,7 +39,6 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
     # dev_set = Dev(config['dev_path'], config['dev_json'])
     # dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     if config['computed_all_layers']:
         if mode == 'sorted':
@@ -150,6 +149,9 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
             with open(cur_restore_path, 'wb') as handle:
                 pickle.dump(encoder_params[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"saving {layer}'s components into {cur_restore_path}")
+    
+    print(f'initial_partition_params mode : {mode}') 
+    
     return model
 
 def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False , DEBUG=False):
@@ -263,6 +265,8 @@ def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
     return grad  * mask
 
 def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load_model, method_name, device, collect=False):
+    seed = config['seed'] 
+    
     # Todo: divide label
     biased_label_maps = config['label_maps']
     main_label_maps = config['label_maps']
@@ -276,6 +280,8 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
     predictions = []
     results = []
     candidated_class = config['candidated_class'][0]
+    print(f'geting advantaged samples.... ')
+    print(f'using: {train_data}')
 
     if collect:
         from data import get_all_model_paths
@@ -414,7 +420,27 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
 
     # assert len(advantaged_bias.gold_label.unique()) == 1
     # assert candidated_class in advantaged_bias.gold_label.unique()
+    print(f'predict candidated class:')
     print(f'#advantaged samples: {advantaged_bias.shape[0]}, #disadvantaged samples: {disadvantaged_bias.shape[0]}')
+    
+    if config["correct_pred"]:
+        print(f'predict candidates and predict correct class')
+        correct_prediction_mask = advantaged_bias.gold_label == candidated_class
+        advantaged_bias =  advantaged_bias[correct_prediction_mask]
+        advantaged_main =  advantaged_main[correct_prediction_mask]
+        print(f'#advantaged samples: {advantaged_bias.shape[0]}, #disadvantaged samples: {disadvantaged_bias.shape[0]}')
+    
+    if config["random_adv"]:
+        ids = []
+        while len(set(ids)) < advantaged_bias.shape[0]:
+            id = int(torch.randint(0, biased_df.shape[0], size=(1,)))
+            ids.append(id)
+            ids = list(set(ids))
+
+        assert len(set(ids)) == advantaged_bias.shape[0]
+        advantaged_bias = biased_df.iloc[ids]
+        print(f'random advantaged samples:')
+        print(f'#advantaged samples: {advantaged_bias.shape[0]}, #disadvantaged samples: {disadvantaged_bias.shape[0]}')
     
     return  advantaged_main, advantaged_bias
 
