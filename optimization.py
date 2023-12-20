@@ -32,6 +32,7 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
+
     #  walking in Encoder's parameters
     for param_name, param in model.named_parameters(): 
         splited_name = param_name.split('.')
@@ -44,11 +45,11 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
         if mode == 'sorted':
             cur_restore_path = os.path.join(restore_path, f'{seed}_layer{layer_id}_collect_param={collect_param}_components.pickle')
         elif mode == 'random':
-            cur_restore_path = os.path.join(restore_path, f'{seed}_random_layer{layer_id}_collect_param={collect_param}_components.pickle')
-       
+            cur_restore_path = os.path.join(restore_path, f'{seed}_radom_layer{layer_id}_collect_param={collect_param}_components.pickle')
+        
         with open(cur_restore_path, 'rb') as handle:
             layer_params = pickle.load(handle)
-        
+
         # group by components 
         train_neuron_ids = group_layer_params(layer_params, mode='train')
         frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
@@ -70,17 +71,19 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
                 if component in list(train_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
             elif child == 'bias':
                 if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
-            print(f'exlude_grad func dense : {param_name}') 
+            print(f'reverse grad dense : {param_name}') 
         else: 
             if child == 'weight': 
                 if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG )))
             elif child == 'bias':
                 if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
-            print(f'exlude_grad func : {param_name}')
+            print(f'reverse grad  : {param_name}')
         
 
         # masking grad hooks : 144
         # reverse grad hooks : 134
+    print(f'reverse grad mode: {mode}')
+    
     return model, hooks
 
 def restore_original_weight(model, DEBUG = False):
@@ -251,6 +254,7 @@ class CustomAdamW(Optimizer):
 
     def __init__(
         self,
+        config,
         params: Iterable[nn.parameter.Parameter],
         original_model: Iterable[nn.parameter.Parameter],
         seed,
@@ -295,7 +299,8 @@ class CustomAdamW(Optimizer):
         self.component_mappings = {}
         for k, v in zip(component_keys, mediators.keys()): self.component_mappings[k] = v
         self.DEVICE = DEVICE
-        
+        self.config = config
+        print(f'Custom optimizer freze mode :{self.config["top_neuron_mode"]}')
 
     @torch.no_grad()
     def step(self, closure: Callable = None):
@@ -361,11 +366,15 @@ class CustomAdamW(Optimizer):
                 child = splited_name[-1]
                 layer_id, component = get_specific_component(splited_name, self.component_mappings) 
                 freeze_param_name = splited_name[-1]
-                cur_restore_path = os.path.join(self.restore_path, f'{self.seed}_layer{layer_id}_collect_param={self.collect_param}_components.pickle')
+                
+                if self.config["top_neuron_mode"] == 'sorted':
+                    cur_restore_path = os.path.join(self.restore_path, f'{self.seed}_layer{layer_id}_collect_param={self.collect_param}_components.pickle')
+                elif self.config["top_neuron_mode"] == 'random':
+                    cur_restore_path = os.path.join(self.restore_path, f'{self.seed}_radom_layer{layer_id}_collect_param={self.collect_param}_components.pickle')
+
                 with open(cur_restore_path, 'rb') as handle: layer_params = pickle.load(handle)
                 frozen_neuron_ids = group_layer_params(layer_params, mode='freeze')
-                train_neuron_ids = group_layer_params(layer_params, mode='train')
-                
+                train_neuron_ids  = group_layer_params(layer_params, mode='train')
                 
                 neuron_ids = []
                 # neuron_ids = [*range(0, param.shape[0], 1)]
@@ -421,7 +430,6 @@ def test_grad_zero():
     # model.weight.register_post_accumulate_grad_hook(lambda grad: grad * 0)
     model(torch.randn(1, 1, 3, 3)).mean().backward()
     print(f'with zero grads : {(model.weight == weight_reference).all()}')
-    breakpoint()
     optimizer.step()
     
     # fail because pytorch version there is register_post_accumulate_grad_hook
