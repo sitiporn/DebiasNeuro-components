@@ -16,7 +16,7 @@
   # select a neuron mode to train eg. "random" or  "sorted"
   "top_neuron_mode": "sorted",
   # *********  select advantaged samples set up to train  *****
-  "random_adv": True,
+  "random_adv": False,
   "collect_adv": False, 
   "correct_pred": True,
   "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
@@ -37,8 +37,8 @@
   "is_counterfactual_exist": [],
   # ************ Identifying Bias: Causal Mediation Analysis *************
   # experiment set 
-  # 5, 1
-  "k":  5, 
+  # 10, 5, 1
+  "k":  10, 
   # rank based on nie scores 
   "eval_candidates": True,
   "layer": 11,
