@@ -35,18 +35,19 @@ class Classifier(nn.Module):
 def collect_counterfactuals(model, model_path, dataset_name, method_name, seed,  counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE, all_seeds=False): 
     """ getting all activation's neurons used as mediators(Z) to compute NIE scores later """
     from utils import load_model
+    import copy
     if model_path is not None: 
-        _model = load_model(path= model_path, model=model)
+        _model = load_model(path= model_path, model=copy.deepcopy(model))
         print(f'Loading Counterfactual model: {model_path}')
     else:
-        _model = model
+        _model = copy.deepcopy(model)
+        _model = _model.to(DEVICE)
         print(f'using original model as input to this function')
     
     layers = config["layers"] 
     is_averaged_embeddings = config["is_averaged_embeddings"]
     # getting counterfactual of all components(eg. Q, K) for specific seed
     _counterfactual_paths = counterfactual_paths
-    model = model.to(DEVICE)
     
     # "NIE_paths": [],
     # "is_NIE_exist": [],
@@ -99,11 +100,12 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
                     hidden_representations[component][do] = {}
                 distributions[do] = {} 
                 counter[do] = {} if experiment_set.is_group_by_class else 0
+            
             if experiment_set.is_group_by_class:
                 for class_name in sentences[do].keys():
                     registers = {}
                     
-                    # register all modules
+                    # ******************* register all modules **********************
                     if class_name not in counter[do].keys():
                         counter[do][class_name] = 0 
 
@@ -118,6 +120,7 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
                                 hidden_representations[component][do][class_name][layer] = []
                             registers[component][layer] = layer_modules[component](layer).register_forward_hook(get_activation(layer, do, component, hidden_representations, is_averaged_embeddings, class_name=class_name))                        
 
+                    # ******************* hooks representations **********************
                     premise, hypo = sentences[do][class_name]
                     pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
                     inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
@@ -127,20 +130,16 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
                     with torch.no_grad():    
                         outputs = _model(**inputs)
 
-                    # detach the hooks
-                    for layer in layers:
-                        for component in ["Q","K","V","AO","I","O"]:
-                            registers[component][layer].remove()
             else:
                 registers = {}
-                 
-                # register all modules
+                
+                # ******************* register all modules **********************
                 for component in (["Q","K","V","AO","I","O"]):
                     registers[component] = {}
                     for layer in layers:
                         registers[component][layer] = layer_modules[component](layer).register_forward_hook(get_activation(layer, do, component, hidden_representations, is_averaged_embeddings))                        
                     
-                # forward to collect counterfactual representations
+                # ******************* hooks representations **********************
                 premise, hypo = sentences[do]
                 pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
                 inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
@@ -154,10 +153,17 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
             inputs = {k: v.to('cpu') for k,v in inputs.items()} 
 
         batch_idx += 1
-   
+
+    # ********************* clear all register *********************
+    for component in (["Q","K","V","AO","I","O"]):
+        for layer in layers: 
+            registers[component][layer].remove()
+
     # **** Writing all counterfactual representations into pickles ****
     for cur_path in _counterfactual_paths:
-        component = sorted(cur_path.split("_"), key=len)[0]  
+        component = cur_path.split('/')[-1].split('_')[1]
+        print(f'{component}, :{cur_path}')
+        # Todo: recheck this part
         if component == "I" and not is_averaged_embeddings:
             do = cur_path.split("_")[4]
             class_name = cur_path.split("_")[5]
