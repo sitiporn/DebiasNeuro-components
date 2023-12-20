@@ -604,11 +604,9 @@ def main():
     global label_maps
     global metric
 
-    # Todo: changing  
-    # config
-    # model
-    # dataset 
-    # custom dataset
+    # Todo:
+    # consistent config to yaml
+    # no-consistent config to argument parser
 
     config_path = "./configs/pcgu_config.yaml"
     with open(config_path, "r") as yamlfile:
@@ -670,7 +668,6 @@ def main():
     reference_model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer) if config['data_loader']['batch_sampler']['dynamic_padding'] else None
     
-    get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False, mode=config['top_neuron_mode']) 
     # ************************** PCGU ***************************
     # NOTE: scale gradient by confident scores <- kind of reweighting (sample base)
     # spatial adaptive gradient scaler by NIE scores (NIE base)
