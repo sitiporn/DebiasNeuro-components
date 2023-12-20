@@ -39,6 +39,7 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
     # dev_set = Dev(config['dev_path'], config['dev_json'])
     # dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
+    num_neuron_groups = [config['k'] / 100 ] 
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     if config['computed_all_layers']:
         if mode == 'sorted':
@@ -266,6 +267,14 @@ def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
 
 def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load_model, method_name, device, collect=False):
     seed = config['seed'] 
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        print(f'set seed while getting adv samples: {seed}')
+    else: 
+        seed = str(seed)
     
     # Todo: divide label
     biased_label_maps = config['label_maps']
