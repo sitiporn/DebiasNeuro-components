@@ -1,34 +1,8 @@
 # Debias Neuro-components leveraging Causal mediation analysis
 
 ### Todo
--  [x] intervention exist bias neurons by replace hidden representation of [CLS] with zero
--  [x] remove [CLS] representations of candidates neurons on the High-overlap score set 
--  [x] reformat model's predictions of both Null and Intervention to either entail or non entailment
--  [x] using package of challenge set's paper to evaluate model's predictions
--  [x] find top 20 K-percent neurons based on NIE scores
--  [x] maksing incremental top 1-20 K-percent neurons and computing heuristic
--  [x] plot the incremental heuristic scores between 1 and 20 
--  [x] vary the number of neurons from topk from entire layers experiment on (MNLI-mismatched)
--  [x] vary value of neuron's representation experiment on (MNLI-mismatched)
--  [x] vary value 0.1, 0.2 -> 1 after that divide it down until get best val 
--  [x] adjust sharpness value (mitigate paper)
--  [x] using bias model to reweigth once performing grid search
--  [x] save train and untrain components used to train partition 
--  [x] roll out variable save into pickles
--  [x] recheck intervention position inside model
--  [x] recheck reweight set up using MNLI-matched-dev ?
--  [x] traning main model with reweighted loss on canidate parameters and plot losses
--  [x] uncomment load intitial partition parameters
--  [x] write tester to check parameters which are candidate-only weights to optimize
--  [x] Custom Auto gradients to perform specific value brackpropagation  
--  [x] Scheduler computation get accurate 
--  [x] compute counterfactual for all seeds
--  [ ] soft masking(weaken neuron's activations) by finding hyperparameters on validation set
--  [x] finding candidate parameters from recent models (an existing function) using data for computing NIE
--  [x] Perform gradient reversal (backward optimization)
--  [ ] Perform EDA on MNNLI-matched set to select to advantaged samples(preferred by bias model)
--  [ ] Train on candidate parameters using training set utilizing existing partition parameter function
--  [ ] recheck model(ishan/bert-base-uncased-mnli) weaken rate noted in config testing on dev-mm and HANS to find where a result increases
+-  [x] Perform EDA on MNNLI-matched set to select to advantaged samples(preferred by bias model)
+-  [x] recheck model(ishan/bert-base-uncased-mnli) weaken rate noted in config testing on dev-mm and HANS to find where a result increases
 
 ## Open questions
 
