@@ -84,7 +84,7 @@ from transformers.trainer_utils import speed_metrics, TrainOutput
 from data import get_all_model_paths
 from optimization_utils import get_advantaged_samples
 
-config_path = "./configs/pcgu_config.yaml"
+config_path = "./configs/cma_experiment.yaml"
 with open(config_path, "r") as yamlfile:
     config = yaml.load(yamlfile, Loader=yaml.FullLoader)
 
@@ -99,16 +99,21 @@ print(f'current dataset_name: {dataset_name}')
 # ******************** PATH ********************
 # Model to intervene
 # LOAD_MODEL_PATH = '../models/recent_baseline/' 
-LOAD_MODEL_PATH = '../models/poe2/' 
-method_name =  f'{config["intervention_type"]}_intervention_{LOAD_MODEL_PATH.split("/")[-2]}'
+LOAD_MODEL_PATH = '../models/pcgu_posgrad_replace_5k_recent_baseline/'
+# LOAD_MODEL_PATH = '../models/poe2/' 
+# method_name =  f'separation_{config["intervention_type"]}_intervention_{LOAD_MODEL_PATH.split("/")[-2]}'
+method_name =  f'separation_pcgu_posgrad_replace_5k_recent_baseline'
+
+save_nie_set_path = f'../pickles/{dataset_name}_class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/{dataset_name}_nie_{config["num_samples"]}_samples.pickle'
+tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
 
 if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
 model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
+
 # prepare validation for computing NIE scores
-tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
 experiment_set = ExperimentDataset(config, encode = tokenizer, dataset_name=dataset_name)                            
 exp_loader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
-save_nie_set_path = f'../pickles/{dataset_name}_class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/{dataset_name}_nie_{config["num_samples"]}_samples.pickle'
+
 if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
 counterfactual_paths, _ = geting_counterfactual_paths(config, method_name)
 # path to save NIE scores
@@ -134,7 +139,11 @@ model_config = BertConfig(config['model']["model_name"])
 model_config.num_labels = len(label_maps.keys())
 model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
 
+assert config["intervention_type"] == 'replace', f'intervention type is not replace mode'
+# ******************* Causal Mediation Analysis ********************* 
 collect_counterfactuals(model, model_path, dataset_name, method_name, seed, counterfactual_paths, config, experiment_set, exp_loader, tokenizer, DEVICE=DEVICE) 
+
+# Todo: recheck is hooks in the model
 cma_analysis(config, 
             model_path,
             method_name, 
@@ -148,3 +157,5 @@ cma_analysis(config,
             experiment_set = experiment_set, 
             DEVICE = DEVICE, 
             DEBUG = True)   
+
+get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False, mode=config['top_neuron_mode']) 

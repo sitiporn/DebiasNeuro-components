@@ -452,18 +452,4 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
         print(f'#advantaged samples: {advantaged_bias.shape[0]}, #disadvantaged samples: {disadvantaged_bias.shape[0]}')
     
     return  advantaged_main, advantaged_bias
-
-        
-        
-
-
-
-
-
-    
-
-
-
-
-
-
+ 
