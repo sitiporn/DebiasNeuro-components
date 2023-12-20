@@ -927,7 +927,8 @@ def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, met
     # print("Popped value is:",item)
     # print("The dictionary is:" , all_paths.keys())
     NIE_paths = {path.split('/')[3].split('_')[-1]:path for path in NIE_paths}
-
+    acc_in= []
+    acc_out = [] 
     for seed, path in all_paths.items():
         hooks = []
         if is_load_model:
@@ -948,6 +949,8 @@ def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, met
             distributions = []
             losses = []
             golden_answers = []
+
+           
             
             dev_set = Dev(config['dev_path'] , cur_json)
             dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
@@ -984,6 +987,8 @@ def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, met
                 acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
                 if 'Null' in acc.keys():
                     acc = acc['Null']
+
+                acc_in.append(acc['all'])    
                 print(f"overall acc : {acc['all']}")
                 print(f"contradiction acc : {acc['contradiction']}")
                 print(f"entailment acc : {acc['entailment']}")
@@ -1000,12 +1005,15 @@ def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, met
                 hans_avg += cur_hans_score
                 computed_hans_count +=1
                 print(f'has score :{cur_hans_score}')
+                acc_out.append(cur_hans_score.item())
     
     print(f'==================== Avearge scores ===================')
+    print(acc_in)
     print(f"average overall acc : {acc_avg / len(all_paths)}")
     print(f"averge contradiction acc : {contradiction_avg / len(all_paths)}")
     print(f"average entailment acc : {entail_avg   / len(all_paths)}")
     print(f"average neutral acc : {neutral_avg /  len(all_paths)}")
+    print(acc_out)
     print(f'avarge hans score : { hans_avg  / len(all_paths)}')
     for hook in hooks: hook.remove()
 
@@ -1275,7 +1283,6 @@ class FeverDatasetClaimOnly(Dataset):
             temp_dict[key]=self.tokenized_datasets[idx][key]
         # return self.tokenized_datasets[idx]    
         return temp_dict    
-
 def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
@@ -1287,24 +1294,34 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
     IN_DISTRIBUTION_SET_JSONL = 'fever.dev.jsonl'
-    CHALLENGE_SET_JSONL = 'fever_symmetric_generated.jsonl' 
+    CHALLENGE_SET1_JSONL = 'fever_symmetric_v0.1.test.jsonl' 
+    CHALLENGE_SET2_JSONL = 'fever_symmetric_v0.2.test.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
-    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
+    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET1_JSONL,CHALLENGE_SET2_JSONL]
+    # json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [CHALLENGE_SET2_JSONL]
+    # json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET1_JSONL]
     acc_avg = 0
     support_avg = 0
     refute_avg = 0
     notenough_avg = 0
-    symm_support_avg = 0
-    symm_refute_avg = 0
-    symm_notenough_avg = 0
-    symm_avg = 0
+
+    symm1_support_avg = 0
+    symm1_refute_avg = 0
+    symm1_notenough_avg = 0
+    symm1_avg = 0
+
+    symm2_support_avg = 0
+    symm2_refute_avg = 0
+    symm2_notenough_avg = 0
+    symm2_avg = 0
+
     computed_acc_count = 0
-    computed_symm_count = 0
+    computed_symm1_count = 0
+    computed_symm2_count = 0
     for seed, path in all_paths.items():
         if is_load_model:
             from utils import load_model
-            # model = load_model(path=path, model=model,device=DEVICE)
-            model = load_model(path=path, model=model, device=DEVICE)
+            model = load_model(path=path, model=model,device=DEVICE)
         else:
             print(f'Using original model')
         for cur_json in json_sets:
@@ -1313,10 +1330,8 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
             losses = []
             golden_answers = []
             data_name = "test_data"
-            
             dev_set = DevFever(config['dev_path'] , cur_json)
             dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-
             # tokenized_datasets = {}
             # tokenized_datasets[data_name] = FeverDatasetClaimOnly(config, label_maps=config['label_maps'])
             # data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
@@ -1378,63 +1393,49 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 refute_avg += acc['REFUTES']
                 support_avg += acc['SUPPORTS']
                 computed_acc_count += 1
-            elif config['get_symm_result'] and 'symmetric'in cur_json: 
+            elif config['get_symm_result'] and 'symmetric_v0.1'in cur_json: 
                 acc_symm = compute_acc(cur_raw_distribution_path, config["label_maps"])
                
                 if 'Null' in acc_symm.keys():
                     acc_symm = acc_symm['Null']
-                print(f"overall symm acc : {acc_symm['all']}")
-                print(f"REFUTES symm acc : {acc_symm['REFUTES']}")
-                print(f"SUPPORTS symm acc : {acc_symm['SUPPORTS']}")
+                print(f"overall symm1 acc : {acc_symm['all']}")
+                print(f"REFUTES symm1 acc : {acc_symm['REFUTES']}")
+                print(f"SUPPORTS symm1 acc : {acc_symm['SUPPORTS']}")
                 # print(f"neutral acc : {acc['neutral']}")
 
-                symm_avg += acc_symm['all']
-                symm_refute_avg += acc_symm['REFUTES']
-                symm_support_avg += acc_symm['SUPPORTS']
-                computed_symm_count += 1
-                # breakpoint()
-                # cur_hans_score = get_symm_result(cur_raw_distribution_path, config)
-                # symm_avg += cur_hans_score
-                # print(f'symm score :{cur_hans_score}')
+                symm1_avg += acc_symm['all']
+                symm1_refute_avg += acc_symm['REFUTES']
+                symm1_support_avg += acc_symm['SUPPORTS']
+                computed_symm1_count += 1
+
+            elif config['get_symm_result'] and 'symmetric_v0.2'in cur_json: 
+                acc_symm = compute_acc(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in acc_symm.keys():
+                    acc_symm = acc_symm['Null']
+                print(f"overall symm2 acc : {acc_symm['all']}")
+                print(f"REFUTES symm2 acc : {acc_symm['REFUTES']}")
+                print(f"SUPPORTS symm2 acc : {acc_symm['SUPPORTS']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                symm2_avg += acc_symm['all']
+                symm2_refute_avg += acc_symm['REFUTES']
+                symm2_support_avg += acc_symm['SUPPORTS']
+                computed_symm2_count += 1
     
     print(f'==================== Average scores ===================')
+    print(acc_avg)
     print(f"average overall acc : {acc_avg / len(all_paths)}")
     print(f"averge REFUTES acc : {refute_avg / len(all_paths)}")
     print(f"average SUPPORTS acc : {support_avg   / len(all_paths)}")
-    print(f'avarge symm score : { symm_avg  / len(all_paths)}')
-    print(f"averge symm REFUTES acc : {symm_refute_avg / len(all_paths)}")
-    print(f"average symm SUPPORTS acc : {symm_support_avg   / len(all_paths)}")
-
-class DevFever(Dataset):
-    def __init__(self, 
-                data_path, 
-                json_file, 
-                DEBUG=False) -> None: 
-        
-        # Todo: generalize dev apth and json file to  mateched
-        self.inputs = {}
-        # dev_path = "debias_fork_clean/debias_nlu_clean/data/nli/"
-        # dev_path = os.path.join(os.path.join(dev_path, file))
-        self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
-        data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
-        self.df = pd.read_json(data_path, lines=True)
-        self.df.rename(columns = {'evidence':'evidence_sentence'}, inplace = True)
-        self.df.rename(columns = {'label':'gold_label'}, inplace = True)
-        if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
-        if '-' in self.df.gold_label.unique(): 
-            self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
-   
-        
-        for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
-        # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
-        # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
-        # self.labels = self.df.gold_label.tolist()
-
-    def __len__(self): return self.df.shape[0]
-
-    def __getitem__(self, idx):
-        
-        return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
+    print(symm1_avg)
+    print(f'avarge symm1 score : { symm1_avg  / len(all_paths)}')
+    print(f"averge symm1 REFUTES acc : {symm1_refute_avg / len(all_paths)}")
+    print(f"average symm1 SUPPORTS acc : {symm1_support_avg   / len(all_paths)}") 
+    print(symm2_avg)
+    print(f'avarge symm2 score : { symm2_avg  / len(all_paths)}')
+    print(f"averge symm2 REFUTES acc : {symm2_refute_avg / len(all_paths)}")
+    print(f"average symm2 SUPPORTS acc : {symm2_support_avg   / len(all_paths)}") 
 
 def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
@@ -1598,7 +1599,6 @@ class DevFever(Dataset):
         if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
         if '-' in self.df.gold_label.unique(): 
             self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
-   
         
         for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
         # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
