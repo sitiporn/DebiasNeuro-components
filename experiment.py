@@ -44,9 +44,10 @@ from optimization import intervene_grad
 def main():
 
     # ******************** LOAD STUFF ********************
-    # config_path = "./configs/pcgu_config.yaml"
+    config_path = "./configs/pcgu_config.yaml"
     # config_path = "./configs/experiment_config.yaml"
-    config_path = "./configs/pcgu_config_fever.yaml"
+    # config_path = "./configs/pcgu_config_fever.yaml"
+    # config_path = "configs/pcgu_config_qqp.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(f'config: {config_path}')
@@ -55,34 +56,53 @@ def main():
     group_path_by_seed = {}
     # torch.manual_seed(config['seed'])
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
-    model = BertForSequenceClassification.from_pretrained(config["model_name"])
+    tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+    model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(config['label_maps'].keys()))
     model = model.to(DEVICE)
-    experiment_set = ExperimentDataset(config, encode = tokenizer, dataset_name=config['dataset_name'])                            
+    experiment_set = ExperimentDataset(config, encode = tokenizer, seed=config['seed'], dataset_name=config['dataset_name'])                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     
     # ******************** PATH ********************
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
     
     # LOAD_REFERENCE_MODEL_PATH = '../models/frozen/'
-    LOAD_REFERENCE_MODEL_PATH = '../models/recent_baseline/' 
+    # LOAD_REFERENCE_MODEL_PATH = '../models/recent_baseline/' 
     # LOAD_REFERENCE_MODEL_PATH = '../models/reweight2/'
     # LOAD_REFERENCE_MODEL_PATH = '../models/poe2/'
     # LOAD_MODEL_PATH = '../models/debug_baseline/'
+    # LOAD_MODEL_PATH = '../models/debug_adv_baseline/'
+    # LOAD_MODEL_PATH = '../models/debug_adv_random_grad_baseline/'
+    #LOAD_MODEL_PATH = '../models/debug_predict_candidated_class_only_baseline/'
     # LOAD_MODEL_PATH = '../models/debug_reweight2/'
     # LOAD_MODEL_PATH = '../models/recheck_poe2/'
-    method_name =  'recent_baseline' 
+    # method_name =  'recent_baseline' 
     # method_name =  'reweight2' 
     # method_name =  'poe2' 
-    
+    # LOAD_MODEL_PATH = '../models/poe2/'
+    # LOAD_MODEL_PATH = '../models/random_adv_pcgu_poe/'
     # for prunning model
-    # LOAD_MODEL_PATH = '../models/recent_baseline/' 
+    # LOAD_MODEL_PATH = '../models/reweight2/' 
+    # LOAD_MODEL_PATH = '../models/random_grad/'
+    # LOAD_MODEL_PATH = '../models/outside_grad_unlearning_poe/' #
     # LOAD_MODEL_PATH = '../models/debug_reweight2/'
     # LOAD_MODEL_PATH = '../models/recheck_poe2/'
 
     # for eval
     # LOAD_MODEL_PATH = '../models/debug_baseline/' 
-    LOAD_MODEL_PATH = '../models/baseline_fever/' 
+    # LOAD_MODEL_PATH = '../models/baseline_fever/' 
+    # LOAD_MODEL_PATH = '../models/baseline_qqp_mysplit/'
+    # LOAD_MODEL_PATH = '../models/random_grad_unlearning_baseline/'
+    # LOAD_MODEL_PATH = '../models/random_grad_unlearning_poe/'
+    #method_name =  'poe2' 
+
+    LOAD_MODEL_PATH = '../models/recent_baseline/' 
+    method_name =  f'{config["intervention_type"]}_intervention_{LOAD_MODEL_PATH.split("/")[-2]}'
+    # LOAD_MODEL_PATH = '../models/pcgu_posgrad_replace_5k_recent_baseline/'
+    # LOAD_MODEL_PATH = '../models/pcgu_replace_1k_recent_baseline/'
+    LOAD_MODEL_PATH = '../models/pcgu_replace_10k_recent_baseline/'
+    #'../models/pcgu_rand_grad_replace_5k_recent_baseline/'
+    #f'../models/{config["intervention_type"]}_intervention_{LOAD_MODEL_PATH.split("/")[-2]}/' 
+
    
     NIE_paths = []
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
@@ -102,8 +122,10 @@ def main():
         for seed, model_path in all_model_paths.items():
             # see the result of the counterfactual of modifying proportional bias
             # evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True)
+            experiment_set = ExperimentDataset(config, encode = tokenizer, seed=config['seed'], dataset_name=config['dataset_name'])                            
+            dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
             evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True, DEBUG=True)
-    return
+    
     if config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
             # path to save
@@ -143,7 +165,7 @@ def main():
                                                    DEVICE = DEVICE, 
                                                    DEBUG = True)
      
-    if config['get_candidate_neurons']: get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False) 
+    # if config['get_candidate_neurons']: get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False) 
 
     if config['distribution']: get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE)
     if config['rank_losses']: rank_losses(config=config, do=mode[0])
