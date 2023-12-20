@@ -339,32 +339,6 @@ def load_model(path, model, device='cuda:0'):
     model = model.to(device)
     return model
 
-# def compute_acc(raw_distribution_path, label_maps):
-#     label_remaps = {v:k for k, v in label_maps.items()}
-#     with open(raw_distribution_path, 'rb') as handle: 
-#         distributions = pickle.load(handle)
-#         golden_answers = pickle.load(handle)
-#         print(f'loading distributions and labels from : {raw_distribution_path}')
-#     acc = {} 
-#     if isinstance(distributions, dict):
-#         modes = list(distributions.keys())
-#     else:
-#         modes = ['Null']
-#         distributions  = {'Null': distributions}
-#         golden_answers = {'Null': golden_answers}
-    
-#     print(f'compute_acc modes:{modes}') # Intervene, Null
-     
-#     for mode in modes:
-#         acc[mode] = {k: [] for k in (['all'] + list(label_maps.keys()))}
-#         for dist, label in zip(distributions[mode], golden_answers[mode]):
-#             prediction = int(torch.argmax(dist))
-#             acc[mode]['all'].append(prediction == int(label))
-#             # acc[label_remaps[label]].append(label_remaps[prediction] == label) 
-#             acc[mode][label_remaps[int(label)]].append(prediction == int(label))
-#         acc[mode] = { k: sum(acc[mode][k]) / len(acc[mode][k]) for k in list(acc[mode].keys()) }
-    
-#     return acc
 def compute_acc(raw_distribution_path, label_maps):
     label_remaps = {v:k for k, v in label_maps.items()}
     with open(raw_distribution_path, 'rb') as handle: 
