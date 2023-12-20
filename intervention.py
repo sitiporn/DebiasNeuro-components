@@ -75,8 +75,6 @@ def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, in
             print(output[:2,:3, neuron_ids])
             # print(output[:2,:3, :2])
 
-        breakpoint()
-        
     return intervention_hook
 
 # ************  intervention  *******************
