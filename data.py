@@ -106,7 +106,7 @@ class ExperimentDataset(Dataset):
 
                 type_selector = self.df_exp_set[do].gold_label == type 
 
-                self.sets[do][type] = self.df_exp_set[do][type_selector].reset_index(drop=True)
+                self.sets[do][type] = self.df_exp_set[do][tye_selector].reset_index(drop=True)
                 nums[do][type] = self.sets[do][type].shape[0]
 
         # get minimum size of samples
@@ -1595,7 +1595,7 @@ class DevFever(Dataset):
         data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
         self.df = pd.read_json(data_path, lines=True)
         self.df.rename(columns = {'evidence':'evidence_sentence'}, inplace = True)
-        self.df.rename(columns = {'label':'gold_label'}, inplace = True)
+        if 'gold_label' not in self.df.columns: self.df.rename(columns = {'label':'gold_label'}, inplace = True)
         if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
         if '-' in self.df.gold_label.unique(): 
             self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
@@ -1611,4 +1611,4 @@ class DevFever(Dataset):
         
         return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
 
-        # return pair_sentence , label
+        # return pair_sentence , labelp
