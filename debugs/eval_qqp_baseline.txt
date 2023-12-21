@@ -1,0 +1,74 @@
+config: ./configs/pcgu_config_qqp.yaml
+../bert-base-uncased/
+Loading model from ../models/baseline_qqp_mysplit/seed_3990/checkpoint-36500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_qqp.dev.jsonl.pickle
+loading distributions and labels from : ../pickles/performances/inference_qqp.dev.jsonl.pickle
+compute_acc modes:['Null']
+overall acc : 0.9134
+is_duplicate acc : 0.8911159263271939
+not_duplicate acc : 0.9264426125554851
+saving without condition distribution into : ../pickles/performances/inference_paws.dev.pickle
+loading distributions and labels from : ../pickles/performances/inference_paws.dev.pickle
+compute_acc modes:['Null']
+overall paws acc : 0.3249630723781389
+not_dup paws acc : 0.08847736625514403
+is_dup paws acc : 0.9267015706806283
+Loading model from ../models/baseline_qqp_mysplit/seed_409/checkpoint-36500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_qqp.dev.jsonl.pickle
+loading distributions and labels from : ../pickles/performances/inference_qqp.dev.jsonl.pickle
+compute_acc modes:['Null']
+overall acc : 0.918
+is_duplicate acc : 0.8954496208017335
+not_duplicate acc : 0.9311984781230184
+saving without condition distribution into : ../pickles/performances/inference_paws.dev.pickle
+loading distributions and labels from : ../pickles/performances/inference_paws.dev.pickle
+compute_acc modes:['Null']
+overall paws acc : 0.3249630723781389
+not_dup paws acc : 0.0720164609053498
+is_dup paws acc : 0.9685863874345549
+Loading model from ../models/baseline_qqp_mysplit/seed_1548/checkpoint-36500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_qqp.dev.jsonl.pickle
+loading distributions and labels from : ../pickles/performances/inference_qqp.dev.jsonl.pickle
+compute_acc modes:['Null']
+overall acc : 0.906
+is_duplicate acc : 0.8710725893824486
+not_duplicate acc : 0.9264426125554851
+saving without condition distribution into : ../pickles/performances/inference_paws.dev.pickle
+loading distributions and labels from : ../pickles/performances/inference_paws.dev.pickle
+compute_acc modes:['Null']
+overall paws acc : 0.38847858197932056
+not_dup paws acc : 0.19958847736625515
+is_dup paws acc : 0.8691099476439791
+Loading model from ../models/baseline_qqp_mysplit/seed_3099/checkpoint-36500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_qqp.dev.jsonl.pickle
+loading distributions and labels from : ../pickles/performances/inference_qqp.dev.jsonl.pickle
+compute_acc modes:['Null']
+overall acc : 0.9172
+is_duplicate acc : 0.9062838569880823
+not_duplicate acc : 0.9235890932149651
+saving without condition distribution into : ../pickles/performances/inference_paws.dev.pickle
+loading distributions and labels from : ../pickles/performances/inference_paws.dev.pickle
+compute_acc modes:['Null']
+overall paws acc : 0.3663220088626292
+not_dup paws acc : 0.1748971193415638
+is_dup paws acc : 0.8534031413612565
+Loading model from ../models/baseline_qqp_mysplit/seed_3785/checkpoint-36500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_qqp.dev.jsonl.pickle
+loading distributions and labels from : ../pickles/performances/inference_qqp.dev.jsonl.pickle
+compute_acc modes:['Null']
+overall acc : 0.915
+is_duplicate acc : 0.9100758396533044
+not_duplicate acc : 0.9178820545339251
+saving without condition distribution into : ../pickles/performances/inference_paws.dev.pickle
+loading distributions and labels from : ../pickles/performances/inference_paws.dev.pickle
+compute_acc modes:['Null']
+overall paws acc : 0.31166912850812406
+not_dup paws acc : 0.04938271604938271
+is_dup paws acc : 0.9790575916230366
+==================== Average scores ===================
+average overall acc : 0.9139200000000001
+averge not dup acc : 0.9251109701965758
+average is dup acc : 0.8947995666305525
+avarge paws score : 0.3432791728212703
+averge paws not dup acc : 0.1168724279835391
+average paws dup SUPPORTS acc : 0.9193717277486911

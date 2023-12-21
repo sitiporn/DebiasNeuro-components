@@ -20,7 +20,7 @@ from pprint import pprint
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-from utils import  EncoderParams
+from utils import  LayerParams
 from cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
 from intervention import Intervention, neuron_intervention, get_mediators
 from utils import get_ans, compute_acc, compute_maf1
@@ -30,9 +30,11 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from utils import load_model
 from transformers import AutoTokenizer, DataCollatorWithPadding
+from utils import load_model
+from utils import compare_frozen_weight, prunning_biased_neurons
 
 class ExperimentDataset(Dataset):
-    def __init__(self, config, encode, DEBUG=False) -> None: 
+    def __init__(self, config, encode, dataset_name, seed=None, DEBUG=False) -> None: 
         
         data_path =  config['dev_path']
         json_file =  config['exp_json']
@@ -40,52 +42,68 @@ class ExperimentDataset(Dataset):
         lower_bound = config['lower_bound'] 
         is_group_by_class = config['is_group_by_class']
         num_samples =  config['num_samples']
+
+        if seed is None: seed =  42
+        torch.manual_seed(seed)
+        print(f'current seed in Experiment Dataset: {seed}')
         
         # combine these two set
         self.encode = encode
 
-        self.premises = {}
-        self.hypothesises = {}
+        self.sentences1 = {}
+        self.sentences2 = {}
         self.labels = {}
         self.intervention = {}
         pair_and_label = []
         self.is_group_by_class = is_group_by_class
+        self.label_remaps = {v:k for k,v in config['label_maps'].items()}
         
-        self.sets = {"High-overlap": {}, "Low-overlap": {} } 
-        nums = {"High-overlap": {}, "Low-overlap": {} }
-        
-        torch.manual_seed(42)
+        if dataset_name == 'fever': 
+            self.treatments = ["High-overlap"]
+            self.sets = {"High-overlap": {}} 
+            nums = {"High-overlap": {}}
+        else:
+            self.treatments = ["High-overlap", "Low-overlap"]
+            self.sets = {"High-overlap": {}, "Low-overlap": {} } 
+            nums = {"High-overlap": {}, "Low-overlap": {} }
         
         data_path = os.path.join(data_path, json_file)
-
         self.df = pd.read_json(data_path, lines=True)
+        
 
-        if '-' in self.df.gold_label.unique():
-            self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
+        if config['dataset_name'] != 'qqp':
+            if '-' in self.df.gold_label.unique():
+                self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
 
         if DEBUG: print(self.df.columns)
+        
+        if config['dataset_name'] == 'qqp': 
+            self.df.rename(columns = {'is_duplicate':'gold_label_id'}, inplace = True)
+            self.df['gold_label'] = self.df['gold_label_id'].apply(lambda row : self.label_remaps[row] )
 
         for i in range(len(self.df)):
             pair_and_label.append(
-                (self.df['sentence1'][i], self.df['sentence2'][i], self.df['gold_label'][i]))
+                (self.df["evidence" if dataset_name == "fever" else 'sentence1'][i], 
+                 self.df["claim" if dataset_name == "fever" else 'sentence2'][i], 
+                 self.df['gold_label'][i]))
 
         self.df['pair_label'] = pair_and_label
-        
-        thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound)
+        # Todo: 
+        # from counter import count_negations
+        thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound, dataset_name)
 
         # get HOL and LOL set
         self.df['Treatment'] = self.df.apply(lambda row: group_by_treatment(
-            thresholds, row.overlap_scores, row.gold_label), axis=1)
+            thresholds, 
+            row.count_negations if dataset_name == 'fever' else row.overlap_scores, row.gold_label), axis=1)
 
         print(f"== statistic ==")
         pprint(thresholds)
-        
         self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
                            "Low-overlap":  self.get_low_shortcut()}
-        
-        
-        for do in ["High-overlap", "Low-overlap"]:
-            for type in ["contradiction","entailment","neutral"]:
+
+        for do in self.treatments:
+            for type in config['label_maps'].keys():
 
                 type_selector = self.df_exp_set[do].gold_label == type 
 
@@ -97,14 +115,13 @@ class ExperimentDataset(Dataset):
         self.balance_sets = {}
 
         # Randomized Controlled Trials (RCTs)
-        for do in ["High-overlap", "Low-overlap"]:
+        for do in self.treatments:
             
             self.balance_sets[do] = None
             frames = []
 
             # create an Empty DataFrame object
-            for type in ["contradiction","entailment","neutral"]:
-                
+            for type in config['label_maps'].keys():
                 # samples data
                 ids = list(torch.randint(0, self.sets[do][type].shape[0], size=(self.type_balance,)))
                 self.sets[do][type] = self.sets[do][type].loc[ids].reset_index(drop=True)
@@ -114,38 +131,34 @@ class ExperimentDataset(Dataset):
             
             self.balance_sets[do] =  pd.concat(frames).reset_index(drop=True)
 
-            assert self.balance_sets[do].shape[0] == (self.type_balance * 3)
+            assert self.balance_sets[do].shape[0] == (self.type_balance * len(config['label_maps'].keys()))
 
             if self.is_group_by_class:
                 
-                self.premises[do] =  {}
-                self.hypothesises[do] =  {}
+                self.sentences1[do] =  {}
+                self.sentences2[do] =  {}
                 self.labels[do] = {}
                 self.intervention[do] = {}
                 
-                for type in ["contradiction","entailment","neutral"]:
+                for type in config['label_maps'].keys():
 
-                    self.premises[do][type]  = list(self.sets[do][type].sentence1)
-                    self.hypothesises[do][type]  = list(self.sets[do][type].sentence2)
+                    self.sentences1[do][type]  = list(self.sets[do][type].sentence1)
+                    self.sentences2[do][type]  = list(self.sets[do][type].sentence2)
                     self.labels[do][type]  = list(self.sets[do][type].gold_label)
                 
                     self.intervention[do][type] = Intervention(encode = self.encode,
-                                        premises = self.premises[do][type],
-                                        hypothesises = self.hypothesises[do][type]
+                                        sentences1 = self.sentences1[do][type],
+                                        sentences2 = self.sentences2[do][type]
                                     )
             else:
-
-                self.premises[do] = list(self.balance_sets[do].sentence1)
-                self.hypothesises[do] = list(self.balance_sets[do].sentence2)
+                self.sentences1[do] = list(self.balance_sets[do]["evidence" if dataset_name == "fever" else 'sentence1'])
+                self.sentences2[do] = list(self.balance_sets[do]["claim" if dataset_name == "fever" else 'sentence2'])
                 self.labels[do] = list(self.balance_sets[do].gold_label)
-
                 self.intervention[do] = Intervention(encode = self.encode,
-                                        premises = self.premises[do],
-                                        hypothesises = self.hypothesises[do]
+                                        sentences1 = self.sentences1[do],
+                                        sentences2 = self.sentences2[do]
                                     )
-
     def get_high_shortcut(self):
-
         # get high overlap score pairs
         return self.df[self.df['Treatment'] == "HOL"]
 
@@ -170,18 +183,18 @@ class ExperimentDataset(Dataset):
         labels = {}
 
         if self.is_group_by_class:
-            for do in ["High-overlap", "Low-overlap"]:
+            for do in self.treatments:
                 
                 pair_sentences[do] = {}
                 labels[do] = {}
 
-                for type in ["contradiction","entailment","neutral"]:
+                for type in config['label_maps'].keys():
 
                     pair_sentences[do][type] = self.intervention[do][type].pair_sentences[idx]
                     labels[do][type] = self.labels[do][type][idx]
         else:
 
-            for do in ["High-overlap", "Low-overlap"]:
+            for do in self.treatments:
                 
                 pair_sentences[do] = self.intervention[do].pair_sentences[idx]
                 labels[do] = self.labels[do][idx]
@@ -211,7 +224,36 @@ class Dev(Dataset):
             self.df['sentence2'] = self.df.hypothesis
         
         for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
-        # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
+        # self.sentences1 = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
+        # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
+        # self.labels = self.df.gold_label.tolist()
+
+    def __len__(self): return self.df.shape[0]
+
+    def __getitem__(self, idx):
+        
+        return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
+
+
+class DevQQP(Dataset):
+    def __init__(self, 
+                data_path, 
+                json_file, 
+                DEBUG=False) -> None: 
+        
+        # Todo: generalize dev apth and json file to  mateched
+        self.inputs = {}
+        # dev_path = "debias_fork_clean/debias_nlu_clean/data/nli/"
+        # dev_path = os.path.join(os.path.join(dev_path, file))
+        self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
+        data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
+        self.df = pd.read_json(data_path, lines=True)
+        self.df.rename(columns = {'is_duplicate':'label'}, inplace = True)
+
+   
+        
+        for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
+        # self.sentences1 = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
         # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
         # self.labels = self.df.gold_label.tolist()
 
@@ -294,30 +336,57 @@ def preprocss(df):
     return df
 
 class CustomDataset(Dataset):
-    def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
-        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
-        df = preprocss(df)
-        if "bias_probs" in df.columns:
-          df_new = df[['sentence1', 'sentence2', 'gold_label','bias_probs']]  
+    def __init__(self, config, label_maps, data_mode = 'train_data', is_trained=True, DEBUG=False, adv_samples=None) -> None: 
+        df = pd.read_json(os.path.join(config['data_path'], config[data_mode]), lines=True) if adv_samples is None else adv_samples
+        if config['dataset_name'] == 'qqp': 
+            # qqp
+            df.rename(columns = {'is_duplicate':'label'}, inplace = True) 
         else:
-            df_new = df[['sentence1', 'sentence2', 'gold_label']]
-        df_new.rename(columns = {'gold_label':'label'}, inplace = True)
+            # mnli or fever
+            df = preprocss(df)
+            df.rename(columns = {'gold_label':'label'}, inplace = True)
+
+        # fever
+        if config['dataset_name'] == 'fever': 
+            df.rename(columns = {'evidence':'sentence1'}, inplace = True)
+            df.rename(columns = {'claim':'sentence2'}, inplace = True)
+
+        # mnli 
+        if "bias_probs" in df.columns:
+            df_new = df[['sentence1', 'sentence2', 'label','bias_probs']]  
+        else:
+            df_new = df[['sentence1', 'sentence2', 'label']]
+        
         self.label_maps = label_maps
-        df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
-        from datasets import Dataset as HugginfaceDataset
-        self.dataset = HugginfaceDataset.from_pandas(df_new)
-        self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
-        self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+        self.is_trained = is_trained
+        if config['dataset_name'] != 'qqp': df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
+        
+        if is_trained:
+            from datasets import Dataset as HugginfaceDataset
+            self.dataset = HugginfaceDataset.from_pandas(df_new)
+            self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+            self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+        else: 
+            self.df = df_new
+            self.sentences1 = list(self.df.sentence1)
+            self.sentences2 = list(self.df.sentence2)
+            self.labels = list(self.df.label)
+
+
     def to_label_id(self, text_label): 
         return self.label_maps[text_label]
     
     def tokenize_function(self, examples):
-        return self.tokenizer(examples["sentence1"], examples["sentence2"], truncation=True) 
+        return self.tokenizer(examples["sentence1"], examples["sentence2"], padding='max_length', truncation=True, return_tensors="pt") 
    
     def __len__(self): 
-        return self.tokenized_datasets.shape[0]
+        return self.tokenized_datasets.shape[0] if self.is_trained else len(self.sentences1)
     
     def __getitem__(self, idx):
+        if self.is_trained:
+            return self.tokenized_datasets[idx]
+        else:
+            return self.sentences1[idx], self.sentences2[idx], self.labels[idx]
         return self.tokenized_datasets[idx]
 
 class QQPDataset(Dataset):
@@ -440,7 +509,7 @@ def get_conditional_inferences(config, do,  model_path, model, counterfactual_pa
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
     key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    path = f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
+    path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
     # why top neurons dont chage according to get_top_k
     # get position of top neurons 
     with open(path, 'rb') as handle: 
@@ -610,7 +679,6 @@ def get_masking_value(config):
         # cur_digits = len(str(best_val).split('.')[-1])
         print(f"Null : {acc[value]['Null']['all']*100:.2f}, Intervene at {best_val}:{scores[cur_best_key]*100:.2f}")
     # get new high and low value unitil up to max_num_digits 
-    breakpoint()
     # get digits
     # get of new 
     # add digits by one
@@ -1009,19 +1077,20 @@ def get_all_model_paths(LOAD_MODEL_PATH):
         all_model_files[key].append(str(f))
     
 
-    def take_second(elem):
-        return elem[1]
+    def get_sorted_key(elem):
+        return int(elem[0].split('-')[-1])
 
     for seed in all_model_files.keys():
         checkpoint_paths = [ (checkpoint.split("/")[4].split('_')[-1], checkpoint) for checkpoint in all_model_files[seed]]
         # load best model is trained up to the end
-        checkpoint = sorted(checkpoint_paths, key=take_second, reverse=True)[0]
+        # checkpoint = sorted(checkpoint_paths, key=get_sorted_key, reverse=True)[-1] # optimize
+        checkpoint = sorted(checkpoint_paths, key=get_sorted_key, reverse=True)[0] #  non optimize
         clean_model_files.append(checkpoint[-1])
-    print( clean_model_files) 
-    assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
+    
+    # assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
-def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
+def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
@@ -1042,14 +1111,28 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
     hans_avg = 0
     computed_acc_count = 0
     computed_hans_count = 0
-    acc_in = []
-    acc_out = []
+    seed = str(config['seed'])
+    if not config['compute_all_seeds']:  all_paths = {seed: all_paths[seed]}
+    # item= all_paths.pop(seed)
+    # print("Popped value is:",item)
+    # print("The dictionary is:" , all_paths.keys())
+    NIE_paths = {path.split('/')[3].split('_')[-1]:path for path in NIE_paths}
+
     for seed, path in all_paths.items():
+        hooks = []
         if is_load_model:
-            from utils import load_model
             model = load_model(path=path, model=model)
         else:
             print(f'Using original model')
+        
+        if config['prunning']:
+            from optimization_utils import initial_partition_params 
+            path = [NIE_paths[seed]]
+            do = "High-overlap"  if config['treatment'] else  "Low-overlap"
+            model = initial_partition_params(config, method_name, model, do=do, collect_param=config['collect_param'],seed=seed ,mode=config['top_neuron_mode']) 
+            model, hooks = prunning_biased_neurons(model, seed, path, config, method_name, hooks, DEBUG=False)
+            print(f'eval model using prunning mode')
+        
         for cur_json in json_sets:
             name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
             distributions = []
@@ -1118,6 +1201,273 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=
     print(f"average neutral acc : {neutral_avg /  len(all_paths)}")
     print(acc_out)
     print(f'avarge hans score : { hans_avg  / len(all_paths)}')
+    for hook in hooks: hook.remove()
+
+def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
+    """ to get predictions and score on test and challenge sets"""
+    distributions = {}
+    losses = {}
+    golden_answers = {}
+
+    
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    OPTIMIZED_SET_JSONL = config['dev_json']
+    # datasets
+    IN_DISTRIBUTION_SET_JSONL = 'fever.dev.jsonl'
+    CHALLENGE_SET1_JSONL = 'fever_symmetric_v0.1.test.jsonl' 
+    CHALLENGE_SET2_JSONL = 'fever_symmetric_v0.2.test.jsonl' 
+    RESULT_PATH = f'../pickles/performances/'
+    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET1_JSONL,CHALLENGE_SET2_JSONL]
+    acc_avg = 0
+    support_avg = 0
+    refute_avg = 0
+    notenough_avg = 0
+
+    symm1_support_avg = 0
+    symm1_refute_avg = 0
+    symm1_notenough_avg = 0
+    symm1_avg = 0
+
+    symm2_support_avg = 0
+    symm2_refute_avg = 0
+    symm2_notenough_avg = 0
+    symm2_avg = 0
+
+    computed_acc_count = 0
+    computed_symm1_count = 0
+    computed_symm2_count = 0
+    for seed, path in all_paths.items():
+        if is_load_model:
+            from utils import load_model
+            model = load_model(path=path, model=model,device=DEVICE)
+        else:
+            print(f'Using original model')
+        for cur_json in json_sets:
+            name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+            distributions = []
+            losses = []
+            golden_answers = []
+            data_name = "test_data"
+            dev_set = DevFever(config['dev_path'] , cur_json)
+            dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+
+            # tokenized_datasets = {}
+            # tokenized_datasets[data_name] = FeverDatasetClaimOnly(config, label_maps=config['label_maps'])
+            # data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+            # def collator(input_samples):
+            #     x = data_collator(input_samples)
+            #     for i in x:
+            #         i.pop("claim",None)
+            #     return x
+            
+            # dev_loader = DataLoader(tokenized_datasets[data_name], batch_size = 32, shuffle = False,  collate_fn=collator)
+            model.eval()
+            for batch_idx, (inputs) in enumerate( t := tqdm(dev_loader)):
+                
+                cur_inputs = {} 
+                t.set_description(f'{name_set} batch_idx {batch_idx}/{len(dev_loader)}')
+                for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
+                # get the inputs 
+              
+                # get the inputs 
+                if config['claim_only']:
+                    pair_sentences = [sentence1 for sentence1 in cur_inputs['claim']]       
+                    pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                    pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+                # ignore label_ids when running experiment on hans
+                else:
+                    pair_sentences = [[sentence1, sentence2] for sentence1, sentence2 in zip(cur_inputs['evidence_sentence'], cur_inputs['claim'])]
+                    pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                    pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+                # ignore label_ids when running experiment on hans
+                label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if  'heuristics' not in cur_json  else None
+                # ignore label_ids when running experiment on hans
+                if label_ids is not None: label_ids = label_ids.to(DEVICE)
+
+                with torch.no_grad(): 
+                    # Todo: generalize to distribution if the storage is enough
+                    outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
+                    distributions.extend(F.softmax(outs.logits.cpu() , dim=-1))
+                    golden_answers.extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
+
+            cur_raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
+            
+            with open(cur_raw_distribution_path, 'wb') as handle: 
+                pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                # pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving without condition distribution into : {cur_raw_distribution_path}')
+            
+            if 'symmetric' not in cur_json: 
+                acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in acc.keys():
+                    acc = acc['Null']
+                print(f"overall acc : {acc['all']}")
+                print(f"REFUTES acc : {acc['REFUTES']}")
+                print(f"SUPPORTS acc : {acc['SUPPORTS']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                acc_avg += acc['all']
+                refute_avg += acc['REFUTES']
+                support_avg += acc['SUPPORTS']
+                computed_acc_count += 1
+            elif config['get_symm_result'] and 'symmetric_v0.1'in cur_json: 
+                acc_symm = compute_acc(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in acc_symm.keys():
+                    acc_symm = acc_symm['Null']
+                print(f"overall symm1 acc : {acc_symm['all']}")
+                print(f"REFUTES symm1 acc : {acc_symm['REFUTES']}")
+                print(f"SUPPORTS symm1 acc : {acc_symm['SUPPORTS']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                symm1_avg += acc_symm['all']
+                symm1_refute_avg += acc_symm['REFUTES']
+                symm1_support_avg += acc_symm['SUPPORTS']
+                computed_symm1_count += 1
+
+            elif config['get_symm_result'] and 'symmetric_v0.2'in cur_json: 
+                acc_symm = compute_acc(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in acc_symm.keys():
+                    acc_symm = acc_symm['Null']
+                print(f"overall symm2 acc : {acc_symm['all']}")
+                print(f"REFUTES symm2 acc : {acc_symm['REFUTES']}")
+                print(f"SUPPORTS symm2 acc : {acc_symm['SUPPORTS']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                symm2_avg += acc_symm['all']
+                symm2_refute_avg += acc_symm['REFUTES']
+                symm2_support_avg += acc_symm['SUPPORTS']
+                computed_symm2_count += 1
+    
+    print(f'==================== Average scores ===================')
+    print(f"average overall acc : {acc_avg / len(all_paths)}")
+    print(f"averge REFUTES acc : {refute_avg / len(all_paths)}")
+    print(f"average SUPPORTS acc : {support_avg   / len(all_paths)}")
+    print(f'avarge symm1 score : { symm1_avg  / len(all_paths)}')
+    print(f"averge symm1 REFUTES acc : {symm1_refute_avg / len(all_paths)}")
+    print(f"average symm1 SUPPORTS acc : {symm1_support_avg   / len(all_paths)}") 
+    print(f'avarge symm2 score : { symm2_avg  / len(all_paths)}')
+    print(f"averge symm2 REFUTES acc : {symm2_refute_avg / len(all_paths)}")
+    print(f"average symm2 SUPPORTS acc : {symm2_support_avg   / len(all_paths)}") 
+
+def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
+    """ to get predictions and score on test and challenge sets"""
+    distributions = {}
+    losses = {}
+    golden_answers = {}
+
+    
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    OPTIMIZED_SET_JSONL = config['dev_json']
+    # datasets
+    IN_DISTRIBUTION_SET_JSONL = 'qqp.dev.jsonl'
+    CHALLENGE_SET_JSONL = 'paws.dev_and_test.jsonl' 
+    RESULT_PATH = f'../pickles/performances/'
+    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
+    maf1_avg = 0
+    is_dup_avg = 0
+    not_dup_avg = 0   
+    paws_is_dup_avg = 0
+    paws_not_dup_avg = 0   
+    paws_avg = 0
+    computed_maf1_count = 0
+    computed_paws_count = 0
+    for seed, path in all_paths.items():
+        if is_load_model:
+            from utils import load_model
+            model = load_model(path=path, model=model,device=DEVICE)
+        else:
+            print(f'Using original model')
+        for cur_json in json_sets:
+            name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+            distributions = []
+            losses = []
+            golden_answers = []
+            data_name = "test_data"
+            
+            dev_set = DevQQP(config['dev_path'] , cur_json)
+            dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+
+            # tokenized_datasets = {}
+            # tokenized_datasets[data_name] = FeverDatasetClaimOnly(config, label_maps=config['label_maps'])
+            # data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+            # def collator(input_samples):
+            #     x = data_collator(input_samples)
+            #     for i in x:
+            #         i.pop("claim",None)
+            #     return x
+            
+            # dev_loader = DataLoader(tokenized_datasets[data_name], batch_size = 32, shuffle = False,  collate_fn=collator)
+            model.eval()
+            for batch_idx, (inputs) in enumerate( t := tqdm(dev_loader)):
+                
+                cur_inputs = {} 
+                t.set_description(f'{name_set} batch_idx {batch_idx}/{len(dev_loader)}')
+                for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
+                # get the inputs 
+                pair_sentences = [[sentence1, sentence2] for sentence1, sentence2 in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+                pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+                label_ids = torch.tensor([label for label in cur_inputs['label']]) 
+                if label_ids is not None: label_ids = label_ids.to(DEVICE)
+
+                with torch.no_grad(): 
+                    # Todo: generalize to distribution if the storage is enough
+                    outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
+                    distributions.extend(F.softmax(outs.logits.cpu() , dim=-1))
+                    golden_answers.extend(label_ids.cpu() if label_ids is not None else cur_inputs['label'])
+
+            cur_raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
+            
+            with open(cur_raw_distribution_path, 'wb') as handle: 
+                pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                # pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving without condition distribution into : {cur_raw_distribution_path}')
+            
+            if 'paws' not in cur_json: 
+                maf1 = compute_maf1(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in maf1.keys():
+                    maf1 = maf1['Null']
+                print(f"overall maf1 : {maf1['all']}")
+                print(f"is_duplicate maf1 : {maf1['is_duplicate']}")
+                print(f"not_duplicate maf1 : {maf1['not_duplicate']}")
+                # print(f"neutral acc : {acc['neutral']}")
+                maf1_avg += maf1['all']
+                is_dup_avg += maf1['is_duplicate']
+                not_dup_avg += maf1['not_duplicate']
+                computed_maf1_count += 1
+            elif config['get_paws_result'] and 'paws'in cur_json: 
+                maf1_paws = compute_maf1(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in maf1_paws.keys():
+                    maf1_paws = maf1_paws['Null']
+                print(f"overall paws maf1 : {maf1_paws['all']}")
+                print(f"not_dup paws maf1 : {maf1_paws['not_duplicate']}")
+                print(f"is_dup paws maf1 : {maf1_paws['is_duplicate']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                paws_avg += maf1_paws['all']
+                paws_not_dup_avg += maf1_paws['not_duplicate']
+                paws_is_dup_avg += maf1_paws['is_duplicate']
+                computed_paws_count += 1
+                # breakpoint()
+                # cur_hans_score = get_symm_result(cur_raw_distribution_path, config)
+                # symm_avg += cur_hans_score
+                # print(f'symm score :{cur_hans_score}')
+    
+    print(f'==================== Average scores ===================')
+    print(f"average overall maf1 : {maf1_avg / len(all_paths)}")
+    print(f"averge not dup maf1 : {not_dup_avg / len(all_paths)}")
+    print(f"average is dup maf1 : {is_dup_avg   / len(all_paths)}")
+    print(f'avarge paws score : { paws_avg  / len(all_paths)}')
+    print(f"averge paws not dup maf1 : {paws_not_dup_avg / len(all_paths)}")
+    print(f"average paws dup SUPPORTS maf1 : {paws_is_dup_avg   / len(all_paths)}") 
+
 
 def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
@@ -1580,11 +1930,12 @@ def get_specific_component(splited_name, component_mappings):
     
     return layer_id, component
         
-def group_layer_params(layer_params):
+def group_layer_params(layer_params, mode):
     """ group parameter's component of both weight and bias """
 
     group_param_names = {}
-    param_names = list(layer_params.params['weight'].keys())
+    
+    param_names = list(layer_params.train_params['weight'].keys() if mode == 'train' else layer_params.freeze_params['weight'] )
 
     for name in param_names:
         component = name.split('-')[0]
@@ -1593,3 +1944,399 @@ def group_layer_params(layer_params):
         group_param_names[component].append(int(neuron_id))
     
     return group_param_names
+class FeverDataset(Dataset):
+    def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
+        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+        df = preprocss(df)
+        df.rename(columns = {'evidence_sentence':'evidence'}, inplace = True)
+        df.rename(columns = {'gold_label':'label'}, inplace = True)
+
+        if "bias_probs" in df.columns:
+          df_new = df[['evidence', 'claim', 'label','bias_probs']]  
+        else:
+          df_new = df[['evidence', 'claim', 'label']]
+        
+        self.label_maps = label_maps
+        df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
+        from datasets import Dataset as HugginfaceDataset
+        self.dataset = HugginfaceDataset.from_pandas(df_new)
+        self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+        self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+        
+        self.my_keys = ['label', 'input_ids', 'token_type_ids', 'attention_mask']
+    def to_label_id(self, text_label): 
+        return self.label_maps[text_label]
+    
+    def tokenize_function(self, examples):
+        return self.tokenizer(examples["evidence"], examples["claim"], truncation=True) 
+
+class FeverDatasetClaimOnly(Dataset):
+    def __init__(self, config, label_maps, data_name = 'train_data', DEBUG=False) -> None: 
+        df = pd.read_json(os.path.join(config['data_path'], config[data_name]), lines=True)
+        df = preprocss(df)
+        df.rename(columns = {'evidence_sentence':'evidence'}, inplace = True)
+        df.rename(columns = {'gold_label':'label'}, inplace = True)
+        if "bias_probs" in df.columns:
+          df_new = df[['claim', 'label','bias_probs']]  
+        else:
+            df_new = df[['claim', 'label']]
+        self.label_maps = label_maps
+        df_new['label'] = df_new['label'].apply(lambda label_text: self.to_label_id(label_text))
+        from datasets import Dataset as HugginfaceDataset
+        self.dataset = HugginfaceDataset.from_pandas(df_new)
+        self.tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'],model_max_length=config['tokens']['max_length'])
+        self.tokenized_datasets = self.dataset.map(self.tokenize_function, batched=True)
+        
+        self.my_keys =  ['label', 'input_ids', 'token_type_ids', 'attention_mask']
+    def to_label_id(self, text_label): 
+        return self.label_maps[text_label]
+    
+    def tokenize_function(self, examples):
+        return self.tokenizer(examples["claim"], truncation=True) 
+   
+    def __len__(self): 
+        return self.tokenized_datasets.shape[0]
+    
+    def __getitem__(self, idx):
+        temp_dict = {}
+        for key in  self.my_keys:
+            temp_dict[key]=self.tokenized_datasets[idx][key]
+        # return self.tokenized_datasets[idx]    
+        return temp_dict    
+
+def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
+    """ to get predictions and score on test and challenge sets"""
+    distributions = {}
+    losses = {}
+    golden_answers = {}
+
+    
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    OPTIMIZED_SET_JSONL = config['dev_json']
+    # datasets
+    IN_DISTRIBUTION_SET_JSONL = 'fever.dev.jsonl'
+    CHALLENGE_SET_JSONL = 'fever_symmetric_generated.jsonl' 
+    RESULT_PATH = f'../pickles/performances/'
+    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
+    acc_avg = 0
+    support_avg = 0
+    refute_avg = 0
+    notenough_avg = 0
+    symm_support_avg = 0
+    symm_refute_avg = 0
+    symm_notenough_avg = 0
+    symm_avg = 0
+    computed_acc_count = 0
+    computed_symm_count = 0
+    for seed, path in all_paths.items():
+        if is_load_model:
+            from utils import load_model
+            # model = load_model(path=path, model=model,device=DEVICE)
+            model = load_model(path=path, model=model, device=DEVICE)
+        else:
+            print(f'Using original model')
+        for cur_json in json_sets:
+            name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+            distributions = []
+            losses = []
+            golden_answers = []
+            data_name = "test_data"
+            
+            dev_set = DevFever(config['dev_path'] , cur_json)
+            dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+
+            # tokenized_datasets = {}
+            # tokenized_datasets[data_name] = FeverDatasetClaimOnly(config, label_maps=config['label_maps'])
+            # data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+            # def collator(input_samples):
+            #     x = data_collator(input_samples)
+            #     for i in x:
+            #         i.pop("claim",None)
+            #     return x
+            
+            # dev_loader = DataLoader(tokenized_datasets[data_name], batch_size = 32, shuffle = False,  collate_fn=collator)
+            model.eval()
+            for batch_idx, (inputs) in enumerate( t := tqdm(dev_loader)):
+                
+                cur_inputs = {} 
+                t.set_description(f'{name_set} batch_idx {batch_idx}/{len(dev_loader)}')
+                for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
+                # get the inputs 
+              
+                # get the inputs 
+                if config['claim_only']:
+                    pair_sentences = [sentence1 for sentence1 in cur_inputs['claim']]       
+                    pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                    pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+                # ignore label_ids when running experiment on hans
+                else:
+                    pair_sentences = [[sentence1, sentence2] for sentence1, sentence2 in zip(cur_inputs['evidence_sentence'], cur_inputs['claim'])]
+                    pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                    pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+                # ignore label_ids when running experiment on hans
+                label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if  'heuristics' not in cur_json  else None
+                # ignore label_ids when running experiment on hans
+                if label_ids is not None: label_ids = label_ids.to(DEVICE)
+
+                with torch.no_grad(): 
+                    # Todo: generalize to distribution if the storage is enough
+                    outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
+                    distributions.extend(F.softmax(outs.logits.cpu() , dim=-1))
+                    golden_answers.extend(label_ids.cpu() if label_ids is not None else cur_inputs['gold_label'])
+
+            cur_raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
+            
+            with open(cur_raw_distribution_path, 'wb') as handle: 
+                pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                # pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving without condition distribution into : {cur_raw_distribution_path}')
+            
+            if 'symmetric' not in cur_json: 
+                acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in acc.keys():
+                    acc = acc['Null']
+                print(f"overall acc : {acc['all']}")
+                print(f"REFUTES acc : {acc['REFUTES']}")
+                print(f"SUPPORTS acc : {acc['SUPPORTS']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                acc_avg += acc['all']
+                refute_avg += acc['REFUTES']
+                support_avg += acc['SUPPORTS']
+                computed_acc_count += 1
+            elif config['get_symm_result'] and 'symmetric'in cur_json: 
+                acc_symm = compute_acc(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in acc_symm.keys():
+                    acc_symm = acc_symm['Null']
+                print(f"overall symm acc : {acc_symm['all']}")
+                print(f"REFUTES symm acc : {acc_symm['REFUTES']}")
+                print(f"SUPPORTS symm acc : {acc_symm['SUPPORTS']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                symm_avg += acc_symm['all']
+                symm_refute_avg += acc_symm['REFUTES']
+                symm_support_avg += acc_symm['SUPPORTS']
+                computed_symm_count += 1
+                # breakpoint()
+                # cur_hans_score = get_symm_result(cur_raw_distribution_path, config)
+                # symm_avg += cur_hans_score
+                # print(f'symm score :{cur_hans_score}')
+    
+    print(f'==================== Average scores ===================')
+    print(f"average overall acc : {acc_avg / len(all_paths)}")
+    print(f"averge REFUTES acc : {refute_avg / len(all_paths)}")
+    print(f"average SUPPORTS acc : {support_avg   / len(all_paths)}")
+    print(f'avarge symm score : { symm_avg  / len(all_paths)}')
+    print(f"averge symm REFUTES acc : {symm_refute_avg / len(all_paths)}")
+    print(f"average symm SUPPORTS acc : {symm_support_avg   / len(all_paths)}")
+
+class DevFever(Dataset):
+    def __init__(self, 
+                data_path, 
+                json_file, 
+                DEBUG=False) -> None: 
+        
+        # Todo: generalize dev apth and json file to  mateched
+        self.inputs = {}
+        # dev_path = "debias_fork_clean/debias_nlu_clean/data/nli/"
+        # dev_path = os.path.join(os.path.join(dev_path, file))
+        self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
+        data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
+        self.df = pd.read_json(data_path, lines=True)
+        self.df.rename(columns = {'evidence':'evidence_sentence'}, inplace = True)
+        self.df.rename(columns = {'label':'gold_label'}, inplace = True)
+        if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
+        if '-' in self.df.gold_label.unique(): 
+            self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
+   
+        
+        for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
+        # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
+        # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
+        # self.labels = self.df.gold_label.tolist()
+
+    def __len__(self): return self.df.shape[0]
+
+    def __getitem__(self, idx):
+        
+        return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
+
+def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
+    """ to get predictions and score on test and challenge sets"""
+    distributions = {}
+    losses = {}
+    golden_answers = {}
+
+    
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    OPTIMIZED_SET_JSONL = config['dev_json']
+    # datasets
+    IN_DISTRIBUTION_SET_JSONL = 'qqp.dev.jsonl'
+    CHALLENGE_SET_JSONL = 'paws.dev_and_test.jsonl' 
+    RESULT_PATH = f'../pickles/performances/'
+    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
+    acc_avg = 0
+    is_dup_avg = 0
+    not_dup_avg = 0   
+    paws_is_dup_avg = 0
+    paws_not_dup_avg = 0   
+    paws_avg = 0
+    computed_acc_count = 0
+    computed_paws_count = 0
+    for seed, path in all_paths.items():
+        if is_load_model:
+            from utils import load_model
+            model = load_model(path=path, model=model,device=DEVICE)
+        else:
+            print(f'Using original model')
+        for cur_json in json_sets:
+            name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+            distributions = []
+            losses = []
+            golden_answers = []
+            data_name = "test_data"
+            
+            dev_set = DevQQP(config['dev_path'] , cur_json)
+            dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+
+            # tokenized_datasets = {}
+            # tokenized_datasets[data_name] = FeverDatasetClaimOnly(config, label_maps=config['label_maps'])
+            # data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+            # def collator(input_samples):
+            #     x = data_collator(input_samples)
+            #     for i in x:
+            #         i.pop("claim",None)
+            #     return x
+            
+            # dev_loader = DataLoader(tokenized_datasets[data_name], batch_size = 32, shuffle = False,  collate_fn=collator)
+            model.eval()
+            for batch_idx, (inputs) in enumerate( t := tqdm(dev_loader)):
+                
+                cur_inputs = {} 
+                t.set_description(f'{name_set} batch_idx {batch_idx}/{len(dev_loader)}')
+                for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
+                # get the inputs 
+                pair_sentences = [[sentence1, sentence2] for sentence1, sentence2 in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+                pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+                label_ids = torch.tensor([label for label in cur_inputs['label']]) 
+                if label_ids is not None: label_ids = label_ids.to(DEVICE)
+
+                with torch.no_grad(): 
+                    # Todo: generalize to distribution if the storage is enough
+                    outs =  model(**pair_sentences, labels= label_ids if  'heuristics' not in cur_json else None)
+                    distributions.extend(F.softmax(outs.logits.cpu() , dim=-1))
+                    golden_answers.extend(label_ids.cpu() if label_ids is not None else cur_inputs['label'])
+
+            cur_raw_distribution_path = os.path.join(RESULT_PATH, f'inference_{name_set}.pickle')
+            
+            with open(cur_raw_distribution_path, 'wb') as handle: 
+                pickle.dump(distributions , handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                # pickle.dump(losses[cur_json.split("_")[0]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving without condition distribution into : {cur_raw_distribution_path}')
+            
+            if 'paws' not in cur_json: 
+                acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in acc.keys():
+                    acc = acc['Null']
+                print(f"overall acc : {acc['all']}")
+                print(f"is_duplicate acc : {acc['duplicate']}")
+                print(f"not_duplicate acc : {acc['not_duplicate']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                acc_avg += acc['all']
+                is_dup_avg += acc['duplicate']
+                not_dup_avg += acc['not_duplicate']
+                computed_acc_count += 1
+            elif config['get_paws_result'] and 'paws'in cur_json: 
+                acc_paws = compute_acc(cur_raw_distribution_path, config["label_maps"])
+               
+                if 'Null' in acc_paws.keys():
+                    acc_paws = acc_paws['Null']
+                print(f"overall paws acc : {acc_paws['all']}")
+                print(f"not_dup paws acc : {acc_paws['not_duplicate']}")
+                print(f"is_dup paws acc : {acc_paws['duplicate']}")
+                # print(f"neutral acc : {acc['neutral']}")
+
+                paws_avg += acc_paws['all']
+                paws_not_dup_avg += acc_paws['not_duplicate']
+                paws_is_dup_avg += acc_paws['duplicate']
+                computed_paws_count += 1
+                # breakpoint()
+                # cur_hans_score = get_symm_result(cur_raw_distribution_path, config)
+                # symm_avg += cur_hans_score
+                # print(f'symm score :{cur_hans_score}')
+    
+    print(f'==================== Average scores ===================')
+    print(f"average overall acc : {acc_avg / len(all_paths)}")
+    print(f"averge not dup acc : {not_dup_avg / len(all_paths)}")
+    print(f"average is dup acc : {is_dup_avg   / len(all_paths)}")
+    print(f'avarge paws score : { paws_avg  / len(all_paths)}')
+    print(f"averge paws not dup acc : {paws_not_dup_avg / len(all_paths)}")
+    print(f"average paws dup SUPPORTS acc : {paws_is_dup_avg   / len(all_paths)}") 
+
+class DevQQP(Dataset):
+    def __init__(self, 
+                data_path, 
+                json_file, 
+                DEBUG=False) -> None: 
+        
+        # Todo: generalize dev apth and json file to  mateched
+        self.inputs = {}
+        # dev_path = "debias_fork_clean/debias_nlu_clean/data/nli/"
+        # dev_path = os.path.join(os.path.join(dev_path, file))
+        self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
+        data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
+        self.df = pd.read_json(data_path, lines=True)
+        self.df.rename(columns = {'is_duplicate':'label'}, inplace = True)
+        for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
+        # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
+        # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
+        # self.labels = self.df.gold_label.tolist()
+
+    def __len__(self): return self.df.shape[0]
+
+    def __getitem__(self, idx):
+        
+        return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
+
+        # return pair_sentence , label
+
+
+class DevFever(Dataset):
+    def __init__(self, 
+                data_path, 
+                json_file, 
+                DEBUG=False) -> None: 
+        
+        # Todo: generalize dev apth and json file to  mateched
+        self.inputs = {}
+        # dev_path = "debias_fork_clean/debias_nlu_clean/data/nli/"
+        # dev_path = os.path.join(os.path.join(dev_path, file))
+        self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
+        data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
+        self.df = pd.read_json(data_path, lines=True)
+        self.df.rename(columns = {'evidence':'evidence_sentence'}, inplace = True)
+        self.df.rename(columns = {'label':'gold_label'}, inplace = True)
+        if self.dev_name == 'reweight': self.df['weight_score'] = self.df[['gold_label', 'bias_probs']].apply(lambda x: give_weight(*x), axis=1)
+        if '-' in self.df.gold_label.unique(): 
+            self.df = self.df[self.df.gold_label != '-'].reset_index(drop=True)
+   
+        
+        for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
+        # self.premises = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
+        # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
+        # self.labels = self.df.gold_label.tolist()
+
+    def __len__(self): return self.df.shape[0]
+
+    def __getitem__(self, idx):
+        
+        return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
+
+        # return pair_sentence , label

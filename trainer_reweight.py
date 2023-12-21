@@ -619,7 +619,7 @@ def main():
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/reweight_clark_ipw2' 
+    output_dir = '../models/reweight_clark' 
 
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
@@ -671,9 +671,11 @@ def main():
     opitmizer = AdamW(params=model.parameters(),
                     lr= float(config['optimizer']['lr']) , 
                     weight_decay = config['optimizer']['weight_decay'])
+
     # NOTE: for baseline just change 
     # config: baseline_config.yaml
     # model: BertForSequenceClassification
+
     trainer = ReweightTrainer(
         model,
         training_args,
@@ -693,5 +695,4 @@ def main():
 if __name__ == "__main__":
     main()
      
-
 
