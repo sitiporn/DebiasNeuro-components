@@ -1,0 +1,33 @@
+#!/bin/bash -l
+#!/bin/bash -l
+#SBATCH --output=../../../slurm_out/%j_train_mnli.out
+#SBATCH --job-name=MNLI
+#SBATCH --mem=64GB
+#SBATCH --time=48:0:0     # Runing time 
+#SBATCH --gpus=1
+#SBATCH --partition=gpu-cluster
+#SBATCH --account=scads
+
+source activate /ist-project/scads/can_sit/xcombine_env/
+export PYTHONNOUSERSITE=True
+cd ../../
+
+python3 trainer_mnli_pcgu.py \
+    --model_load_path ../models/recent_baseline/ \
+    --model_save_path ../models/pcgu_separation_repalce_intervention_0k_recent_baseline/ \
+    --dataset_name mnli \
+    --method_name separation_replace_intervention_recent_baseline \
+    --seed 3990 \
+    --num_epochs 15 \
+    --candidated_class entailment \
+    --intervention_class entailment \
+    --intervention_type replace \
+    --top_neuron_mode sorted \
+    --grad_direction reverse \
+    --k 0 \
+    --compare_frozen_weight True \
+    --is_averaged_embeddings True \
+    --correct_pred True \
+    --collect_adv True
+    # --random_adv False
+
