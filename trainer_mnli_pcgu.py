@@ -604,13 +604,51 @@ def main():
     global label_maps
     global metric
 
-    # Todo:
-    # consistent config to yaml
-    # no-consistent config to argument parser
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_save_path", type=str, default=None, required=True, help="The output directory where the model checkpoints will be written.")
+    parser.add_argument("--model_load_path", type=str, default=None, required=True, help="The directory where the model checkpoints will be read to train.")
+    parser.add_argument("--dataset_name", type=str, help="dataset name to train") 
+    parser.add_argument("--method_name", type=str, help="method to train") 
+    parser.add_argument("--seed", type=int, default=1548, help="The random seed value")	
+    parser.add_argument("--random_adv", type=bool,  default=False,  help="The random advanated samples")	
+    parser.add_argument("--collect_adv", type=bool, default=False,  help="collect advanated samples")	
+    parser.add_argument("--correct_pred", type=bool, default=True, help="model to filter advantaged samples")	
+    parser.add_argument("--num_epochs", type=int, default=15, help="Total number of training epochs.")
+    parser.add_argument("--candidated_class", type=str, help="class used to filter advantaged samples") 
+    parser.add_argument("--intervention_class", type=str, help="class used to compute NIE scores") 
+    parser.add_argument("--intervention_type", type=str, help="tye of neuron intervention") 
+    parser.add_argument("--top_neuron_mode", type=str, help="mode select neurons to perform gradients unlearning") 
+    parser.add_argument("--grad_direction", type=str, help="moving gradient directoin used to learn or unlearn") 
+    parser.add_argument("--k", type=int, default=5, help="the percentage of total number of neurons") 
+    parser.add_argument("--compare_frozen_weight", type=bool, default=True, help="compare weight to reference model to restore back to model during training at each step")	
+    parser.add_argument("--is_averaged_embeddings", type=bool, default=True, help="Average representation across samples")	
+
+    args = parser.parse_args()
+    print(args)
 
     config_path = "./configs/pcgu_config.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
+    
+    LOAD_MODEL_PATH = args.model_load_path
+    output_dir = args.model_save_path
+    method_name =  args.method_name
+    config['seed'] = args.seed 
+    method_name = args.method_name 
+    config['dataset_name'] = args.dataset_name
+    config['random_adv'] = args.random_adv
+    config['collect_adv'] = args.collect_adv
+    config['correct_pred'] = args.correct_pred
+    config['num_epochs'] =  args.num_epochs
+    config['candidated_class'] =  [args.candidated_class]
+    config['intervention_class'] =  [args.intervention_class]
+    config['intervention_type']  = args.intervention_type
+    config['top_neuron_mode'] = args.top_neuron_mode
+    config['grad_direction'] = args.grad_direction
+    config['k'] = args.k
+    config['compare_frozen_weight'] = args.compare_frozen_weight
+    config['is_averaged_embeddings'] = args.is_averaged_embeddings
+
     
     dataset = {}
     tokenized_datasets = {}
@@ -620,10 +658,6 @@ def main():
     dataset_name = config['dataset_name']
     print(f'current dataset_name: {dataset_name}')
     # ******************** PATH ********************
-    LOAD_MODEL_PATH = '../models/recent_baseline/' 
-    method_name =  f'{config["intervention_type"]}_intervention_{LOAD_MODEL_PATH.split("/")[-2]}'
-    output_dir = f'../models/pcgu_rand_grad_{config["intervention_type"]}_{config["k"]}k_{LOAD_MODEL_PATH.split("/")[-2]}/' 
-
     if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
     # prepare validation for computing NIE scores
@@ -637,7 +671,7 @@ def main():
     # path to save NIE scores
     NIE_paths, _ = geting_NIE_paths(config, method_name, mode)
     print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
-    for path in counterfactual_paths: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
+    for path in counterfactual_paths: print(f"{path.split('/')[-1].split('_')[1]}: {path}")
     print(f'NIE_paths: {NIE_paths}')
 
     from optimization_utils import get_advantaged_samples
@@ -688,7 +722,6 @@ def main():
         print(f'Using original model to optimize on PCGU')
     
     from utils import compare_weight
-
 
     get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False, mode=config['top_neuron_mode']) 
     model = initial_partition_params(config, method_name, model, do=mode[0], collect_param=config['collect_param'], mode=config['top_neuron_mode']) 
@@ -770,13 +803,6 @@ def main():
         )
     
     trainer.train()
-    # NOTE:
-    # biased_scores = count_negations(claim_sentences) 
-    # intervention: compute nie; ratio RF
-    # advantaged samples -> RF class-only
-    # focal loss is suitable for training whole model 
-    # distance loss 
-    # objective is to let model learn to deviate distributions from bias model by using adv samples
 
 if __name__ == "__main__":
     main()
