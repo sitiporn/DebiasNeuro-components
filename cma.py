@@ -133,8 +133,7 @@ def get_topk(config, k=None, num_top_neurons=None):
             topk = {'percent': [config['masking_rate']] if config['masking_rate'] else params['percent']}
     return topk
 
-def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=False, mode='sorted'):
-    print(f'get_candidate_neurons: {mode}')
+def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=False):
     # random seed
     seed = config['seed'] 
     if seed is not None:
@@ -147,6 +146,8 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
 
     # select candidates  based on percentage
     k = config['k']
+    mode = config['top_neuron_mode']
+    print(f'get_candidate_neurons: {mode}')
     # select candidates based on the number of neurons
     num_top_neurons = config['num_top_neurons']
     top_neuron_path = f'../pickles/top_neurons/{method_name}/'
@@ -185,8 +186,8 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
             for value in topk[key]:
                 num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
                 num_neurons = int(num_neurons) 
-                print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
-                top_neurons[round(value, 2) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+                print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
+                top_neurons[round(value, 4) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
             with open(os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_{layer}.pickle'), 'wb') as handle:
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !") 
@@ -197,13 +198,13 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
             for value in topk[key]:
                 num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
                 num_neurons = int(num_neurons)
-                print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
+                print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
                 
                 if mode == 'random':
                     from operator import itemgetter
                     cur_neurons = sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)
                     random.shuffle(cur_neurons)
-                    top_neurons[round(value, 2) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
+                    top_neurons[round(value, 4) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
                     # ids = []
                     # while len(set(ids)) < num_neurons:
                     #     id = int(torch.randint(num_neurons, len(cur_neurons), size=(1,)))
@@ -211,9 +212,9 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
                     #     ids = list(set(ids))
                     # assert len(ids) == len(set(ids)), f"len {len(ids)}, set len: {len(set(ids))}"
                     # assert len(ids) == num_neurons
-                    # top_neurons[round(value, 2) if key == 'percent' else value] = dict(itemgetter(*ids)(cur_neurons))
+                    # top_neurons[round(value, 4) if key == 'percent' else value] = dict(itemgetter(*ids)(cur_neurons))
                 elif mode == 'sorted':
-                    top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+                    top_neurons[round(value, 4) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
             
             if mode == 'random':
                 save_path = os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers.pickle')
@@ -631,7 +632,7 @@ def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted
             for value in topk[key]:
                 num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
                 num_neurons = int(num_neurons)
-                print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
+                print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
                 cur_neurons = sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)
                 cur_neurons = dict(cur_neurons)
                 scores["Neuron_ids"] = list(cur_neurons.keys())
