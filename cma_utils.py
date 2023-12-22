@@ -660,7 +660,7 @@ def geting_NIE_paths(config, method_name, mode, seed=None):
     else:
         for cur_path in config['counterfactual_paths']:
             # extract infor from current path 
-            component = sorted(cur_path.split("_"), key=len)[0]  
+            component = cur_path.split('/')[-1].split('_')[1]
             class_name = None
             # NIE_path = os.path.join(path, f'avg_high_level_{layer}_{mode[0]}.pickle') 
             NIE_path = os.path.join(path, f'avg_embeddings_{mode[0]}_layer_{layer}_.pickle') 
