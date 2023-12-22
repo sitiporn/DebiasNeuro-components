@@ -23,7 +23,7 @@ from functools import partial
 from cma import get_topk
 from utils import LayerParams
 
-def initial_partition_params(config, method_name, model, do, collect_param=False, debug=True, seed=None , mode='sorted'):
+def initial_partition_params(config, method_name, model, do, collect_param=False, debug=True, seed=None):
     """partition parameters used to freeze  and train(bias parameters)"""
     from utils import report_gpu
     component_mappings = {}
@@ -32,6 +32,8 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
     total_params = {}
     seed = config['seed'] if seed is None else seed
     k = config['k']
+    mode = config['top_neuron_mode']
+    collect_param = config['collect_param']
     num_neurons = None
     topk = get_topk(config, k=k, num_top_neurons=num_neurons)
     key = list(topk.keys())[0]

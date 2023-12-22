@@ -723,9 +723,9 @@ def main():
     
     from utils import compare_weight
 
-    get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False, mode=config['top_neuron_mode']) 
-    model = initial_partition_params(config, method_name, model, do=mode[0], collect_param=config['collect_param'], mode=config['top_neuron_mode']) 
-    model, hooks = intervene_grad(model, hooks=hooks, method_name=method_name, config=config, collect_param=config['collect_param'], DEBUG=False, mode=config['top_neuron_mode'])
+    get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False) 
+    model = initial_partition_params(config, method_name, model, do=mode[0]) 
+    model, hooks = intervene_grad(model, hooks=hooks, method_name=method_name, config=config, DEBUG=False)
     compare_weight(updated_model=model, reference_model=reference_model)
     
     for data_mode in ["train_data", "validation_data", "test_data"]:
