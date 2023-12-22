@@ -23,15 +23,18 @@ from functools import partial
 from optimization_utils import masking_grad, reverse_grad, initial_partition_params, trace_optimized_params
 
 
-def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_param=False, DEBUG = False, mode='sorted'):
+def intervene_grad(model, hooks, method_name, config, collect_param=False, DEBUG = False):
     seed = config['seed']
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/{method_name}/'
+    value = config['k'] / 100
+    mode = config['top_neuron_mode']
     restore_path = os.path.join(restore_path, f'masking-{value}')
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
-
+    acc_train_num = 0
+    acc_frozen_num = 0 
 
     #  walking in Encoder's parameters
     for param_name, param in model.named_parameters(): 
@@ -60,10 +63,11 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
 
         frozen_num =  len(frozen_neuron_ids[component]) if component in frozen_neuron_ids.keys() else 0
         train_num =  len(train_neuron_ids[component]) if component in train_neuron_ids.keys() else 0
+        acc_train_num += train_num
+        acc_frozen_num += frozen_num
 
         print(f'checking:{param_name}, frozen: {frozen_num}, train: {train_num}, Total : {frozen_num + train_num} : {param.shape}')
         assert frozen_num + train_num == param.shape[0]
-        
 
         from optimization import reverse_grad
         if 'dense' in splited_name:
@@ -83,6 +87,8 @@ def intervene_grad(model, hooks, method_name, config, value = 0.05, collect_para
         # masking grad hooks : 144
         # reverse grad hooks : 134
     print(f'reverse grad mode: {mode}')
+    print(f'#Total train  neuron : {acc_train_num // 2}')
+    print(f'#Total frozen neuron : {acc_frozen_num // 2}')
     
     return model, hooks
 
