@@ -106,7 +106,7 @@ class ExperimentDataset(Dataset):
 
                 type_selector = self.df_exp_set[do].gold_label == type 
 
-                self.sets[do][type] = self.df_exp_set[do][tye_selector].reset_index(drop=True)
+                self.sets[do][type] = self.df_exp_set[do][type_selector].reset_index(drop=True)
                 nums[do][type] = self.sets[do][type].shape[0]
 
         # get minimum size of samples
@@ -488,14 +488,6 @@ def get_masking_value(config):
         best_val = float(cur_best_key.split('-')[-1])
         # cur_digits = len(str(best_val).split('.')[-1])
         print(f"Null : {acc[value]['Null']['all']*100:.2f}, Intervene at {best_val}:{scores[cur_best_key]*100:.2f}")
-    # get new high and low value unitil up to max_num_digits 
-    # get digits
-    # get of new 
-    # add digits by one
-    # 0.1 / 2 #  -> diff 1 * 10e-cu_digits / 2
-    # 0.9 + diff , 
-    # 
-
 
 
 def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
