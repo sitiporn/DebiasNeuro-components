@@ -59,11 +59,11 @@ from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
 from transformers.trainer_utils import EvalPrediction, EvalLoopOutput
 from transformers.trainer_callback import TrainerCallback
-from trainer_pt_utils import CustomLabelSmoother, test_bucket_iterator
+from trainer_package.trainer_pt_utils import CustomLabelSmoother, test_bucket_iterator
 from transformers.trainer_utils import denumpify_detensorize
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from transformers.utils import logging
-from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
+from trainer_package.trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
 import math
 import time
 from data import CustomDataset
@@ -167,7 +167,7 @@ class CustomTrainer(Trainer):
                 lengths = None
             model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
 
-            from trainer_pt_utils import BucketIteratorAllennlp
+            from trainer_package.trainer_pt_utils import BucketIteratorAllennlp
 
             return BucketIteratorAllennlp(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
                                       dataset=self.train_dataset,
