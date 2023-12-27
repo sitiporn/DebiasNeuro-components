@@ -928,7 +928,7 @@ def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, met
             print(f'Using original model')
         
         if config['prunning']:
-            from optimization_utils import initial_partition_params 
+            from my_package.optimization_utils import initial_partition_params 
             path = [NIE_paths[seed]]
             do = "High-overlap"  if config['treatment'] else  "Low-overlap"
             model = initial_partition_params(config, method_name, model, do=do, collect_param=config['collect_param'],seed=seed ,mode=config['top_neuron_mode']) 
@@ -1311,7 +1311,7 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
     computed_symm2_count = 0
     for seed, path in all_paths.items():
         if is_load_model:
-            from utils import load_model
+            from my_package.utils import load_model
             model = load_model(path=path, model=model,device=DEVICE)
         else:
             print(f'Using original model')
@@ -1452,7 +1452,7 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
     computed_paws_count = 0
     for seed, path in all_paths.items():
         if is_load_model:
-            from utils import load_model
+            from my_package.utils import load_model
             model = load_model(path=path, model=model,device=DEVICE)
         else:
             print(f'Using original model')

@@ -35,7 +35,7 @@ class Classifier(nn.Module):
 
 def collect_counterfactuals(model, model_path, dataset_name, method_name, seed,  counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE, all_seeds=False): 
     """ getting all activation's neurons used as mediators(Z) to compute NIE scores later """
-    from utils import load_model
+    from my_package.utils import load_model
     import copy
     if model_path is not None: 
         _model = load_model(path= model_path, model=copy.deepcopy(model))

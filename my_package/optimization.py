@@ -319,7 +319,9 @@ class CustomAdamW(Optimizer):
         loss = None
         if closure is not None:
             loss = closure()
-
+        acc_train_num  = 0 
+        acc_frozen_num = 0
+        
         for group in self.param_groups:
             for p, (param_name, param) in zip(group["params"], self.original_model.named_parameters()):
                 splited_name = param_name.split('.')
@@ -393,8 +395,14 @@ class CustomAdamW(Optimizer):
                 # p: current updated parameters
                 # weight : [neuron_num, input_size], bias : [num_neurons]
                 p.data = torch.where(mask.bool(), p, param.to(self.DEVICE))
-                # assert (p == param.to(self.DEVICE)).all()
-                # print(f'param_name : {param_name}')
+                assert (p[neuron_ids] == param[neuron_ids].to(self.DEVICE)).all(), f'param_name : {param_name}'
+                
+                # extra debugs
+                # frozen_num =  len(frozen_neuron_ids[component]) if component in frozen_neuron_ids.keys() else 0
+                # train_num =  len(train_neuron_ids[component]) if component in train_neuron_ids.keys() else 0
+                # acc_train_num += train_num
+                # acc_frozen_num += frozen_num
+                # print(f'customA:{param_name}, frozen: {frozen_num}, train: {train_num}, Total : {frozen_num + train_num} : {param.shape}')
 
         return loss
 
@@ -406,7 +414,7 @@ def test_grad_zero():
     config_path = "./configs/pcgu_config.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
-    from optimization import CustomAdamW
+    from my_package.optimization import CustomAdamW
     lr = 1e-2 
     # # Setup
     model = nn.Conv2d(1, 10, 3, 1, 1)

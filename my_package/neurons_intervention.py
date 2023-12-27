@@ -1,6 +1,6 @@
 import torch 
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import Intervention
+from my_package.utils import Intervention
 
 """
 ---

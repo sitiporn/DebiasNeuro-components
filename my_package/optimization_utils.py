@@ -230,7 +230,7 @@ def test_restore_weight(model, config, DEVICE):
                     param[neuron_id] = torch.randn(param[neuron_id].shape)
                     
     # restore weight
-    from optimization import restore_original_weight
+    from my_package.optimization import restore_original_weight
     model = restore_original_weight(model, DEBUG=False)
     # checker
     trace_optimized_params(model, config, DEVICE, is_load_optimized_model = False)
@@ -294,11 +294,11 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
     print(f'using: {train_data}')
 
     if collect:
-        from data import get_all_model_paths
+        from my_package.data import get_all_model_paths
         all_paths = get_all_model_paths(LOAD_MODEL_PATH)
         path = all_paths[seed]
         if is_load_model:
-            from utils import load_model
+            from my_package.utils import load_model
             model = load_model(path=path, model=model, device=device)
             print(f'Loading model from : {path}')
         else:
@@ -324,7 +324,7 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
         
         print(f'candidated class : {config["candidated_class"]}') 
         # ************* Main model **************
-        from data import CustomDataset
+        from my_package.data import CustomDataset
         train_set = CustomDataset(config, label_maps=main_label_maps, data_mode="train_data", is_trained=False)
         train_dataloader = DataLoader(train_set, batch_size = 32, shuffle = False, num_workers=0)
         tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
