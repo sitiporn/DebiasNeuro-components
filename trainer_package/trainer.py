@@ -650,7 +650,7 @@ def main():
     for path in counterfactual_paths: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
     print(f'NIE_paths: {NIE_paths}')
 
-    from optimization_utils import get_advantaged_samples
+    from my_package.optimization_utils import get_advantaged_samples
 
     # random seed
     seed = config['seed'] 
@@ -680,7 +680,7 @@ def main():
     # Todo: get top_neurons
     # Done checking model counterfactual_path and specific model
     
-    from cma import get_candidate_neurons 
+    from my_package.cma import get_candidate_neurons 
     experiment_set = ExperimentDataset(config, encode = tokenizer, dataset_name=dataset_name)                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
     
@@ -702,13 +702,13 @@ def main():
     # ************************** PCGU ***************************
     # NOTE: scale gradient by confident scores <- kind of reweighting (sample base)
     # spatial adaptive gradient scaler by NIE scores (NIE base)
-    from optimization import partition_param_train, restore_original_weight
+    from my_package.optimization import partition_param_train, restore_original_weight
     hooks = []
     advantaged_bias = None
     advantaged_main, advantaged_bias = get_advantaged_samples(config, model, seed, metric=metric, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model=True, method_name=method_name, collect=False, device=True)
 
     if config['model']['is_load_trained_model']:
-        from utils import load_model
+        from my_package.utils import load_model
         all_paths = get_all_model_paths(LOAD_MODEL_PATH)
         path = all_paths[str(seed)]
         model = load_model(path=path, model=model, device=DEVICE)
@@ -718,7 +718,7 @@ def main():
     else:
         print(f'Using original model to optimize on PCGU')
     
-    from utils import compare_weight
+    from my_package.utils import compare_weight
     
     model = initial_partition_params(config, method_name, model, do=mode[0], collect_param=config['collect_param'], mode=config['top_neuron_mode']) 
     model, hooks = intervene_grad(model, hooks=hooks, method_name=method_name, config=config, collect_param=config['collect_param'], DEBUG=False)
@@ -767,7 +767,7 @@ def main():
                                     half_precision_backend = config["half_precision_backend"],
                                     group_by_length = config["data_loader"]["batch_sampler"]["group_by_length"],
                                     )
-    from optimization import CustomAdamW
+    from my_package.optimization import CustomAdamW
     from transformers import AdamW
     import torch.optim as optim
 

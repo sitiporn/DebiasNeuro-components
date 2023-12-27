@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from torch.optim import Adam
-# from utils import  report_gpu
+# from my_package.utils import  report_gpu
 from my_package.cma_utils import collect_counterfactuals, trace_counterfactual, geting_counterfactual_paths, get_single_representation, geting_NIE_paths
 from my_package.optimization_utils import test_restore_weight
 from sklearn.metrics import accuracy_score
@@ -234,7 +234,6 @@ def main():
                                     )
     
   
-
     opitmizer = CustomAdamW(config=config,
                             params=model.parameters(),
                             original_model= reference_model,
