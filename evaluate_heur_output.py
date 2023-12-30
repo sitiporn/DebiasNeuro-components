@@ -5,9 +5,9 @@ import os
 import yaml
 import torch
 import numpy as np
-from utils import get_ans
+from my_package.utils import get_ans
 import operator
-from data import get_condition_inference_hans_result, get_num_neurons, get_params
+from my_package.data import get_condition_inference_hans_result, get_num_neurons, get_params
 
 # ++++++  config ++++++++++++
 
