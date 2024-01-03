@@ -3,6 +3,8 @@
 ### Todo
 -  [x] Perform EDA on MNNLI-matched set to select to advantaged samples(preferred by bias model)
 -  [x] recheck model(ishan/bert-base-uncased-mnli) weaken rate noted in config testing on dev-mm and HANS to find where a result increases
+-  [ ] implement group by class in get_hidden_representations
+-  [ ] extend counterfactual set from validation to training set
 
 ## Open questions
 
