@@ -55,6 +55,7 @@ class ExperimentDataset(Dataset):
         pair_and_label = []
         self.is_group_by_class = is_group_by_class
         self.label_remaps = {v:k for k,v in config['label_maps'].items()}
+        self.label_maps = config['label_maps']
         
         if dataset_name == 'fever': 
             self.treatments = ["High-overlap"]
@@ -186,7 +187,7 @@ class ExperimentDataset(Dataset):
                 pair_sentences[do] = {}
                 labels[do] = {}
 
-                for type in config['label_maps'].keys():
+                for type in self.label_maps.keys():
 
                     pair_sentences[do][type] = self.intervention[do][type].pair_sentences[idx]
                     labels[do][type] = self.labels[do][type][idx]
