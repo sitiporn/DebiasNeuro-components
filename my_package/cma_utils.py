@@ -199,13 +199,15 @@ def geting_counterfactual_paths(config, method_name, seed=None):
 
     counterfactual_paths = []
     is_counterfactual_exist = []
+
+    assert isinstance(config["treatment"], str)
     
     for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
        
         if config["is_averaged_embeddings"]:
-            cur_path = f'avg_{component}_counterfactual_representation.pickle'
+            cur_path = f'avg_{component}_counterfactual_representation_{config["treatment"]}.pickle'
         elif config["is_group_by_class"]:
-            cur_path = f'individual_class_level_{component}_counterfactual_representation.pickle'
+            cur_path = f'individual_class_level_{component}_counterfactual_representation_{config["treatment"]}.pickle'
 
         counterfactual_paths.append(os.path.join(path, cur_path))
         is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
