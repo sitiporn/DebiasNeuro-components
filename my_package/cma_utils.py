@@ -42,7 +42,7 @@ def get_component_names(config):
 
     for component in (["Q","K","V","AO","I","O"]):
         representations[component] = {}
-        for do in ["High-overlap","Low-overlap"]:
+        for do in [config["treatment"]]:
             representations[component][do] = {}
             for layer in layers:
                 if config["is_averaged_embeddings"]:
@@ -95,7 +95,7 @@ def register_hooks(hooks, do, layer_modules, config, representations, class_name
 
 def check_counterfactuals(representations, config, counter):
     for component in (["Q","K","V","AO","I","O"]):
-        for do in ["High-overlap","Low-overlap"]:
+        for do in [config["treatment"]]:
             for layer in config["layers"]:
                 if config["is_averaged_embeddings"]:
                     assert len(representations[component][do][layer]) == counter, f"Expected : {counter}, but found on layer{layer}, {component}, {do} :{len(representations[component][do][layer])}"
@@ -131,8 +131,9 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
 
     layer_modules = get_mediators(_model)
     representations = get_component_names(config)
+    treatments = [config["treatment"]]
 
-    for do in ["High-overlap","Low-overlap"]:
+    for do in treatments:
         if config["is_averaged_embeddings"]:
             hooks = []
             hooks = register_hooks(hooks, do, layer_modules, config, representations, class_name=None)
@@ -148,33 +149,16 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
                 del hooks
     
     check_counterfactuals(representations, config, counter)
-    breakpoint()
     
-    # for cur_path in _counterfactual_paths:
-    #     component = cur_path.split('/')[-1].split('_')[1]
-    #     print(f'{component}, :{cur_path}')
-    #     # Todo: recheck this part
-    #     if component == "I" and not is_averaged_embeddings:
-    #         do = cur_path.split("_")[4]
-    #         class_name = cur_path.split("_")[5]
-    #         # hidden_representations[component][do][class_name][layer][sample_idx]
-    #         with open(cur_path,'wb') as handle: 
-    #             pickle.dump(hidden_representations[component][do][class_name], handle, protocol=pickle.HIGHEST_PROTOCOL)
-    #             print(f"saving counterfactual representations into {cur_path} done ! ")
-    #     else:
-    #         with open(cur_path, 'wb') as handle: 
-    #             # nested dict : [component][do][class_name][layer][sample_idx]
-    #             pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
-    #             print(f"saving counterfactual representations into {cur_path} done ! ")
+    for cur_path in _counterfactual_paths:
+        component = cur_path.split('/')[-1].split('_')[1 if is_averaged_embeddings else 3]
+        print(f'{component}, :{cur_path}')
+        
+        with open(cur_path, 'wb') as handle: 
+            pickle.dump(representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"saving counterfactual and counter into {cur_path} done ! ")
                 
-    # path = f'../pickles/utilizer/{method_name}/'
-    # if not os.path.exists(path): os.mkdir(path)
-    # path = os.path.join(path, f'utilizer_{seed}_components.pickle')
-    
-    # with open(path, 'wb') as handle: 
-    #     pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    #     print(f"save utilizer to {path}  ! ")
-
 def test_mask(neuron_candidates =[]):
     x  = torch.tensor([[ [1,2,3], 
                          [4,5,6]
@@ -282,7 +266,7 @@ def get_activation(layer, do, component, activation, is_averaged_embeddings, cla
         activation[component][do][layer][class_name].extend(output.detach()[:,0,:])
 
     if DEBUG >=4: print(f"{do}, layer : {layer}, component: {component}, class_name: {class_name},inp:{input[0].shape}, out:{output.shape} ")
-        # breakpoint()
+  
   return hook
 
 def get_overlap_score(pair_label):
@@ -517,8 +501,6 @@ def trace_counterfactual(do,
             print(f'saving NIE scores into : {dist_path}')
 
 def get_hidden_representations(config, counterfactual_paths, method_name, seed, layers, is_group_by_class, is_averaged_embeddings):
-    with open(f'../pickles/utilizer/{method_name}/utilizer_{seed}_components.pickle', 'rb') as handle: 
-        counter = pickle.load(handle)
     
     if is_averaged_embeddings:
         # get average of [CLS] activations
