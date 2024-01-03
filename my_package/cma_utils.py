@@ -248,9 +248,9 @@ def get_activation(layer, do, component, activation, is_averaged_embeddings, cla
   def hook(model, input, output):
     # bz, seq_len, hid_dim
     if class_name is None and is_averaged_embeddings:
-        activation[component][do][layer].extend(output.detach()[:,0,:])
+        activation[component][do][layer].extend(output.detach()[:,0,:].cpu())
     else: 
-        activation[component][do][layer][class_name].extend(output.detach()[:,0,:])
+        activation[component][do][layer][class_name].extend(output.detach()[:,0,:].cpu())
 
     if DEBUG >=4: print(f"{do}, layer : {layer}, component: {component}, class_name: {class_name},inp:{input[0].shape}, out:{output.shape} ")
   
@@ -488,11 +488,13 @@ def trace_counterfactual(do,
             print(f'saving NIE scores into : {dist_path}')
 
 def get_hidden_representations(config, counterfactual_paths, method_name, seed, layers, is_group_by_class, is_averaged_embeddings):
+    from my_package.utils import  report_gpu
+    
+    counterfactual_representations = {}
+    avg_counterfactual_representations = {}
     
     if is_averaged_embeddings:
         # get average of [CLS] activations
-        counterfactual_representations = {}
-        avg_counterfactual_representations = {}
         for cur_path in counterfactual_paths:
             component = cur_path.split('/')[-1].split('_')[1]
             seed = cur_path.split('/')[3].split('_')[-1]
@@ -501,24 +503,27 @@ def get_hidden_representations(config, counterfactual_paths, method_name, seed, 
             avg_counterfactual_representations[seed][component] = {}
             # load all output components 
             with open(cur_path, 'rb') as handle:
-                # get [CLS] activation [do][layer]
                 counterfactual_representations[seed][component] = pickle.load(handle)
-                # attention_data = pickle.load(handle)
-                # counter = pickle.load(handle)
-            treatments = ["High-overlap"]  if config['dataset_name'] == 'fever' else ["High-overlap", "Low-overlap"]
+                counter = pickle.load(handle)
+            treatments = [config["treatment"] ]
+            print(f'{component}:{cur_path}')
             for do in treatments:
                 avg_counterfactual_representations[seed][component][do] = {}
                 # concate all batches
                 for layer in layers:
                     # compute average over samples
-                    if is_group_by_class:
-                        for class_name in counterfactual_representations[seed][component][do].keys():
-                            if class_name not in avg_counterfactual_representations[seed][component][do].keys():
-                                avg_counterfactual_representations[seed][component][do][class_name] = {}
-                            avg_counterfactual_representations[seed][component][do][class_name][layer] = counterfactual_representations[seed][component][do][class_name][layer] / counter[do][class_name]
-                    else:
-                        avg_counterfactual_representations[seed][component][do][layer] = counterfactual_representations[seed][component][do][layer] / counter[do]
-        return  avg_counterfactual_representations
+                    assert len(counterfactual_representations[seed][component][do][layer]) == counter
+                    counterfactual_representations[seed][component][do][layer] = torch.sum(torch.stack(counterfactual_representations[seed][component][do][layer]), dim=0)
+                    avg_counterfactual_representations[seed][component][do][layer] = counterfactual_representations[seed][component][do][layer] / counter
+        
+            del counterfactual_representations[seed][component]     
+            report_gpu()
+    elif is_group_by_class:
+        
+        pass
+
+
+    return  avg_counterfactual_representations
 
 def get_single_representation(cur_path, do = None, class_name = None):
     component = sorted(cur_path.split("_"), key=len)[0]  
