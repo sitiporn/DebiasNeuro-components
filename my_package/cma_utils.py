@@ -201,26 +201,11 @@ def geting_counterfactual_paths(config, method_name, seed=None):
     is_counterfactual_exist = []
     
     for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
+       
         if config["is_averaged_embeddings"]:
-            if config["is_group_by_class"]:
-                cur_path = f'avg_class_level_{component}_counterfactual_representation.pickle'
-            else:
-                cur_path = f'avg_{component}_counterfactual_representation.pickle'
-        else:
-            if config["is_group_by_class"]:
-                if component == "I":
-                    for  do in ['High-overlap','Low-overlap']:
-                        for class_name in ["contradiction","entailment","neutral"]:
-                            cur_path = f'individual_class_level_{component}_{do}_{class_name}_counterfactual_representation.pickle'
-                            counterfactual_paths.append(os.path.join(path, cur_path))
-                            is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
-                else: 
-                    cur_path = f'individual_class_level_{component}_counterfactual_representation.pickle'
-                    counterfactual_paths.append(os.path.join(path, cur_path))
-                    is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
-                continue
-            else:
-                cur_path = f'individual_{component}_counterfactual_representation.pickle'
+            cur_path = f'avg_{component}_counterfactual_representation.pickle'
+        elif config["is_group_by_class"]:
+            cur_path = f'individual_class_level_{component}_counterfactual_representation.pickle'
 
         counterfactual_paths.append(os.path.join(path, cur_path))
         is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
