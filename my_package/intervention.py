@@ -125,7 +125,7 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
                         NIE[do][component][layer] = {}
                         counter[do][component][layer] = {}
                     # loading Z scale
-                    Z = cls[component][do][layer]
+                    Z = cls[component][do][layer].to(DEVICE) 
                     for neuron_id in range(Z.shape[0]):
                         hooks = [] 
                         hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], 
