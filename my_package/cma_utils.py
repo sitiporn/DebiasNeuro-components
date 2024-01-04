@@ -57,9 +57,13 @@ def get_component_names(config):
 
     return representations
 
-def foward_hooks(do, tokenizer, dataloader, model, DEVICE, class_name=None, DEBUG=0):
+def foward_hooks(do, tokenizer, dataloader, model, DEVICE, eval=False, class_name=None, DEBUG=0):
     """  foward to hook all representations """
     counter = 0
+    # for eval counterfactual
+    LAST_HIDDEN_STATE = -1 
+    CLS_TOKEN = 0
+    representations = []
     
     for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"counterfactual_set_loader")):
         if DEBUG >=4: print(f' ************** batch_idx: {batch_idx} ***************')
@@ -70,14 +74,18 @@ def foward_hooks(do, tokenizer, dataloader, model, DEVICE, class_name=None, DEBU
         inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
 
         with torch.no_grad():    
-            outputs = model(**inputs)
+            if eval:
+                outputs = model(**inputs, output_hidden_states=True)
+                representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:]
+                representations.extend(representation)
+            else:
+                outputs = model(**inputs)
         
         del outputs
         counter += inputs['input_ids'].shape[0]
         inputs = {k: v.to('cpu') for k,v in inputs.items()} 
     
-    return counter
-
+    return (counter, representations) if eval else counter
 
 def register_hooks(hooks, do, layer_modules, config, representations, class_name=None):
       
