@@ -23,7 +23,7 @@ from functools import partial
 from my_package.optimization_utils import masking_grad, reverse_grad, initial_partition_params, trace_optimized_params
 
 
-def intervene_grad(model, hooks, method_name, config, collect_param=False, DEBUG = False):
+def intervene_grad(model, hooks, method_name, config, collect_param=False, DEBUG = 0):
     seed = config['seed']
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/{method_name}/'
@@ -35,6 +35,7 @@ def intervene_grad(model, hooks, method_name, config, collect_param=False, DEBUG
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     acc_train_num = 0
     acc_frozen_num = 0 
+    grad_direction = config['grad_direction']
 
     #  walking in Encoder's parameters
     for param_name, param in model.named_parameters(): 
@@ -72,21 +73,22 @@ def intervene_grad(model, hooks, method_name, config, collect_param=False, DEBUG
         from my_package.optimization import reverse_grad
         if 'dense' in splited_name:
             if child == 'weight': 
-                if component in list(train_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
+                if component in list(train_neuron_ids.keys()): hooks.append(mediators[component](int(layer_id)).dense.weight.register_hook(partial(reverse_grad, grad_direction, train_neuron_ids[component], param_name, DEBUG)))
             elif child == 'bias':
-                if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
+                if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).dense.bias.register_hook(partial(reverse_grad, grad_direction, train_neuron_ids[component], param_name, DEBUG)))
             print(f'reverse grad dense : {param_name}') 
         else: 
             if child == 'weight': 
-                if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG )))
+                if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).weight.register_hook(partial(reverse_grad, grad_direction, train_neuron_ids[component], param_name, DEBUG )))
             elif child == 'bias':
-                if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(reverse_grad, train_neuron_ids[component], param_name, DEBUG)))
+                if component in list(train_neuron_ids.keys()):  hooks.append(mediators[component](int(layer_id)).bias.register_hook(partial(reverse_grad, grad_direction, train_neuron_ids[component], param_name, DEBUG)))
             print(f'reverse grad  : {param_name}')
         
 
         # masking grad hooks : 144
         # reverse grad hooks : 134
-    print(f'reverse grad mode: {mode}')
+    print(f'Reverse grad mode: {mode}')
+    print(f"Gradient directoin: {grad_direction}")
     print(f'#Total train  neuron : {acc_train_num // 2}')
     print(f'#Total frozen neuron : {acc_frozen_num // 2}')
     
