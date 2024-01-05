@@ -60,12 +60,12 @@ def get_component_names(config):
 def foward_hooks(do, tokenizer, dataloader, model, DEVICE, eval=False, class_name=None, DEBUG=0):
     """  foward to hook all representations """
     counter = 0
-    # for eval counterfactual
+    # for eval counterfactual experiment
     LAST_HIDDEN_STATE = -1 
     CLS_TOKEN = 0
     representations = []
     
-    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"counterfactual_set_loader")):
+    for batch_idx, (sentences, labels) in enumerate(dataloader):
         if DEBUG >=4: print(f' ************** batch_idx: {batch_idx} ***************')
         # ******************* hooks representations **********************
         premise, hypo = sentences[do] if class_name is None else sentences[do][class_name]
@@ -84,8 +84,13 @@ def foward_hooks(do, tokenizer, dataloader, model, DEVICE, eval=False, class_nam
         del outputs
         counter += inputs['input_ids'].shape[0]
         inputs = {k: v.to('cpu') for k,v in inputs.items()} 
-    
-    return (counter, representations) if eval else counter
+
+    if eval: 
+        assert len(representations) == counter
+        representations = torch.stack(representations, dim=0)
+        average_representation = torch.mean(representations, dim=0 ).unsqueeze(dim=0)
+ 
+    return (counter, average_representation) if eval else counter
 
 def register_hooks(hooks, do, layer_modules, config, representations, class_name=None):
       
@@ -137,6 +142,7 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
     distributions = {}
     counter = 0
 
+    # _model to be hook
     layer_modules = get_mediators(_model)
     representations = get_component_names(config)
     treatments = [config["treatment"]]
@@ -157,15 +163,16 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
                 del hooks
     
     check_counterfactuals(representations, config, counter)
-    
+     
     for cur_path in _counterfactual_paths:
-        component = cur_path.split('/')[-1].split('_')[1 if is_averaged_embeddings else 3]
+        component = cur_path.split('/')[-1].split('_')[1 if is_averaged_embeddings else 2]
         print(f'{component}, :{cur_path}')
         
         with open(cur_path, 'wb') as handle: 
             pickle.dump(representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving counterfactual and counter into {cur_path} done ! ")
+    breakpoint()
                 
 def test_mask(neuron_candidates =[]):
     x  = torch.tensor([[ [1,2,3], 
@@ -215,7 +222,7 @@ def geting_counterfactual_paths(config, method_name, seed=None):
         if config["is_averaged_embeddings"]:
             cur_path = f'avg_{component}_counterfactual_representation_{config["treatment"]}.pickle'
         elif config["is_group_by_class"]:
-            cur_path = f'individual_class_level_{component}_counterfactual_representation_{config["treatment"]}.pickle'
+            cur_path = f'class_level_{component}_counterfactual_representation_{config["treatment"]}.pickle'
 
         counterfactual_paths.append(os.path.join(path, cur_path))
         is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
@@ -521,8 +528,8 @@ def get_hidden_representations(config, counterfactual_paths, method_name, seed, 
                 for layer in layers:
                     # compute average over samples
                     assert len(counterfactual_representations[seed][component][do][layer]) == counter
-                    counterfactual_representations[seed][component][do][layer] = torch.sum(torch.stack(counterfactual_representations[seed][component][do][layer]), dim=0)
-                    avg_counterfactual_representations[seed][component][do][layer] = counterfactual_representations[seed][component][do][layer] / counter
+                    counterfactual_representations[seed][component][do][layer] = torch.stack(counterfactual_representations[seed][component][do][layer], dim=0)
+                    avg_counterfactual_representations[seed][component][do][layer] = torch.mean(counterfactual_representations[seed][component][do][layer],dim=0)
         
             del counterfactual_representations[seed][component]     
             report_gpu()
@@ -584,21 +591,19 @@ def geting_NIE_paths(config, method_name, mode, seed=None):
             NIE_paths.append(NIE_path)
             is_NIE_exist.append(os.path.isfile(NIE_path))
         else:
+            # computed layer each
             for layer in layers:
                 # if not isinstance(layer, list): cur_layer = [layer]
                 NIE_path = os.path.join(path, f'avg_embeddings_{mode[0]}_layer_{layer}_.pickle') 
                 NIE_paths.append(NIE_path)
                 is_NIE_exist.append(os.path.isfile(NIE_path))
-    else:
-        for cur_path in config['counterfactual_paths']:
-            # extract infor from current path 
-            component = cur_path.split('/')[-1].split('_')[1]
-            class_name = None
-            # NIE_path = os.path.join(path, f'avg_high_level_{layer}_{mode[0]}.pickle') 
-            NIE_path = os.path.join(path, f'avg_embeddings_{mode[0]}_layer_{layer}_.pickle') 
-            print(f"current path: {NIE_path} , is_exist : {os.path.isfile(cur_path)}")
+    else: # group by class
+        if config['computed_all_layers']: 
+            NIE_path = os.path.join(path, f'class_level_embeddings_{mode[0]}_computed_all_layers_.pickle') 
             NIE_paths.append(NIE_path)
-            is_NIE_exist.append(os.path.isfile(cur_path))
+            is_NIE_exist.append(os.path.isfile(NIE_path))
+    
+    
     return NIE_paths, is_NIE_exist
 
 def get_nie_set_path(config, experiment_set, save_nie_set_path):
