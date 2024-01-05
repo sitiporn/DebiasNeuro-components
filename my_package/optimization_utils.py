@@ -251,19 +251,23 @@ def masking_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
     # masking out gradients 
     return grad  * mask
 
-def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
+def reverse_grad(grad_direction:str , neuron_ids:int, param_name:str, DEBUG:bool, grad):
     """
         A callback to function and get executed after backward pass to unlearn some parameters of model
-
         Args:
           neuron_ids: specific set of positions of neurons to revese grad correspoding to whole inputs
           param_name: a neuron type
           grad: gradient used to be reversed
     """
     mask = torch.ones_like(grad)
-    mask[neuron_ids] = -1
-    if DEBUG: print(f'call back reverse gradient func: {param_name}, {grad.shape}, {mask[neuron_ids].shape}')
     
+    if grad_direction == "reverse":
+       mask[neuron_ids] = -1
+    elif  grad_direction == "normal":
+       mask[neuron_ids] = 1
+
+    if DEBUG >= 4: print(f'call back {grad_direction} gradient func: {param_name}, {grad.shape}, {mask[neuron_ids].shape}')
+
     return grad  * mask
 
 def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load_model, method_name, device, collect=False):
