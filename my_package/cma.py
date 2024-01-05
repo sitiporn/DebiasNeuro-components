@@ -256,106 +256,47 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
                 print(list(top_neurons[0.01].values())[:20])
 
 
-average_all_seed_distributions = {}
-count_num_seed = 0
-def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_maps, DEVICE, is_group_by_class, seed=None, model_path=None, DEBUG=False, summarize=False):
+def evalutate_counterfactual(experiment_set, dataloader, config, model, tokenizer, label_maps, DEVICE, all_model_paths, DEBUG=False, summarize=False):
     """ To see the difference between High-overlap and Low-overlap score whether our counterfactuals have huge different."""
-    counterfactuals = {}
+    from my_package.cma_utils import foward_hooks
+    import copy
+    import torch.nn.functional as F
+    
     # To see the change of probs comparing between High bias and Low bias inputs
-    global average_all_seed_distributions
-    global count_num_seed 
+    average_all_seed_distributions = {}
+    count_num_seed = 0
+    distribution = {}
 
-    count_num_seed += 1
-    counterfactuals = CounterfactualRepresentation(label_maps, tokenizer=tokenizer, is_group_by_class=is_group_by_class)
-    
-    if model_path is not None: 
-        model = load_model(path= model_path, model=model)
-        model = model.to(DEVICE)
-        print(f'loading model: {model_path}')
-    else:
-        print(f'using original model as input to this function')
-        
-    classifier = Classifier(model=model)
-    counterfactual_loader = DataLoader(experiment_set, batch_size = 64, shuffle = False, num_workers=0)
-    treatments = ['High-overlap'] if config['dataset_name'] == 'fever' else ['High-overlap','Low-overlap']
-    count = {'High-overlap': 0, 'Low-overlap': 0}
-    print(f'experiment_set : {len(experiment_set)}')
-
-    for batch_idx, (sentences, labels) in enumerate(tqdm(counterfactual_loader, desc=f"counterfactual_loader")):
-        for idx, do in enumerate(treatments):
-            if do not in average_all_seed_distributions.keys():
-                # average_all_seed_distributions[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
-                average_all_seed_distributions[do] = {}
-                for label_name in config['label_maps'].keys(): average_all_seed_distributions[do][label_name] = 0
-
-            if experiment_set.is_group_by_class:
-                for class_name in sentences[do].keys():
-                    if class_name not in counterfactuals.representations[do].keys():
-                        counterfactuals.representations[do][class_name] = []
-                        counterfactuals.poolers[do][class_name] = 0
-                        counterfactuals.counter[do][class_name] = 0
-                    if class_name not in counterfactuals.confident[do].keys():
-                        counterfactuals.confident[do][class_name] =  0 #{"contradiction": 0, "entailment": 0, "neutral": 0}
-                    if class_name not in counterfactuals.class_acc[do].keys():
-                        counterfactuals.class_acc[do][class_name] =  [] #{"contradiction": [], "entailment" : [], "neutral" : []}
-                    
-                    forward_pair_sentences(sentences[do][class_name],  counterfactuals, labels[do][class_name], do, model, DEVICE, class_name)
-            else:
-                forward_pair_sentences(sentences[do], counterfactuals, labels[do], do, model, DEVICE)
-    
-    # **************** Compute for classifier output distributions given avg representation(High vs Low bias as input) to use as counterfactuals ****************
-    if DEBUG: print(f"************* Classifier Output Distributions Given Averaging representations  as Input ************")
-    for do in treatments:
-        if DEBUG: print(f"{do}:")
-        if experiment_set.is_group_by_class:
-            for class_name in config['label_maps'].keys():
-                counterfactuals.representations[do][class_name] = torch.stack(counterfactuals.representations[do][class_name], dim=0)
-                average_representation = torch.mean(counterfactuals.representations[do][class_name], dim=0 ).unsqueeze(dim=0)
-                out = classifier(average_representation).squeeze(dim=0)
-                cur_distribution = F.softmax(out, dim=-1)
-                # print(f"{class_name} set: {cur_distribution[label_maps[class_name]]}")
-                if DEBUG: print(f"{class_name} set: {cur_distribution}")
+    for seed, model_path in all_model_paths.items():
+        if model_path is not None: 
+            _model = load_model(path= model_path, model=copy.deepcopy(model))
+            print(f'Loading Counterfactual model: {model_path}')
         else:
-            counterfactuals.representations[do] = torch.stack(counterfactuals.representations[do], dim=0)
-            average_representation = torch.mean(counterfactuals.representations[do], dim=0 ).unsqueeze(dim=0)
-            # output the distribution using average representation as input to classififer 
-            # rather than single representation
-            out = classifier(average_representation).squeeze(dim=0)
-            cur_distribution = F.softmax(out, dim=-1)
+            _model = copy.deepcopy(model)
+            _model = _model.to(DEVICE)
+            print(f'using original model as input to this function')
+         
+        # distribution[seed] = [] if config["is_averaged_embeddings"] else {}
+        classifier = Classifier(model=_model)
+        treatments = ['High-overlap'] if config['dataset_name'] == 'fever' else ['High-overlap','Low-overlap']
+        counterfactuals = CounterfactualRepresentation(label_maps, tokenizer=tokenizer, is_group_by_class=config["is_group_by_class"])
+        distribution[seed] = {}
+        print(f'*********** {seed} ***********')
 
-            for cur_class in label_maps.keys():
-                if DEBUG: print(f"seed :{seed} {cur_class}: {cur_distribution[label_maps[cur_class]]}")
-                average_all_seed_distributions[do][cur_class] += cur_distribution[label_maps[cur_class]]
-
-    if DEBUG:
-        print(f"************* Stats ************")
         for do in treatments:
-            if is_group_by_class:
-                print(f">>{do}:")
-                for cur_class in label_maps.keys():
-                    counterfactuals.confident[do][class_name] = counterfactuals.confident[do][class_name].squeeze(dim=0)
-                    print(f"{class_name} set ; confident: {counterfactuals.confident[do][class_name] / counterfactuals.counter[do][class_name]}")
-            else:
-                print(f">>{do}:")
-                print(f'Accuracies:')
-                print(f"avg over all acc: {sum(counterfactuals.acc[do]) / len(counterfactuals.acc[do])}")
-                for cur_class in label_maps.keys():
-                    cur_score = sum(counterfactuals.class_acc[do][cur_class]) / len(counterfactuals.class_acc[do][cur_class])
-                    print(f"{cur_class} acc: {cur_score} ")   
-                
-                print(f"Distributions:")
-                for cur_class in label_maps.keys():
-                    counterfactuals.confident[do][cur_class] = counterfactuals.confident[do][cur_class].squeeze(dim=0)
-                    class_ind = counterfactuals.label_maps[cur_class]
-                    confident_score = counterfactuals.confident[do][cur_class][class_ind] / len(counterfactuals.class_acc[do][cur_class]) 
-                    print(f"average {cur_class} confident: {confident_score}")
-    
-    if summarize and count_num_seed == 5:
-        print('********** Counterfactual Model Output Distribution Summary **********')
-        for do in treatments:
-            print(f'>> {do}')
-            for cur_class in label_maps.keys():
-                print(f" {cur_class}: {average_all_seed_distributions[do][cur_class]/ count_num_seed}")
+            if config["is_averaged_embeddings"]:
+                counter, average_representation = foward_hooks(do, tokenizer, dataloader, _model ,DEVICE, eval=config["eval_counterfactuals"],DEBUG=config['DEBUG'])
+                out = classifier(average_representation.T).squeeze(dim=0)
+                distribution[seed][do] = F.softmax(out, dim=-1).cpu()
+                for label_text, label_id in label_maps.items(): print(f'{do}: {label_text}, { distribution[seed][do][label_id]}')
+            elif config["is_group_by_class"]:
+                distribution[seed][do] = {}
+                for group in config['label_maps'].keys():
+                    counter, average_representation = foward_hooks(do, tokenizer, dataloader, _model, DEVICE, class_name=group, eval=config["eval_counterfactuals"],DEBUG=config['DEBUG'])
+                    out = classifier(average_representation.T).squeeze(dim=0)
+                    distribution[seed][do][group] = F.softmax(out, dim=-1).cpu()
+                    print(f":{group} Group:")
+                    for label_text, label_id in label_maps.items(): print(f'{do}: {label_text}, { distribution[seed][do][group][label_id]}')
 
 def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
     
@@ -543,7 +484,8 @@ def forward_pair_sentences(sentences, counterfactuals, labels, do, model, DEVICE
         counterfactuals.counter[do] += inputs['input_ids'].shape[0]
     else:
         counterfactuals.counter[do][class_name] += inputs['input_ids'].shape[0]            
-        
+
+    breakpoint() 
     with torch.no_grad(): 
         # Todo: generalize to distribution if the storage is enough
         outputs = model(**inputs, output_hidden_states=True)
