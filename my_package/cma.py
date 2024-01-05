@@ -24,6 +24,7 @@ from my_package.data import ExperimentDataset
 from my_package.intervention import intervene, high_level_intervention
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, Normalizer
+from my_package.intervention import get_mediators
 #from nn_pruning.patch_coordinator import (
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
@@ -93,13 +94,8 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
         nie_dataset = pickle.load(handle)
         nie_dataloader = pickle.load(handle)
         print(f"loading nie sets from pickle {save_nie_set_path} !")        
-    # mediator used to intervene corresponding to changing _model's seed
-    mediators["Q"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
-    mediators["K"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.key
-    mediators["V"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.value
-    mediators["AO"] = lambda layer : _model.bert.encoder.layer[layer].attention.output
-    mediators["I"]  = lambda layer : _model.bert.encoder.layer[layer].intermediate
-    mediators["O"]  = lambda layer : _model.bert.encoder.layer[layer].output
+    
+    mediators  = get_mediators(_model)
 
     if config['is_averaged_embeddings']: 
         NIE = {}
