@@ -504,39 +504,43 @@ def trace_counterfactual(do,
 
 def get_hidden_representations(config, counterfactual_paths, method_name, seed, layers, is_group_by_class, is_averaged_embeddings):
     from my_package.utils import  report_gpu
-    
+
+    do = config["treatment"]
+    seed = str(config['seed'])
     counterfactual_representations = {}
     avg_counterfactual_representations = {}
     
-    if is_averaged_embeddings:
-        # get average of [CLS] activations
-        for cur_path in counterfactual_paths:
-            component = cur_path.split('/')[-1].split('_')[1]
-            seed = cur_path.split('/')[3].split('_')[-1]
-            if seed not in counterfactual_representations.keys(): counterfactual_representations[seed] = {}
-            if seed not in avg_counterfactual_representations.keys(): avg_counterfactual_representations[seed] = {}
-            avg_counterfactual_representations[seed][component] = {}
-            # load all output components 
-            with open(cur_path, 'rb') as handle:
-                counterfactual_representations[seed][component] = pickle.load(handle)
-                counter = pickle.load(handle)
-            treatments = [config["treatment"] ]
-            print(f'{component}:{cur_path}')
-            for do in treatments:
-                avg_counterfactual_representations[seed][component][do] = {}
-                # concate all batches
-                for layer in layers:
-                    # compute average over samples
-                    assert len(counterfactual_representations[seed][component][do][layer]) == counter
-                    counterfactual_representations[seed][component][do][layer] = torch.stack(counterfactual_representations[seed][component][do][layer], dim=0)
-                    avg_counterfactual_representations[seed][component][do][layer] = torch.mean(counterfactual_representations[seed][component][do][layer],dim=0)
-        
-            del counterfactual_representations[seed][component]     
-            report_gpu()
-    elif is_group_by_class:
-        
-        pass
+    counterfactual_representations[seed] = {}
+    avg_counterfactual_representations[seed] = {}
 
+    avg_counterfactual_representations[seed] = get_component_names(config)
+        
+    # get average of [CLS] activations
+    for cur_path in counterfactual_paths:
+        seed = cur_path.split('/')[3].split('_')[-1]
+        component = cur_path.split('/')[-1].split('_')[1 if is_averaged_embeddings else 2]
+        print(f'{component}:{cur_path}')
+        
+        # load all output components 
+        with open(cur_path, 'rb') as handle:
+            counterfactual_representations[seed][component] = pickle.load(handle)
+            counter = pickle.load(handle)
+
+        # concate all batches
+        for layer in layers:
+            # compute average over samples
+            if is_averaged_embeddings:
+                assert len(counterfactual_representations[seed][component][do][layer]) == counter
+                counterfactual_representations[seed][component][do][layer] = torch.stack(counterfactual_representations[seed][component][do][layer], dim=0)
+                avg_counterfactual_representations[seed][component][do][layer] = torch.mean(counterfactual_representations[seed][component][do][layer],dim=0)
+            elif is_group_by_class:
+                for label_text in config['label_maps']:
+                    assert len(counterfactual_representations[seed][component][do][layer][label_text]) == counter
+                    counterfactual_representations[seed][component][do][layer][label_text] = torch.stack(counterfactual_representations[seed][component][do][layer][label_text], dim=0)
+                    avg_counterfactual_representations[seed][component][do][layer][label_text] = torch.mean(counterfactual_representations[seed][component][do][layer][label_text],dim=0)
+
+        del counterfactual_representations[seed][component]     
+        report_gpu()
 
     return  avg_counterfactual_representations
 
