@@ -1,10 +1,16 @@
 # Debias Neuro-components leveraging Causal mediation analysis
 
 ### Todo
--  [x] Perform EDA on MNNLI-matched set to select to advantaged samples(preferred by bias model)
--  [x] recheck model(ishan/bert-base-uncased-mnli) weaken rate noted in config testing on dev-mm and HANS to find where a result increases
--  [ ] implement group by class in get_hidden_representations
--  [ ] extend counterfactual set from validation to training set
+- [x] Perform EDA on MNNLI-matched set to select to advantaged samples(preferred by bias model)
+- [x] recheck model(ishan/bert-base-uncased-mnli) weaken rate noted in config testing on dev-mm and HANS to find where a result increases
+* checking neuron positions between High and Low overlap treatment if they are the same
+  * same entail neurons position
+  * bugs in some components 
+    * nie shouldnt be the same because different representations
+    * checking representation values between two components
+*  
+* implement group by class in get_hidden_representations
+* extend counterfactual set from validation to training set
 
 ## Open questions
 
