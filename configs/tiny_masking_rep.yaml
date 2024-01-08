@@ -50,9 +50,6 @@
   "eval_counterfactual": False,
   "getting_counterfactual": False,
   "compute_nie_scores": False,
-  # ******************** Unlearn Bias ********************
-  "training_json":  multinli_1.0_train.jsonl, 
-  "partition_params": False,
   # ******************** soft masking neurons ********************
   # we mask top 5% neurons
   "weaken_rate": 0.0, # best score on has (0.6299)
@@ -60,6 +57,13 @@
   # "weaken_rate": 0.97,
   # "weaken_rate": 1.0,
   # "weaken_rate": null,
+  # ******************** soft masking neurons ********************
+  # we mask top 5% neurons
+  # "weaken_rate": 0.9, # best score on has (0.6299)
+  # "weaken_rate": 0.1,
+  # "weaken_rate": 0.97,
+  # "weaken_rate": 1.0,
+  "weaken_rate": null,
   "get_masking_value": False,
   # percent of neurons to mask
   "masking_rate": 0.005, 
@@ -93,7 +97,8 @@
   "get_condition_inferences": True,
   "get_condition_inference_scores": True,
   # ******************** test  stuff ********************
-  "eval_model": False,
+  "eval_model": True,
+
   "traced": False, 
   "traced_params": False,
   "diag": False,

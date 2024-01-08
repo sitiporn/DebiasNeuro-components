@@ -41,11 +41,15 @@ from data import get_all_model_paths
 from data import get_masking_value 
 from optimization import exclude_grad
 from data import get_condition_inference_scores
+from optimization import intervene_grad
 
 def main():
 
     # ******************** LOAD STUFF ********************
-    config_path = "./configs/tiny_masking_rep.yaml"
+    config_path = "./configs/pcgu_config.yaml"
+    # config_path = "./configs/experiment_config.yaml"
+    # config_path = "./configs/pcgu_config_fever.yaml"
+    # config_path = "configs/pcgu_config_qqp.yaml"
     with open(config_path, "r") as yamlfile:
         config = yaml.load(yamlfile, Loader=yaml.FullLoader)
         print(f'config: {config_path}')
@@ -54,11 +58,12 @@ def main():
     group_path_by_seed = {}
     # torch.manual_seed(config['seed'])
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    tokenizer = AutoTokenizer.from_pretrained(config['model_name'])
-    model = BertForSequenceClassification.from_pretrained(config["model_name"])
+    tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
+    model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(config['label_maps'].keys()))
     model = model.to(DEVICE)
-    experiment_set = ExperimentDataset(config, encode = tokenizer)                            
+    experiment_set = ExperimentDataset(config, encode = tokenizer, seed=config['seed'], dataset_name=config['dataset_name'])                            
     dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
+    
     # ******************** PATH ********************
     save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
     # LOAD_MODEL_PATH = '../models/recent_baseline/'
@@ -78,17 +83,25 @@ def main():
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
     print(f'Counterfactual type: {mode}')
     print(f'Intervention type : {config["intervention_type"]}')
-    print(f'current model path : {model_path}')
+
+
+    from utils import compare_frozen_weight, prunning_biased_neurons
+
+    # if config['compare_frozen_weight']: compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, method_name)
 
     if config['eval_counterfactual'] and config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
             # see the result of the counterfactual of modifying proportional bias
-            evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True)
+            # evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True)
+            experiment_set = ExperimentDataset(config, encode = tokenizer, seed=config['seed'], dataset_name=config['dataset_name'])                            
+            dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
+            evalutate_counterfactual(experiment_set, config, model, tokenizer, config['label_maps'], DEVICE, config['is_group_by_class'], seed=seed,model_path=model_path, summarize=True, DEBUG=True)
+    
     if config["compute_all_seeds"]:
         for seed, model_path in all_model_paths.items():
             # path to save
             # Done checking path 
-            counterfactual_path, _ = geting_counterfactual_paths(config, seed=seed, method_name=method_name)
+            counterfactual_paths, _ = geting_counterfactual_paths(config, method_name=method_name)
             NIE_path, _ = geting_NIE_paths(config, method_name, mode, seed=seed)
             NIE_paths.extend(NIE_path)
             counterfactual_paths.extend(counterfactual_path)
@@ -144,7 +157,8 @@ def main():
     if config['partition_params']: partition_param_train(model, tokenizer, config, mode[0], counterfactual_path, DEVICE)
     # ******************** test  stuff ********************
     # Eval models on test and challenge sets for all seeds
-    if config['eval_model']: eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model= False, is_optimized_set=False)
+    is_load_model= True
+    if config['eval_model']: eval_model(model, NIE_paths, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, method_name=method_name, is_load_model= is_load_model, is_optimized_set=False)
     if config['traced']: trace_counterfactual(model, save_nie_set_path, tokenizer, DEVICE, debug)
     if config['traced_params']: trace_optimized_params(model, config, DEVICE, is_load_optimized_model=True)
     if config["diag"]: get_diagnosis(config)

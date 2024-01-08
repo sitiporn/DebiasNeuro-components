@@ -1,0 +1,121 @@
+config: ./configs/pcgu_config.yaml
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+Counterfactual type: ['High-overlap']
+Intervention type : weaken
+Loading model from ../models/pcgu_poe2/seed_3990/checkpoint-1500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_multinli.pickle
+loading distributions and labels from : ../pickles/performances/inference_multinli.pickle
+compute_acc modes:['Null']
+overall acc : 0.8102115541090318
+contradiction acc : 0.8666666666666667
+entailment acc : 0.7828472422754836
+neutral acc : 0.7820389900926814
+saving without condition distribution into : ../pickles/performances/inference_heuristics.pickle
+hans loading from : ../pickles/performances/inference_heuristics.pickle
+saving text answer's bert predictions: ../pickles/performances/hans_text_answers.txt
+Heuristic  entailed results:
+lexical_overlap: 0.9464
+subsequence: 0.9996
+constituent: 0.9988
+Heuristic  non-entailed results:
+lexical_overlap: 0.3238
+subsequence: 0.0516
+constituent: 0.1484
+saving evaluation predictoins into : ../pickles/performances/hans_scores.txt
+average score : 0.5780999660491943
+has score :0.5780999660491943
+Loading model from ../models/pcgu_poe2/seed_409/checkpoint-1500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_multinli.pickle
+loading distributions and labels from : ../pickles/performances/inference_multinli.pickle
+compute_acc modes:['Null']
+overall acc : 0.8113303498779495
+contradiction acc : 0.9015432098765432
+entailment acc : 0.7889113485417268
+neutral acc : 0.7427293064876958
+saving without condition distribution into : ../pickles/performances/inference_heuristics.pickle
+hans loading from : ../pickles/performances/inference_heuristics.pickle
+saving text answer's bert predictions: ../pickles/performances/hans_text_answers.txt
+Heuristic  entailed results:
+lexical_overlap: 0.5716
+subsequence: 0.8318
+constituent: 0.8862
+Heuristic  non-entailed results:
+lexical_overlap: 0.7734
+subsequence: 0.3862
+constituent: 0.5726
+saving evaluation predictoins into : ../pickles/performances/hans_scores.txt
+average score : 0.6703000068664551
+has score :0.6703000068664551
+Loading model from ../models/pcgu_poe2/seed_1548/checkpoint-4500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_multinli.pickle
+loading distributions and labels from : ../pickles/performances/inference_multinli.pickle
+compute_acc modes:['Null']
+overall acc : 0.7952603742880391
+contradiction acc : 0.8506172839506173
+entailment acc : 0.685244008085475
+neutral acc : 0.8596995845317993
+saving without condition distribution into : ../pickles/performances/inference_heuristics.pickle
+hans loading from : ../pickles/performances/inference_heuristics.pickle
+saving text answer's bert predictions: ../pickles/performances/hans_text_answers.txt
+Heuristic  entailed results:
+lexical_overlap: 0.8444
+subsequence: 0.9572
+constituent: 0.866
+Heuristic  non-entailed results:
+lexical_overlap: 0.3226
+subsequence: 0.2932
+constituent: 0.539
+saving evaluation predictoins into : ../pickles/performances/hans_scores.txt
+average score : 0.637066662311554
+has score :0.637066662311554
+Loading model from ../models/pcgu_poe2/seed_3099/checkpoint-1500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_multinli.pickle
+loading distributions and labels from : ../pickles/performances/inference_multinli.pickle
+compute_acc modes:['Null']
+overall acc : 0.8093978844589097
+contradiction acc : 0.8145061728395062
+entailment acc : 0.7802483395899509
+neutral acc : 0.8363694471077021
+saving without condition distribution into : ../pickles/performances/inference_heuristics.pickle
+hans loading from : ../pickles/performances/inference_heuristics.pickle
+saving text answer's bert predictions: ../pickles/performances/hans_text_answers.txt
+Heuristic  entailed results:
+lexical_overlap: 0.728
+subsequence: 0.8948
+constituent: 0.96
+Heuristic  non-entailed results:
+lexical_overlap: 0.6632
+subsequence: 0.285
+constituent: 0.3296
+saving evaluation predictoins into : ../pickles/performances/hans_scores.txt
+average score : 0.6434333324432373
+has score :0.6434333324432373
+Loading model from ../models/pcgu_poe2/seed_3785/checkpoint-2500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_multinli.pickle
+loading distributions and labels from : ../pickles/performances/inference_multinli.pickle
+compute_acc modes:['Null']
+overall acc : 0.798413344182262
+contradiction acc : 0.8953703703703704
+entailment acc : 0.7095004331504476
+neutral acc : 0.796420581655481
+saving without condition distribution into : ../pickles/performances/inference_heuristics.pickle
+hans loading from : ../pickles/performances/inference_heuristics.pickle
+saving text answer's bert predictions: ../pickles/performances/hans_text_answers.txt
+Heuristic  entailed results:
+lexical_overlap: 0.8616
+subsequence: 0.962
+constituent: 0.9536
+Heuristic  non-entailed results:
+lexical_overlap: 0.6732
+subsequence: 0.1288
+constituent: 0.417
+saving evaluation predictoins into : ../pickles/performances/hans_scores.txt
+average score : 0.6660333275794983
+has score :0.6660333275794983
+==================== Avearge scores ===================
+average overall acc : 0.8049227013832384
+averge contradiction acc : 0.8657407407407408
+average entailment acc : 0.7493502743286169
+average neutral acc : 0.8034515819750719
+avarge hans score : 0.6389866471290588

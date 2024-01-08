@@ -1,0 +1,41 @@
+config: ./configs/pcgu_config.yaml
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+Counterfactual type: ['High-overlap']
+Intervention type : weaken
+Loading path for single at seed:409, layer: 11
+Q: ../counterfactuals/poe2/seed_409/avg_Q_counterfactual_representation.pickle
+K: ../counterfactuals/poe2/seed_409/avg_K_counterfactual_representation.pickle
+V: ../counterfactuals/poe2/seed_409/avg_V_counterfactual_representation.pickle
+AO: ../counterfactuals/poe2/seed_409/avg_AO_counterfactual_representation.pickle
+I: ../counterfactuals/poe2/seed_409/avg_I_counterfactual_representation.pickle
+O: ../counterfactuals/poe2/seed_409/avg_O_counterfactual_representation.pickle
+NIE_paths: ['../NIE/poe2/seed_409/avg_embeddings_High-overlap_computed_all_layers_.pickle']
+Loading model from ../models/debugs/seed_409/checkpoint-1500/pytorch_model.bin
+saving without condition distribution into : ../pickles/performances/inference_multinli.pickle
+loading distributions and labels from : ../pickles/performances/inference_multinli.pickle
+compute_acc modes:['Null']
+overall acc : 0.8113303498779495
+contradiction acc : 0.9015432098765432
+entailment acc : 0.7889113485417268
+neutral acc : 0.7427293064876958
+saving without condition distribution into : ../pickles/performances/inference_heuristics.pickle
+hans loading from : ../pickles/performances/inference_heuristics.pickle
+saving text answer's bert predictions: ../pickles/performances/hans_text_answers.txt
+Heuristic  entailed results:
+lexical_overlap: 0.5716
+subsequence: 0.8318
+constituent: 0.8862
+Heuristic  non-entailed results:
+lexical_overlap: 0.7734
+subsequence: 0.3862
+constituent: 0.5726
+saving evaluation predictoins into : ../pickles/performances/hans_scores.txt
+average score : 0.6703000068664551
+has score :0.6703000068664551
+==================== Avearge scores ===================
+average overall acc : 0.8113303498779495
+averge contradiction acc : 0.9015432098765432
+average entailment acc : 0.7889113485417268
+average neutral acc : 0.7427293064876958
+avarge hans score : 0.6703000068664551

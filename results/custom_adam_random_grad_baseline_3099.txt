@@ -1,0 +1,570 @@
+current dataset_name: mnli
+Loading path for single at seed:3099, layer: 11
+Q: ../counterfactuals/recent_baseline/seed_3099/avg_Q_counterfactual_representation.pickle
+K: ../counterfactuals/recent_baseline/seed_3099/avg_K_counterfactual_representation.pickle
+V: ../counterfactuals/recent_baseline/seed_3099/avg_V_counterfactual_representation.pickle
+AO: ../counterfactuals/recent_baseline/seed_3099/avg_AO_counterfactual_representation.pickle
+I: ../counterfactuals/recent_baseline/seed_3099/avg_I_counterfactual_representation.pickle
+O: ../counterfactuals/recent_baseline/seed_3099/avg_O_counterfactual_representation.pickle
+NIE_paths: ['../NIE/recent_baseline/seed_3099/avg_embeddings_High-overlap_computed_all_layers_.pickle']
+current recent_baseline : seed : 3099
+current seed in Experiment Dataset: 42
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+loading NIE : ../NIE/recent_baseline/seed_3099/avg_embeddings_High-overlap_computed_all_layers_.pickle
+++++++++ Component-Neuron_id: 0.05 neurons :+++++++++
+Done saving random top neurons into pickle !
+geting advantaged samples.... 
+using: mnli_clark.train.jsonl
+Loading model from ../models/recent_baseline/seed_3099/checkpoint-11000/pytorch_model.bin
+Loading model from : ../models/recent_baseline/seed_3099/checkpoint-11000/pytorch_model.bin
+Bias model acc : {'accuracy': 0.4386812392093751}
+entailment acc : {'accuracy': 0.5876515481401692}
+contradiction acc : {'accuracy': 0.34619527436346}
+neutral acc : {'accuracy': 0.3822001527883881}
+candidated class : ['entailment']
+Main model acc : {'accuracy': 0.8738560027705486}
+saving to ../pickles/advantaged/mnli_recent_baseline_3099_inferences.pickle done ! 
+loading to ../pickles/advantaged/mnli_recent_baseline_3099_inferences.pickle done ! 
+bias shape : (392702, 16)
+main shape : (392702, 6)
+#advantaged samples: 17413, #disadvantaged samples: 375289
+entailment : 17413
+contradiction : 17413
+neutral : 17413
+Candidate entailment probs:
+max: 0.7419856787
+min: 0.33659130330000003
+saving to ../pickles/advantaged/mnli_recent_baseline_clean_3099_inferences.pickle done ! 
+entailment, max:0.7316202521, min:0.33659130330000003, mean:0.4482843743216085
+#advantaged samples: 17413, #disadvantaged samples: 375289
+Loading model from ../models/recent_baseline/seed_3099/checkpoint-11000/pytorch_model.bin
+Loading updated model from : ../models/recent_baseline/seed_3099/checkpoint-11000/pytorch_model.bin to optimize on PCGU done!
+Loading model from ../models/recent_baseline/seed_3099/checkpoint-11000/pytorch_model.bin
+Loading reference model from : ../models/recent_baseline/seed_3099/checkpoint-11000/pytorch_model.bin done!
+loading top neurons : ../pickles/top_neurons/recent_baseline/random_top_neuron_3099_percent_High-overlap_all_layers.pickle
+freeze whole tensor: bert.embeddings.word_embeddings.weight
+freeze whole tensor: bert.embeddings.position_embeddings.weight
+freeze whole tensor: bert.embeddings.token_type_embeddings.weight
+freeze whole tensor: bert.embeddings.LayerNorm.weight
+freeze whole tensor: bert.embeddings.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.0.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.0.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.0.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.0.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.1.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.1.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.1.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.1.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.2.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.2.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.2.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.2.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.3.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.3.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.3.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.3.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.4.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.4.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.4.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.4.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.5.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.5.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.5.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.5.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.6.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.6.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.6.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.6.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.7.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.7.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.7.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.7.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.8.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.8.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.8.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.8.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.9.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.9.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.9.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.9.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.10.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.10.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.10.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.10.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.11.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.11.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.11.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.11.output.LayerNorm.bias
+freeze whole tensor: bert.pooler.dense.weight
+freeze whole tensor: bert.pooler.dense.bias
+freeze whole tensor: classifier.weight
+freeze whole tensor: classifier.bias
+# weight train parameters:  4147 
+# weight freeze parameters: 78797 
+# weight total oparameters: 82944 
+# bias train parameters:  4147 
+# bias freeze parameters: 78797 
+# bias total oparameters: 82944 
+count_param : 165888
+# weight train parameters:  4147 
+# weight freeze parameters: 78797 
+# weight total oparameters: 82944 
+# bias train parameters:  4147 
+# bias freeze parameters: 78797 
+# bias total oparameters: 82944 
+summary after combine parameters
+********** weight  ************
+# Train : 4147
+# Freeze : 78797
+# Total  : 82944
+********** bias  ************
+# Train : 4147
+# Freeze : 78797
+# Total  : 82944
+saving 0's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer0_collect_param=False_components.pickle
+saving 1's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer1_collect_param=False_components.pickle
+saving 2's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer2_collect_param=False_components.pickle
+saving 3's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer3_collect_param=False_components.pickle
+saving 4's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer4_collect_param=False_components.pickle
+saving 5's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer5_collect_param=False_components.pickle
+saving 6's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer6_collect_param=False_components.pickle
+saving 7's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer7_collect_param=False_components.pickle
+saving 8's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer8_collect_param=False_components.pickle
+saving 9's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer9_collect_param=False_components.pickle
+saving 10's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer10_collect_param=False_components.pickle
+saving 11's components into ../pickles/restore_weight/recent_baseline/masking-0.05/3099_radom_layer11_collect_param=False_components.pickle
+checking:bert.encoder.layer.0.attention.self.query.weight, frozen: 767, train: 1, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.0.attention.self.query.weight
+checking:bert.encoder.layer.0.attention.self.query.bias, frozen: 767, train: 1, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.0.attention.self.query.bias
+checking:bert.encoder.layer.0.attention.self.key.weight, frozen: 767, train: 1, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.0.attention.self.key.weight
+checking:bert.encoder.layer.0.attention.self.key.bias, frozen: 767, train: 1, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.0.attention.self.key.bias
+checking:bert.encoder.layer.0.attention.self.value.weight, frozen: 766, train: 2, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.0.attention.self.value.weight
+checking:bert.encoder.layer.0.attention.self.value.bias, frozen: 766, train: 2, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.0.attention.self.value.bias
+checking:bert.encoder.layer.0.attention.output.dense.weight, frozen: 763, train: 5, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.0.attention.output.dense.weight
+checking:bert.encoder.layer.0.attention.output.dense.bias, frozen: 763, train: 5, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.0.attention.output.dense.bias
+checking:bert.encoder.layer.0.intermediate.dense.weight, frozen: 3070, train: 2, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.0.intermediate.dense.weight
+checking:bert.encoder.layer.0.intermediate.dense.bias, frozen: 3070, train: 2, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.0.intermediate.dense.bias
+checking:bert.encoder.layer.0.output.dense.weight, frozen: 759, train: 9, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.0.output.dense.weight
+checking:bert.encoder.layer.0.output.dense.bias, frozen: 759, train: 9, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.0.output.dense.bias
+checking:bert.encoder.layer.1.attention.self.query.weight, frozen: 768, train: 0, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.1.attention.self.query.weight
+checking:bert.encoder.layer.1.attention.self.query.bias, frozen: 768, train: 0, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.1.attention.self.query.bias
+checking:bert.encoder.layer.1.attention.self.key.weight, frozen: 761, train: 7, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.1.attention.self.key.weight
+checking:bert.encoder.layer.1.attention.self.key.bias, frozen: 761, train: 7, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.1.attention.self.key.bias
+checking:bert.encoder.layer.1.attention.self.value.weight, frozen: 766, train: 2, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.1.attention.self.value.weight
+checking:bert.encoder.layer.1.attention.self.value.bias, frozen: 766, train: 2, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.1.attention.self.value.bias
+checking:bert.encoder.layer.1.attention.output.dense.weight, frozen: 757, train: 11, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.1.attention.output.dense.weight
+checking:bert.encoder.layer.1.attention.output.dense.bias, frozen: 757, train: 11, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.1.attention.output.dense.bias
+checking:bert.encoder.layer.1.intermediate.dense.weight, frozen: 3070, train: 2, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.1.intermediate.dense.weight
+checking:bert.encoder.layer.1.intermediate.dense.bias, frozen: 3070, train: 2, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.1.intermediate.dense.bias
+checking:bert.encoder.layer.1.output.dense.weight, frozen: 755, train: 13, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.1.output.dense.weight
+checking:bert.encoder.layer.1.output.dense.bias, frozen: 755, train: 13, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.1.output.dense.bias
+checking:bert.encoder.layer.2.attention.self.query.weight, frozen: 766, train: 2, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.2.attention.self.query.weight
+checking:bert.encoder.layer.2.attention.self.query.bias, frozen: 766, train: 2, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.2.attention.self.query.bias
+checking:bert.encoder.layer.2.attention.self.key.weight, frozen: 760, train: 8, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.2.attention.self.key.weight
+checking:bert.encoder.layer.2.attention.self.key.bias, frozen: 760, train: 8, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.2.attention.self.key.bias
+checking:bert.encoder.layer.2.attention.self.value.weight, frozen: 761, train: 7, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.2.attention.self.value.weight
+checking:bert.encoder.layer.2.attention.self.value.bias, frozen: 761, train: 7, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.2.attention.self.value.bias
+checking:bert.encoder.layer.2.attention.output.dense.weight, frozen: 756, train: 12, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.2.attention.output.dense.weight
+checking:bert.encoder.layer.2.attention.output.dense.bias, frozen: 756, train: 12, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.2.attention.output.dense.bias
+checking:bert.encoder.layer.2.intermediate.dense.weight, frozen: 3071, train: 1, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.2.intermediate.dense.weight
+checking:bert.encoder.layer.2.intermediate.dense.bias, frozen: 3071, train: 1, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.2.intermediate.dense.bias
+checking:bert.encoder.layer.2.output.dense.weight, frozen: 746, train: 22, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.2.output.dense.weight
+checking:bert.encoder.layer.2.output.dense.bias, frozen: 746, train: 22, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.2.output.dense.bias
+checking:bert.encoder.layer.3.attention.self.query.weight, frozen: 768, train: 0, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.3.attention.self.query.weight
+checking:bert.encoder.layer.3.attention.self.query.bias, frozen: 768, train: 0, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.3.attention.self.query.bias
+checking:bert.encoder.layer.3.attention.self.key.weight, frozen: 752, train: 16, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.3.attention.self.key.weight
+checking:bert.encoder.layer.3.attention.self.key.bias, frozen: 752, train: 16, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.3.attention.self.key.bias
+checking:bert.encoder.layer.3.attention.self.value.weight, frozen: 764, train: 4, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.3.attention.self.value.weight
+checking:bert.encoder.layer.3.attention.self.value.bias, frozen: 764, train: 4, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.3.attention.self.value.bias
+checking:bert.encoder.layer.3.attention.output.dense.weight, frozen: 757, train: 11, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.3.attention.output.dense.weight
+checking:bert.encoder.layer.3.attention.output.dense.bias, frozen: 757, train: 11, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.3.attention.output.dense.bias
+checking:bert.encoder.layer.3.intermediate.dense.weight, frozen: 3071, train: 1, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.3.intermediate.dense.weight
+checking:bert.encoder.layer.3.intermediate.dense.bias, frozen: 3071, train: 1, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.3.intermediate.dense.bias
+checking:bert.encoder.layer.3.output.dense.weight, frozen: 736, train: 32, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.3.output.dense.weight
+checking:bert.encoder.layer.3.output.dense.bias, frozen: 736, train: 32, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.3.output.dense.bias
+checking:bert.encoder.layer.4.attention.self.query.weight, frozen: 752, train: 16, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.4.attention.self.query.weight
+checking:bert.encoder.layer.4.attention.self.query.bias, frozen: 752, train: 16, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.4.attention.self.query.bias
+checking:bert.encoder.layer.4.attention.self.key.weight, frozen: 763, train: 5, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.4.attention.self.key.weight
+checking:bert.encoder.layer.4.attention.self.key.bias, frozen: 763, train: 5, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.4.attention.self.key.bias
+checking:bert.encoder.layer.4.attention.self.value.weight, frozen: 761, train: 7, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.4.attention.self.value.weight
+checking:bert.encoder.layer.4.attention.self.value.bias, frozen: 761, train: 7, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.4.attention.self.value.bias
+checking:bert.encoder.layer.4.attention.output.dense.weight, frozen: 737, train: 31, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.4.attention.output.dense.weight
+checking:bert.encoder.layer.4.attention.output.dense.bias, frozen: 737, train: 31, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.4.attention.output.dense.bias
+checking:bert.encoder.layer.4.intermediate.dense.weight, frozen: 3070, train: 2, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.4.intermediate.dense.weight
+checking:bert.encoder.layer.4.intermediate.dense.bias, frozen: 3070, train: 2, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.4.intermediate.dense.bias
+checking:bert.encoder.layer.4.output.dense.weight, frozen: 717, train: 51, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.4.output.dense.weight
+checking:bert.encoder.layer.4.output.dense.bias, frozen: 717, train: 51, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.4.output.dense.bias
+checking:bert.encoder.layer.5.attention.self.query.weight, frozen: 736, train: 32, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.5.attention.self.query.weight
+checking:bert.encoder.layer.5.attention.self.query.bias, frozen: 736, train: 32, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.5.attention.self.query.bias
+checking:bert.encoder.layer.5.attention.self.key.weight, frozen: 768, train: 0, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.5.attention.self.key.weight
+checking:bert.encoder.layer.5.attention.self.key.bias, frozen: 768, train: 0, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.5.attention.self.key.bias
+checking:bert.encoder.layer.5.attention.self.value.weight, frozen: 768, train: 0, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.5.attention.self.value.weight
+checking:bert.encoder.layer.5.attention.self.value.bias, frozen: 768, train: 0, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.5.attention.self.value.bias
+checking:bert.encoder.layer.5.attention.output.dense.weight, frozen: 703, train: 65, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.5.attention.output.dense.weight
+checking:bert.encoder.layer.5.attention.output.dense.bias, frozen: 703, train: 65, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.5.attention.output.dense.bias
+checking:bert.encoder.layer.5.intermediate.dense.weight, frozen: 3058, train: 14, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.5.intermediate.dense.weight
+checking:bert.encoder.layer.5.intermediate.dense.bias, frozen: 3058, train: 14, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.5.intermediate.dense.bias
+checking:bert.encoder.layer.5.output.dense.weight, frozen: 680, train: 88, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.5.output.dense.weight
+checking:bert.encoder.layer.5.output.dense.bias, frozen: 680, train: 88, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.5.output.dense.bias
+checking:bert.encoder.layer.6.attention.self.query.weight, frozen: 739, train: 29, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.6.attention.self.query.weight
+checking:bert.encoder.layer.6.attention.self.query.bias, frozen: 739, train: 29, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.6.attention.self.query.bias
+checking:bert.encoder.layer.6.attention.self.key.weight, frozen: 768, train: 0, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.6.attention.self.key.weight
+checking:bert.encoder.layer.6.attention.self.key.bias, frozen: 768, train: 0, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.6.attention.self.key.bias
+checking:bert.encoder.layer.6.attention.self.value.weight, frozen: 768, train: 0, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.6.attention.self.value.weight
+checking:bert.encoder.layer.6.attention.self.value.bias, frozen: 768, train: 0, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.6.attention.self.value.bias
+checking:bert.encoder.layer.6.attention.output.dense.weight, frozen: 659, train: 109, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.6.attention.output.dense.weight
+checking:bert.encoder.layer.6.attention.output.dense.bias, frozen: 659, train: 109, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.6.attention.output.dense.bias
+checking:bert.encoder.layer.6.intermediate.dense.weight, frozen: 3057, train: 15, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.6.intermediate.dense.weight
+checking:bert.encoder.layer.6.intermediate.dense.bias, frozen: 3057, train: 15, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.6.intermediate.dense.bias
+checking:bert.encoder.layer.6.output.dense.weight, frozen: 650, train: 118, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.6.output.dense.weight
+checking:bert.encoder.layer.6.output.dense.bias, frozen: 650, train: 118, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.6.output.dense.bias
+checking:bert.encoder.layer.7.attention.self.query.weight, frozen: 743, train: 25, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.7.attention.self.query.weight
+checking:bert.encoder.layer.7.attention.self.query.bias, frozen: 743, train: 25, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.7.attention.self.query.bias
+checking:bert.encoder.layer.7.attention.self.key.weight, frozen: 767, train: 1, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.7.attention.self.key.weight
+checking:bert.encoder.layer.7.attention.self.key.bias, frozen: 767, train: 1, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.7.attention.self.key.bias
+checking:bert.encoder.layer.7.attention.self.value.weight, frozen: 768, train: 0, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.7.attention.self.value.weight
+checking:bert.encoder.layer.7.attention.self.value.bias, frozen: 768, train: 0, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.7.attention.self.value.bias
+checking:bert.encoder.layer.7.attention.output.dense.weight, frozen: 636, train: 132, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.7.attention.output.dense.weight
+checking:bert.encoder.layer.7.attention.output.dense.bias, frozen: 636, train: 132, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.7.attention.output.dense.bias
+checking:bert.encoder.layer.7.intermediate.dense.weight, frozen: 3055, train: 17, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.7.intermediate.dense.weight
+checking:bert.encoder.layer.7.intermediate.dense.bias, frozen: 3055, train: 17, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.7.intermediate.dense.bias
+checking:bert.encoder.layer.7.output.dense.weight, frozen: 592, train: 176, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.7.output.dense.weight
+checking:bert.encoder.layer.7.output.dense.bias, frozen: 592, train: 176, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.7.output.dense.bias
+checking:bert.encoder.layer.8.attention.self.query.weight, frozen: 727, train: 41, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.8.attention.self.query.weight
+checking:bert.encoder.layer.8.attention.self.query.bias, frozen: 727, train: 41, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.8.attention.self.query.bias
+checking:bert.encoder.layer.8.attention.self.key.weight, frozen: 767, train: 1, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.8.attention.self.key.weight
+checking:bert.encoder.layer.8.attention.self.key.bias, frozen: 767, train: 1, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.8.attention.self.key.bias
+checking:bert.encoder.layer.8.attention.self.value.weight, frozen: 768, train: 0, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.8.attention.self.value.weight
+checking:bert.encoder.layer.8.attention.self.value.bias, frozen: 768, train: 0, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.8.attention.self.value.bias
+checking:bert.encoder.layer.8.attention.output.dense.weight, frozen: 565, train: 203, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.8.attention.output.dense.weight
+checking:bert.encoder.layer.8.attention.output.dense.bias, frozen: 565, train: 203, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.8.attention.output.dense.bias
+checking:bert.encoder.layer.8.intermediate.dense.weight, frozen: 3037, train: 35, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.8.intermediate.dense.weight
+checking:bert.encoder.layer.8.intermediate.dense.bias, frozen: 3037, train: 35, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.8.intermediate.dense.bias
+checking:bert.encoder.layer.8.output.dense.weight, frozen: 528, train: 240, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.8.output.dense.weight
+checking:bert.encoder.layer.8.output.dense.bias, frozen: 528, train: 240, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.8.output.dense.bias
+checking:bert.encoder.layer.9.attention.self.query.weight, frozen: 684, train: 84, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.9.attention.self.query.weight
+checking:bert.encoder.layer.9.attention.self.query.bias, frozen: 684, train: 84, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.9.attention.self.query.bias
+checking:bert.encoder.layer.9.attention.self.key.weight, frozen: 766, train: 2, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.9.attention.self.key.weight
+checking:bert.encoder.layer.9.attention.self.key.bias, frozen: 766, train: 2, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.9.attention.self.key.bias
+checking:bert.encoder.layer.9.attention.self.value.weight, frozen: 766, train: 2, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.9.attention.self.value.weight
+checking:bert.encoder.layer.9.attention.self.value.bias, frozen: 766, train: 2, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.9.attention.self.value.bias
+checking:bert.encoder.layer.9.attention.output.dense.weight, frozen: 495, train: 273, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.9.attention.output.dense.weight
+checking:bert.encoder.layer.9.attention.output.dense.bias, frozen: 495, train: 273, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.9.attention.output.dense.bias
+checking:bert.encoder.layer.9.intermediate.dense.weight, frozen: 2998, train: 74, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.9.intermediate.dense.weight
+checking:bert.encoder.layer.9.intermediate.dense.bias, frozen: 2998, train: 74, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.9.intermediate.dense.bias
+checking:bert.encoder.layer.9.output.dense.weight, frozen: 502, train: 266, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.9.output.dense.weight
+checking:bert.encoder.layer.9.output.dense.bias, frozen: 502, train: 266, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.9.output.dense.bias
+checking:bert.encoder.layer.10.attention.self.query.weight, frozen: 664, train: 104, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.10.attention.self.query.weight
+checking:bert.encoder.layer.10.attention.self.query.bias, frozen: 664, train: 104, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.10.attention.self.query.bias
+checking:bert.encoder.layer.10.attention.self.key.weight, frozen: 765, train: 3, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.10.attention.self.key.weight
+checking:bert.encoder.layer.10.attention.self.key.bias, frozen: 765, train: 3, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.10.attention.self.key.bias
+checking:bert.encoder.layer.10.attention.self.value.weight, frozen: 765, train: 3, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.10.attention.self.value.weight
+checking:bert.encoder.layer.10.attention.self.value.bias, frozen: 765, train: 3, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.10.attention.self.value.bias
+checking:bert.encoder.layer.10.attention.output.dense.weight, frozen: 456, train: 312, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.10.attention.output.dense.weight
+checking:bert.encoder.layer.10.attention.output.dense.bias, frozen: 456, train: 312, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.10.attention.output.dense.bias
+checking:bert.encoder.layer.10.intermediate.dense.weight, frozen: 2990, train: 82, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.10.intermediate.dense.weight
+checking:bert.encoder.layer.10.intermediate.dense.bias, frozen: 2990, train: 82, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.10.intermediate.dense.bias
+checking:bert.encoder.layer.10.output.dense.weight, frozen: 437, train: 331, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.10.output.dense.weight
+checking:bert.encoder.layer.10.output.dense.bias, frozen: 437, train: 331, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.10.output.dense.bias
+checking:bert.encoder.layer.11.attention.self.query.weight, frozen: 667, train: 101, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.11.attention.self.query.weight
+checking:bert.encoder.layer.11.attention.self.query.bias, frozen: 667, train: 101, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.11.attention.self.query.bias
+checking:bert.encoder.layer.11.attention.self.key.weight, frozen: 763, train: 5, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.11.attention.self.key.weight
+checking:bert.encoder.layer.11.attention.self.key.bias, frozen: 763, train: 5, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.11.attention.self.key.bias
+checking:bert.encoder.layer.11.attention.self.value.weight, frozen: 767, train: 1, Total : 768 : torch.Size([768, 768])
+exlude_grad func : bert.encoder.layer.11.attention.self.value.weight
+checking:bert.encoder.layer.11.attention.self.value.bias, frozen: 767, train: 1, Total : 768 : torch.Size([768])
+exlude_grad func : bert.encoder.layer.11.attention.self.value.bias
+checking:bert.encoder.layer.11.attention.output.dense.weight, frozen: 406, train: 362, Total : 768 : torch.Size([768, 768])
+exlude_grad func dense : bert.encoder.layer.11.attention.output.dense.weight
+checking:bert.encoder.layer.11.attention.output.dense.bias, frozen: 406, train: 362, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.11.attention.output.dense.bias
+checking:bert.encoder.layer.11.intermediate.dense.weight, frozen: 2978, train: 94, Total : 3072 : torch.Size([3072, 768])
+exlude_grad func dense : bert.encoder.layer.11.intermediate.dense.weight
+checking:bert.encoder.layer.11.intermediate.dense.bias, frozen: 2978, train: 94, Total : 3072 : torch.Size([3072])
+exlude_grad func dense : bert.encoder.layer.11.intermediate.dense.bias
+checking:bert.encoder.layer.11.output.dense.weight, frozen: 344, train: 424, Total : 768 : torch.Size([768, 3072])
+exlude_grad func dense : bert.encoder.layer.11.output.dense.weight
+checking:bert.encoder.layer.11.output.dense.bias, frozen: 344, train: 424, Total : 768 : torch.Size([768])
+exlude_grad func dense : bert.encoder.layer.11.output.dense.bias
+bert.encoder.layer.0.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.0.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.0.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.0.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.0.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.0.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.0.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.0.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.0.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.0.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.0.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.0.output.dense.bias: torch.Size([768])
+bert.encoder.layer.1.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.1.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.1.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.1.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.1.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.1.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.1.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.1.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.1.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.1.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.1.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.1.output.dense.bias: torch.Size([768])
+bert.encoder.layer.2.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.2.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.2.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.2.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.2.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.2.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.2.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.2.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.2.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.2.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.2.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.2.output.dense.bias: torch.Size([768])
+bert.encoder.layer.3.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.3.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.3.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.3.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.3.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.3.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.3.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.3.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.3.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.3.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.3.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.3.output.dense.bias: torch.Size([768])
+bert.encoder.layer.4.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.4.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.4.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.4.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.4.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.4.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.4.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.4.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.4.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.4.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.4.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.4.output.dense.bias: torch.Size([768])
+bert.encoder.layer.5.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.5.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.5.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.5.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.5.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.5.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.5.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.5.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.5.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.5.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.5.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.5.output.dense.bias: torch.Size([768])
+bert.encoder.layer.6.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.6.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.6.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.6.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.6.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.6.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.6.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.6.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.6.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.6.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.6.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.6.output.dense.bias: torch.Size([768])
+bert.encoder.layer.7.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.7.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.7.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.7.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.7.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.7.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.7.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.7.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.7.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.7.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.7.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.7.output.dense.bias: torch.Size([768])
+bert.encoder.layer.8.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.8.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.8.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.8.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.8.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.8.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.8.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.8.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.8.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.8.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.8.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.8.output.dense.bias: torch.Size([768])
+bert.encoder.layer.9.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.9.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.9.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.9.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.9.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.9.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.9.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.9.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.9.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.9.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.9.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.9.output.dense.bias: torch.Size([768])
+bert.encoder.layer.10.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.10.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.10.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.10.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.10.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.10.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.10.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.10.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.10.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.10.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.10.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.10.output.dense.bias: torch.Size([768])
+bert.encoder.layer.11.attention.self.query.weight: torch.Size([768, 768])
+bert.encoder.layer.11.attention.self.query.bias: torch.Size([768])
+bert.encoder.layer.11.attention.self.key.weight: torch.Size([768, 768])
+bert.encoder.layer.11.attention.self.key.bias: torch.Size([768])
+bert.encoder.layer.11.attention.self.value.weight: torch.Size([768, 768])
+bert.encoder.layer.11.attention.self.value.bias: torch.Size([768])
+bert.encoder.layer.11.attention.output.dense.weight: torch.Size([768, 768])
+bert.encoder.layer.11.attention.output.dense.bias: torch.Size([768])
+bert.encoder.layer.11.intermediate.dense.weight: torch.Size([3072, 768])
+bert.encoder.layer.11.intermediate.dense.bias: torch.Size([3072])
+bert.encoder.layer.11.output.dense.weight: torch.Size([768, 3072])
+bert.encoder.layer.11.output.dense.bias: torch.Size([768])
+Comparing weight checking Done!
+========= train_data ===========

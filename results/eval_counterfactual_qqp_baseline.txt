@@ -1,0 +1,142 @@
+config: configs/pcgu_config_qqp.yaml
+== statistic ==
+{'High-overlap': 0.9090909090909091, 'Low-overlap': 0.2}
+Counterfactual type: ['High-overlap']
+Intervention type : weaken
+Loading model from ../models/baseline_qqp_mysplit/seed_3990/checkpoint-36500/pytorch_model.bin
+loading model: ../models/baseline_qqp_mysplit/seed_3990/checkpoint-36500/pytorch_model.bin
+************* Classifier Output Distributions Given Averaging representations  as Input ************
+High-overlap:
+seed :3990 not_duplicate: 0.8806118369102478
+seed :3990 duplicate: 0.11938821524381638
+Low-overlap:
+seed :3990 not_duplicate: 0.9547424912452698
+seed :3990 duplicate: 0.04525747522711754
+************* Stats ************
+>>High-overlap:
+Accuracies:
+avg over all acc: 0.8823529411764706
+not_duplicate acc: 0.9117647058823529 
+duplicate acc: 0.8529411764705882 
+Distributions:
+average not_duplicate confident: 0.9230534434318542
+average duplicate confident: 0.8302727341651917
+>>Low-overlap:
+Accuracies:
+avg over all acc: 0.9264705882352942
+not_duplicate acc: 1.0 
+duplicate acc: 0.8529411764705882 
+Distributions:
+average not_duplicate confident: 0.9990193843841553
+average duplicate confident: 0.851247251033783
+Loading model from ../models/baseline_qqp_mysplit/seed_409/checkpoint-36500/pytorch_model.bin
+loading model: ../models/baseline_qqp_mysplit/seed_409/checkpoint-36500/pytorch_model.bin
+************* Classifier Output Distributions Given Averaging representations  as Input ************
+High-overlap:
+seed :409 not_duplicate: 0.9639989733695984
+seed :409 duplicate: 0.03600110113620758
+Low-overlap:
+seed :409 not_duplicate: 0.9949525594711304
+seed :409 duplicate: 0.0050475019961595535
+************* Stats ************
+>>High-overlap:
+Accuracies:
+avg over all acc: 0.9117647058823529
+not_duplicate acc: 0.9411764705882353 
+duplicate acc: 0.8823529411764706 
+Distributions:
+average not_duplicate confident: 0.9367210268974304
+average duplicate confident: 0.8579142093658447
+>>Low-overlap:
+Accuracies:
+avg over all acc: 0.9117647058823529
+not_duplicate acc: 1.0 
+duplicate acc: 0.8235294117647058 
+Distributions:
+average not_duplicate confident: 0.9965647459030151
+average duplicate confident: 0.8200365900993347
+Loading model from ../models/baseline_qqp_mysplit/seed_1548/checkpoint-36500/pytorch_model.bin
+loading model: ../models/baseline_qqp_mysplit/seed_1548/checkpoint-36500/pytorch_model.bin
+************* Classifier Output Distributions Given Averaging representations  as Input ************
+High-overlap:
+seed :1548 not_duplicate: 0.8653028011322021
+seed :1548 duplicate: 0.13469718396663666
+Low-overlap:
+seed :1548 not_duplicate: 0.9486842751502991
+seed :1548 duplicate: 0.05131574347615242
+************* Stats ************
+>>High-overlap:
+Accuracies:
+avg over all acc: 0.8970588235294118
+not_duplicate acc: 0.9411764705882353 
+duplicate acc: 0.8529411764705882 
+Distributions:
+average not_duplicate confident: 0.942386269569397
+average duplicate confident: 0.8342211842536926
+>>Low-overlap:
+Accuracies:
+avg over all acc: 0.9117647058823529
+not_duplicate acc: 1.0 
+duplicate acc: 0.8235294117647058 
+Distributions:
+average not_duplicate confident: 0.9855493903160095
+average duplicate confident: 0.7947632670402527
+Loading model from ../models/baseline_qqp_mysplit/seed_3099/checkpoint-36500/pytorch_model.bin
+loading model: ../models/baseline_qqp_mysplit/seed_3099/checkpoint-36500/pytorch_model.bin
+************* Classifier Output Distributions Given Averaging representations  as Input ************
+High-overlap:
+seed :3099 not_duplicate: 0.9517611861228943
+seed :3099 duplicate: 0.04823886603116989
+Low-overlap:
+seed :3099 not_duplicate: 0.97519850730896
+seed :3099 duplicate: 0.0248014684766531
+************* Stats ************
+>>High-overlap:
+Accuracies:
+avg over all acc: 0.8823529411764706
+not_duplicate acc: 0.8823529411764706 
+duplicate acc: 0.8823529411764706 
+Distributions:
+average not_duplicate confident: 0.8927381634712219
+average duplicate confident: 0.8658413887023926
+>>Low-overlap:
+Accuracies:
+avg over all acc: 0.9558823529411765
+not_duplicate acc: 0.9705882352941176 
+duplicate acc: 0.9411764705882353 
+Distributions:
+average not_duplicate confident: 0.9704965949058533
+average duplicate confident: 0.9083991646766663
+Loading model from ../models/baseline_qqp_mysplit/seed_3785/checkpoint-36500/pytorch_model.bin
+loading model: ../models/baseline_qqp_mysplit/seed_3785/checkpoint-36500/pytorch_model.bin
+************* Classifier Output Distributions Given Averaging representations  as Input ************
+High-overlap:
+seed :3785 not_duplicate: 0.8684110641479492
+seed :3785 duplicate: 0.1315888911485672
+Low-overlap:
+seed :3785 not_duplicate: 0.8822491765022278
+seed :3785 duplicate: 0.11775078624486923
+************* Stats ************
+>>High-overlap:
+Accuracies:
+avg over all acc: 0.9117647058823529
+not_duplicate acc: 0.9117647058823529 
+duplicate acc: 0.9117647058823529 
+Distributions:
+average not_duplicate confident: 0.9054130911827087
+average duplicate confident: 0.8775265216827393
+>>Low-overlap:
+Accuracies:
+avg over all acc: 0.9411764705882353
+not_duplicate acc: 1.0 
+duplicate acc: 0.8823529411764706 
+Distributions:
+average not_duplicate confident: 0.9893713593482971
+average duplicate confident: 0.8906983733177185
+********** Counterfactual Model Output Distribution Summary **********
+>> High-overlap
+ not_duplicate: 0.9060172438621521
+ duplicate: 0.09398285299539566
+>> Low-overlap
+ not_duplicate: 0.9511653780937195
+ duplicate: 0.04883459210395813

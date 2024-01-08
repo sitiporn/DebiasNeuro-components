@@ -1,0 +1,227 @@
+{ 
+# ************* experiment *******************
+  "collect_representation": False,
+  "DEBUG": True,
+  "debug": False, 
+  # the number of exclude mode samples 
+  "dataset_name":  'qqp',
+  "candidated_class": ["duplicate"], 
+  "intervention_class": ["duplicate"], 
+  "num_samples": 300,
+  "upper_bound": 100,
+  "lower_bound": 20,
+  "label_maps": {"not_duplicate": 0, "duplicate": 1}, # ours
+  "correct_pred": True,
+  "intervention_type": "weaken",
+  # "intervention_type": "replace",
+  # Here; set true
+  "collect_adv": False,
+  "random_adv": False,
+  "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  "collect_param": False,
+  # ******************** PATH ********************
+  "num_top_neurons": null, 
+  "range_percents": True, 
+  'neurons': True, 
+  "model_name": "../bert-base-uncased/",
+  "dev_path": "../data/paraphrase_identification/",
+  # validation set
+  "exp_json": "qqp_clark.validation.jsonl",
+  "dev_json": {},
+  # data settings
+  "counterfactual_paths": [],
+  "NIE_paths": [],
+  "is_NIE_exist": [],
+  "is_counterfactual_exist": [],
+  # ************ Identifying Bias: Causal Mediation Analysis *************
+  # experiment set 
+  "k":  5, 
+  # "k":  1, 
+  # rank based on nie scores 
+  "eval_candidates": True,
+  "layer": 11,
+  "treatment": True,
+  "is_group_by_class": False,
+  "is_averaged_embeddings": True,
+  "computed_all_layers": True,
+  "compare_frozen_weight": True, 
+  "print_config": False,
+  "top_neuron_mode": "sorted",
+  "prunning": True,
+  # methods select candidate neurons
+  # topk - percentage over all neurons eg. top 1%, top 5% 
+  # num_neurons - the number of neurons eg. 2, 5, 10, 20, ..., 100
+  "criterion": 'topk',
+  # 2, 5, 10, 20, 30, 40, 50, ..,80
+  "num_neurons": 10,
+  "seeds": [ 1548, 3099, 3785, 3990, 409], 
+  # [*1548, 3099, *3785, 3990, 409] for experiments
+  # "seed": 3099, #409, # set to null when using ishan/bert-base-uncased-mnli
+  # Here
+  "seed": 409, # set to null when using ishan/bert-base-uncased-mnli
+  # default
+  # "topk_neurons": True,
+  # together with compute all seeds
+  "get_candidate_neurons": True,
+  "distribution": False,
+  # To get counterfactual
+  "compute_all_seeds": False,
+  "eval_counterfactual": True,
+  "getting_counterfactual": False,
+  "compute_nie_scores": False,
+  # ******************** Unlearn Bias ********************
+  "training_json":  multinli_1.0_train.jsonl, 
+  "partition_params": False,
+  # ******************** soft masking neurons ********************
+  # we mask top 5% neurons
+  # "weaken_rate": 0.9, # best score on has (0.6299)
+  # "weaken_rate": 0.1,
+  # "weaken_rate": 0.97,
+  # "weaken_rate": 1.0,
+  "weaken_rate": null,
+  "get_masking_value": False,
+  # percent of neurons to mask
+  "masking_rate": 0.05, 
+  # "masking_rate": 0.01, # this parameters related to 
+  # number of neurons to mask
+  "neuron_group": null,
+  "rank_losses": False, 
+  # range 0.0 to 0.10, step = 0.01
+  # searching masking rates
+  "percent": {
+    "low": 0.0, 
+    "high": 0.1,
+    "step": 0.01,
+    "size": 50,
+    "mode": 0o666,
+    "acc": {}
+    },
+  # range 0 to 1, step = 0.1
+  "epsilons": {
+    "low":  0, 
+    "high": 1,
+    "step": 0.1, #0.0001, #0.01, 0.1,
+    "size": 50,
+    "mode": 0o666,
+    "acc": {}
+    },
+  "single_neuron": False,
+  # do hyperparameter search on value used modify neurons's activations
+  "soft_masking_value_search": True,
+  # do hyperparameter search on the percentages of all neurons to mask
+  "masking_rate_search": False,
+  "get_condition_inferences": False,
+  "get_condition_inference_scores": False,
+  # ******************** test  stuff ********************
+  "eval_model": True,
+  "traced": False, 
+  "traced_params": False,
+  "diag": False,
+  # "diag": True,
+  "test_traced_params": False,
+  "debias_test": False,
+  # "dev-name": "matched",
+  # test set
+  # "dev-name": "mismatched",
+  # challenge set
+  "dev-name": "hans",
+  # this set uses matched dataset
+  # "dev-name": "reweight",
+  # "dev-name": "matched",
+  # if know best params
+  # "weaken": null,
+
+  # evaluate hans
+  "eval": {
+    "do": 'High-overlap',
+    "layer": 11,
+    "debug": False,
+    "all_layers": True,
+    "intervention_mode": "Intervene"
+    },
+
+  # uppper bound test on test set
+  # use to read prediction txt files
+  "prediction_path": '../pickles/prediction/',
+  "evaluations":  {},
+  "to_text": True,
+  # "get_result": False,
+  "get_condition_paws_result": False,
+  "get_paws_result": True,
+  "save_rank": iment_configTrue,
+  "get_condition_hans_result": False,
+  "get_hans_result": True,
+  "save_rank": True,
+  # neurons components
+  "attention_components": 3,
+  "nums": {},
+
+# ************ train model  *******************
+# ideas from : https://github.com/c4n/debias_nlu/blob/9d3f55449a15fe6e4538ed5713530207d2127afd/configs/nli/baseline/mnli_bert_base_clark_1.jsonnet#L4
+  "dataset_reader": {
+    "type": "snli",
+    "tokenizer": {
+      "type": "pretrained_transformer",
+      "model_name": "../bert-base-uncased/",
+      "add_special_tokens": false
+    }
+  },
+    
+  # Tokenizer
+  "tokens": {
+    "type": "pretrained_transformer",
+    "model_name":  "../bert-base-uncased/", 
+    "max_length": 512
+  },
+  
+  # dataset
+  "data_path": "../data/paraphrase_identification/",
+  "train_data": "qqp_clark.train.jsonl",
+  "validation_data": "qqp_clark.validation.jsonl", 
+  "test_data": "qqp_clark.test.jsonl",
+
+  # dataloader
+  "data_loader": {
+    "batch_sampler": {
+       # bucket type in allenlp by grouping by length and dynamic padding
+      "group_by_length": True, 
+      "dynamic_padding": True,
+      "batch_size" : 32 
+    }
+  },
+
+  # models; 
+  # follow allennlp setups, the rest is the default of bert-base-uncased
+  "model": {
+    # this model will be replaced with competitive models
+    "model_name": "../bert-base-uncased/",
+    transformer_model,
+    "max_length": 512,
+    "is_load_trained_model": True
+  },
+  "dropout": 0.1,
+  "namespace": "tags",
+  
+  # Trainer
+  "num_epochs": 15,
+  # recheck in Trainer 
+  "validation_metric": "accuracy",
+  "learning_rate_scheduler": {
+    "type": "slanted_triangular", # override from allennlp
+    "cut_frac": 0.06
+  },
+  "optimizer": {
+    # using optimizer from the transformers package
+    "type": "huggingface_adamw", 
+    "lr": 2.0e-6 ,  #2.909e-07(ours), #2e-6(PCGU), #5e-5,
+    "weight_decay": 0.1,
+  },
+  "cuda_device" : 0,
+  "evaluation_strategy": "steps",
+  "eval_steps": 100,
+  "load_best_model_at_end": True,
+  "save_total_limit": 1,
+  # "use_amp" in allennlp
+  "half_precision_backend": "amp",
+}
