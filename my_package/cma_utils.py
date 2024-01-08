@@ -33,7 +33,7 @@ class Classifier(nn.Module):
         logits = self.classifier(pooled_output)
         return logits
 
-def get_component_names(config):
+def get_component_names(config, intervention=False):
 
     representations = {}
     layers = config["layers"]
@@ -46,14 +46,14 @@ def get_component_names(config):
             representations[component][do] = {}
             for layer in layers:
                 if config["is_averaged_embeddings"]:
-                    representations[component][do][layer] = []
+                    representations[component][do][layer] = {} if intervention else []
                 elif config["is_group_by_class"]:
                     representations[component][do][layer] = {}
                     for label_text in config['label_maps'].keys(): 
-                        representations[component][do][layer][label_text] = []
+                        representations[component][do][layer][label_text] = {} if intervention else [] 
                     
     
-    print(representations)
+    # print(representations)
 
     return representations
 
@@ -172,7 +172,6 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
             pickle.dump(representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"saving counterfactual and counter into {cur_path} done ! ")
-    breakpoint()
                 
 def test_mask(neuron_candidates =[]):
     x  = torch.tensor([[ [1,2,3], 
@@ -610,7 +609,7 @@ def geting_NIE_paths(config, method_name, mode, seed=None):
     
     return NIE_paths, is_NIE_exist
 
-def get_nie_set_path(config, experiment_set, save_nie_set_path):
+def get_nie_set(config, experiment_set, save_nie_set_path):
     """ prepare validation set used to compute NIE later"""
     combine_types = []
     pairs = {}
