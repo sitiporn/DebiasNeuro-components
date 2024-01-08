@@ -9,7 +9,7 @@ from .optimization import partition_param_train, restore_original_weight
 from .intervention import intervene, high_level_intervention
 from .cma import cma_analysis,  get_distribution
 from .utils import debias_test
-from .cma_utils import get_nie_set_path
+from .cma_utils import get_nie_set
 from .utils import get_num_neurons, get_params, get_diagnosis
 from .optimization import intervene_grad
 from .utils import get_params, get_num_neurons, load_model
