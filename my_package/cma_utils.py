@@ -622,7 +622,7 @@ def get_nie_set(config, experiment_set, save_nie_set_path):
             # get the whole set of validation 
             pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
             # samples data (exclude mode samples)
-            ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
+            ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //len(config['label_maps']),)))
             pairs[type] = np.array(pairs[type])[ids,:].tolist()
             nie_dataset[type] = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs[type])]
             nie_loader[type] = DataLoader(nie_dataset[type], batch_size=32)
@@ -633,7 +633,7 @@ def get_nie_set(config, experiment_set, save_nie_set_path):
             # get the whole set of validation for each class
             pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
             # samples data (exclude mode samples)
-            ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
+            ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //len(config['label_maps']),)))
             pairs[type] = np.array(pairs[type])[ids,:].tolist()
             combine_types.extend(pairs[type])
 
