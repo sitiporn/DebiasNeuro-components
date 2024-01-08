@@ -1,71 +1,13 @@
-import os
-import os.path
-import pandas as pd
-import random
-import pickle
-import json
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import  report_gpu
-from cma_utils import collect_counterfactuals, trace_counterfactual, geting_counterfactual_paths, get_single_representation, geting_NIE_paths
-from optimization_utils import test_restore_weight
-from sklearn.metrics import accuracy_score
-from tqdm import tqdm
-import argparse
-import sys
-import operator
-import torch.nn.functional as F
-import numpy as np
-from pprint import pprint
-#from nn_pruning.patch_coordinator import (
-#    SparseTrainingArguments,
-#    ModelPatchingCoordinator,
-#)
-from data import ExperimentDataset, Dev, get_conditional_inferences, eval_model, print_config
-from optimization_utils import trace_optimized_params, initial_partition_params
-from optimization import partition_param_train, restore_original_weight
-from data import rank_losses
-from intervention import intervene, high_level_intervention
-from cma import cma_analysis,  get_distribution
-from utils import debias_test
-from cma_utils import get_nie_set_path
-import yaml
-from utils import get_num_neurons, get_params, get_diagnosis
-from data import get_analysis 
-from transformers import AutoTokenizer, BertForSequenceClassification
-from optimization import intervene_grad
-from transformers import Trainer
-# from torch.utils.data import Dataset, DataLoader
 from transformers import TrainingArguments, Trainer, DataCollatorWithPadding
 from datasets import Dataset
 from torch.utils.data import IterableDataset, RandomSampler, Sampler
-import evaluate
-import allennlp
-from typing import Optional
-from slanted_triangular import SlantedTriangular
-from torch.optim import Adam
-from transformers import BertConfig, BertModel
-from transformers.optimization import get_scheduler
-from transformers.trainer_utils import has_length, ShardedDDPOption
-from transformers.utils import is_datasets_available, is_sagemaker_mp_enabled
-from transformers.trainer_pt_utils import DistributedTensorGatherer,  SequentialDistributedSampler
-from torch.utils.data.sampler import SequentialSampler            
-from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING_NAMES, MODEL_MAPPING_NAMES
-from transformers.modeling_utils import PreTrainedModel, load_sharded_checkpoint, unwrap_model
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase
-from transformers.data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
-from transformers.trainer_utils import EvalPrediction, EvalLoopOutput
-from transformers.trainer_callback import TrainerCallback
-from trainer_pt_utils import CustomLabelSmoother, test_bucket_iterator
-from transformers.trainer_utils import denumpify_detensorize
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from transformers.utils import logging
-from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
+from trainer_package.trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
 import math
 import time
-from data import CustomDataset
 from transformers.deepspeed import deepspeed_init, is_deepspeed_zero3_enabled
 from transformers.trainer_callback import (
     CallbackHandler,
@@ -80,7 +22,33 @@ from torch.utils.data.distributed import DistributedSampler
 from transformers.trainer_pt_utils import IterableDatasetShard
 from transformers.utils import is_torch_tpu_available
 from transformers.trainer_utils import speed_metrics, TrainOutput
-from data import get_all_model_paths
+from transformers import BertConfig, BertModel
+from transformers.optimization import get_scheduler
+from transformers.trainer_utils import has_length, ShardedDDPOption
+from transformers.utils import is_datasets_available, is_sagemaker_mp_enabled
+from transformers.trainer_pt_utils import DistributedTensorGatherer,  SequentialDistributedSampler
+from torch.utils.data.sampler import SequentialSampler            
+from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING_NAMES, MODEL_MAPPING_NAMES
+from transformers.modeling_utils import PreTrainedModel, load_sharded_checkpoint, unwrap_model
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+from transformers.data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
+from transformers.trainer_utils import EvalPrediction, EvalLoopOutput
+from transformers.trainer_callback import TrainerCallback
+from trainer_package.trainer_pt_utils import CustomLabelSmoother, test_bucket_iterator
+from transformers.trainer_utils import denumpify_detensorize
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+import evaluate
+from sklearn.metrics import accuracy_score
+from tqdm import tqdm
+import argparse
+import sys
+import operator
+import torch.nn.functional as F
+import allennlp
+from trainer_package.slanted_triangular import SlantedTriangular
+import numpy as np
+   
+   
 
 logger = logging.get_logger(__name__)
 
@@ -97,6 +65,7 @@ def get_max_padding_lenght(input_ids:torch.Tensor):
     else:
         max_pad_len = 0
     print(f'padding len : {max_pad_len}')
+
 
 class CustomTrainer(Trainer):
     def __init__(self,
@@ -166,7 +135,7 @@ class CustomTrainer(Trainer):
                 lengths = None
             model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
 
-            from trainer_pt_utils import BucketIteratorAllennlp
+            from trainer_package.trainer_pt_utils import BucketIteratorAllennlp
 
             return BucketIteratorAllennlp(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
                                       dataset=self.train_dataset,
@@ -592,189 +561,3 @@ class CustomTrainer(Trainer):
             # self._loss(outputs['logits'], inputs['labels'].long().view(-1))
 
         return (loss, outputs) if return_outputs else loss
-
-def compute_metrics(eval_pred):
-    logits, labels = eval_pred
-    predictions = np.argmax(logits, axis=-1)
-    return metric.compute(predictions=predictions, references=labels)
-
-def main():
-    # NOTE: Done checking roughly registered
-    # 
-    global tokenizer
-    global label_maps
-    global metric
-
-    config_path = "./configs/pcgu_config.yaml"
-    with open(config_path, "r") as yamlfile:
-        config = yaml.load(yamlfile, Loader=yaml.FullLoader)
-    
-    dataset = {}
-    tokenized_datasets = {}
-    output_dir = '../models/recent_baseline_missing_seed/' 
-    label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
-    
-    # used to train 
-    LOAD_MODEL_PATH = '../models/recent_baseline/' 
-    # LOAD_MODEL_PATH = '../models/reweight2/'
-    # LOAD_MODEL_PATH = '../models/poe2/'
-    method_name =  'recent_baseline' 
-    # method_name =  LOAD_MODEL_PATH.split('/')[-2] #reweight2' # 'poe2'
-    if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
-    model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
-    save_nie_set_path = f'../pickles/class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/nie_{config["num_samples"]}_samples.pickle'
-    if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
-    counterfactual_paths, _ = geting_counterfactual_paths(config, method_name)
-    # path to save NIE scores
-    NIE_paths, _ = geting_NIE_paths(config, method_name, mode)
-    print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
-    for path in counterfactual_paths: print(f"{sorted(path.split('_'), key=len)[0]}: {path}")
-    print(f'NIE_paths: {NIE_paths}')
-
-    from optimization_utils import get_advantaged_samples
-
-    # random seed
-    seed = config['seed'] 
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-    else: 
-        seed = str(seed)
-    
-    print(f'current {method_name} : seed : {seed}')
-    
-    output_dir = os.path.join(output_dir, "seed_"+ str(seed))
-    if not os.path.exists(output_dir): os.mkdir(output_dir) 
-    
-    # *************** Train model stuff ***************
-    label_maps = config['label_maps'] 
-    metric = evaluate.load(config["validation_metric"])
-    model_config = BertConfig(config['model']["model_name"])
-    model_config.num_labels = len(label_maps.keys())
-    tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
-    model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
-    reference_model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer) if config['data_loader']['batch_sampler']['dynamic_padding'] else None
-    
-    # Todo: get top_neurons
-    # Done checking model counterfactual_path and specific model
-    
-    from cma import get_candidate_neurons 
-    experiment_set = ExperimentDataset(config, encode = tokenizer)                            
-    dataloader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
-    
-    # collect_counterfactuals(model, model_path, method_name, seed, counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE=DEVICE) 
-    # cma_analysis(config, 
-    #             model_path,
-    #             method_name, 
-    #             seed, 
-    #             counterfactual_paths, 
-    #             NIE_paths, 
-    #             save_nie_set_path = save_nie_set_path, 
-    #             model = model, 
-    #             treatments = mode, 
-    #             tokenizer = tokenizer, 
-    #             experiment_set = experiment_set, 
-    #             DEVICE = DEVICE, 
-    #             DEBUG = True)   
-    get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False, mode=config['top_neuron_mode']) 
-    # ************************** PCGU ***************************
-    # NOTE: scale gradient by confident scores <- kind of reweighting (sample base)
-    # spatial adaptive gradient scaler by NIE scores (NIE base)
-    from optimization import partition_param_train, restore_original_weight
-    hooks = []
-    advantaged_bias = None
-    advantaged_main, advantaged_bias = get_advantaged_samples(config, model, seed, metric=metric, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model=True, method_name=method_name,collect=False)
-    
-    if config['model']['is_load_trained_model']:
-        from utils import load_model
-        all_paths = get_all_model_paths(LOAD_MODEL_PATH)
-        path = all_paths[str(seed)]
-        model = load_model(path=path, model=model)
-        print(f'Loading updated model from : {path} to optimize on PCGU done!')
-        reference_model = load_model(path=path, model=reference_model)
-        print(f'Loading reference model from : {path} done!')
-    else:
-        print(f'Using original model to optimize on PCGU')
-    
-    from utils import compare_weight
-    
-    model = initial_partition_params(config, method_name, model, do=mode[0], collect_param=config['collect_param'], mode=config['top_neuron_mode']) 
-    model, hooks = intervene_grad(model, hooks=hooks, method_name=method_name, config=config, collect_param=config['collect_param'], DEBUG=False)
-    compare_weight(updated_model=model, reference_model=reference_model)
-    
-    for data_name in ["train_data", "validation_data", "test_data"]:
-        print(f'========= {data_name} ===========')
-        data =  advantaged_bias if data_name == "train_data" else None
-        tokenized_datasets[data_name] = CustomDataset(config, label_maps=label_maps, data_name=data_name, data=data)
-    
-    print(f'Config of dataloader') 
-    print(f'Group by len : {config["data_loader"]["batch_sampler"]["group_by_length"]}')
-    print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")
-    
-    # ************************** Training ***************************
-    lr = float(config['optimizer']['lr']) # follow PCGU papers
-    pcgu_epochs = 15
-    pcgu_num_batch_per_epoch = 4
-    pcgu_batch_size = 64
-    our_samples = len(advantaged_bias) * config['num_epochs']
-    pcgu_samples = (pcgu_batch_size * pcgu_num_batch_per_epoch * pcgu_epochs)
-    lr = (  pcgu_samples /  our_samples) * lr
-    print(f'learning_rate : {lr}')
-
-    training_args = TrainingArguments(output_dir = output_dir,
-                                    report_to="none",
-                                    overwrite_output_dir = True,
-                                    # steps
-                                    evaluation_strategy=config['evaluation_strategy'],
-                                    # num of steps
-                                    eval_steps=config['eval_steps'],
-                                    learning_rate = float(config['optimizer']['lr']),
-                                    weight_decay = config['optimizer']['weight_decay'],
-                                    per_device_train_batch_size = config["data_loader"]["batch_sampler"]["batch_size"],
-                                    per_device_eval_batch_size=config["data_loader"]["batch_sampler"]["batch_size"],
-                                    num_train_epochs = config["num_epochs"],
-                                    seed=seed,
-                                    load_best_model_at_end=config["load_best_model_at_end"],
-                                    metric_for_best_model = config['validation_metric'], # used for criterion for best model
-                                    greater_is_better = True,  #  used for criterion for best model
-                                    save_total_limit= config["save_total_limit"],
-                                    half_precision_backend = config["half_precision_backend"],
-                                    group_by_length = config["data_loader"]["batch_sampler"]["group_by_length"],
-                                    )
-    from optimization import CustomAdamW
-    from transformers import AdamW
-    import torch.optim as optim
-
-    opitmizer = CustomAdamW(params=model.parameters(),
-                            original_model= reference_model,
-                            seed = seed,
-                            method_name=method_name,
-                            DEVICE=DEVICE,
-                            collect_param=config['collect_param'],
-                            lr= lr , 
-                            weight_decay = config['optimizer']['weight_decay'])
-    # opitmizer = AdamW(params=model.parameters(), lr= lr , weight_decay = config['optimizer']['weight_decay'])
-    # opitmizer = optim.SGD(model.parameters(), lr=lr)
-
-    
-    trainer = CustomTrainer(
-        model,
-        training_args,
-        train_dataset= tokenized_datasets["train_data"],
-        eval_dataset= tokenized_datasets["validation_data"],
-        tokenizer =tokenizer, 
-        compute_metrics=compute_metrics,
-        optimizers = (opitmizer, None),
-        data_collator=data_collator,
-        )
-    
-   
-    trainer.train()
-    
-
-if __name__ == "__main__":
-    main()
-     

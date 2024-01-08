@@ -20,17 +20,16 @@ from pprint import pprint
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-from utils import  LayerParams
-from cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
-from intervention import Intervention, neuron_intervention, get_mediators
-from utils import get_ans, compute_acc
-from utils import get_num_neurons, get_params, relabel, give_weight
+from my_package.utils import  LayerParams
+from my_package.cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
+from my_package.intervention import Intervention, neuron_intervention, get_mediators
+from my_package.utils import get_ans, compute_acc
+from my_package.utils import get_num_neurons, get_params, relabel, give_weight
 from torch.optim import Adam
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
-from utils import load_model
-from utils import load_model
-from utils import compare_frozen_weight, prunning_biased_neurons
+from my_package.utils import load_model
+from my_package.utils import compare_frozen_weight, prunning_biased_neurons
 
 class ExperimentDataset(Dataset):
     def __init__(self, config, encode, dataset_name, seed=None, DEBUG=False) -> None: 
@@ -56,6 +55,7 @@ class ExperimentDataset(Dataset):
         pair_and_label = []
         self.is_group_by_class = is_group_by_class
         self.label_remaps = {v:k for k,v in config['label_maps'].items()}
+        self.label_maps = config['label_maps']
         
         if dataset_name == 'fever': 
             self.treatments = ["High-overlap"]
@@ -106,7 +106,7 @@ class ExperimentDataset(Dataset):
 
                 type_selector = self.df_exp_set[do].gold_label == type 
 
-                self.sets[do][type] = self.df_exp_set[do][tye_selector].reset_index(drop=True)
+                self.sets[do][type] = self.df_exp_set[do][type_selector].reset_index(drop=True)
                 nums[do][type] = self.sets[do][type].shape[0]
 
         # get minimum size of samples
@@ -187,7 +187,7 @@ class ExperimentDataset(Dataset):
                 pair_sentences[do] = {}
                 labels[do] = {}
 
-                for type in config['label_maps'].keys():
+                for type in self.label_maps.keys():
 
                     pair_sentences[do][type] = self.intervention[do][type].pair_sentences[idx]
                     labels[do][type] = self.labels[do][type][idx]
@@ -324,15 +324,11 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_
     
     select_neuron_mode = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-<<<<<<< HEAD
-    path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{select_neuron_mode}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/top_neuron_{seed}_{do}_{layer}_.pickle'
-=======
     path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
     # why top neurons dont chage according to get_top_k
     # get position of top neurons 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
->>>>>>> PCGU
     
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     if config['masking_rate_search']: num_neuron_groups = params['percent']
@@ -501,16 +497,9 @@ def get_masking_value(config):
         best_val = float(cur_best_key.split('-')[-1])
         # cur_digits = len(str(best_val).split('.')[-1])
         print(f"Null : {acc[value]['Null']['all']*100:.2f}, Intervene at {best_val}:{scores[cur_best_key]*100:.2f}")
-    # get new high and low value unitil up to max_num_digits 
-    # get digits
-    # get of new 
-    # add digits by one
-    # 0.1 / 2 #  -> diff 1 * 10e-cu_digits / 2
-    # 0.9 + diff , 
-    # 
 
-#  for a masking representation experiment 
-def convert_to_text_ans(config, top_neuron, method_name, params, do, seed=None, text_answer_path = None, raw_distribution_path = None):
+
+def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
     
     """changing distributions into text anaswers on hans set
     
@@ -842,7 +831,7 @@ def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, met
             print(f'Using original model')
         
         if config['prunning']:
-            from optimization_utils import initial_partition_params 
+            from my_package.optimization_utils import initial_partition_params 
             path = [NIE_paths[seed]]
             do = "High-overlap"  if config['treatment'] else  "Low-overlap"
             model = initial_partition_params(config, method_name, model, do=do, collect_param=config['collect_param'],seed=seed ,mode=config['top_neuron_mode']) 
@@ -1432,7 +1421,7 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
     computed_symm2_count = 0
     for seed, path in all_paths.items():
         if is_load_model:
-            from utils import load_model
+            from my_package.utils import load_model
             model = load_model(path=path, model=model,device=DEVICE)
         else:
             print(f'Using original model')
@@ -1573,7 +1562,7 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
     computed_paws_count = 0
     for seed, path in all_paths.items():
         if is_load_model:
-            from utils import load_model
+            from my_package.utils import load_model
             model = load_model(path=path, model=model,device=DEVICE)
         else:
             print(f'Using original model')

@@ -17,21 +17,23 @@ import operator
 import torch.nn.functional as F
 import numpy as np
 from torch.optim import Adam
-from data import get_mediators, get_hidden_representations, get_specific_component, Dev, group_layer_params
+from my_package.data import get_mediators, get_hidden_representations, get_specific_component, Dev, group_layer_params
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
-from cma import get_topk
-from utils import LayerParams
+from my_package.cma import get_topk
+from my_package.utils import LayerParams
 
-def initial_partition_params(config, method_name, model, do, collect_param=False, debug=True, seed=None , mode='sorted'):
+def initial_partition_params(config, method_name, model, do, collect_param=False, debug=True, seed=None):
     """partition parameters used to freeze  and train(bias parameters)"""
-    from utils import report_gpu
+    from my_package.utils import report_gpu
     component_mappings = {}
     freeze_params = {}
     train_params = {}
     total_params = {}
     seed = config['seed'] if seed is None else seed
     k = config['k']
+    mode = config['top_neuron_mode']
+    collect_param = config['collect_param']
     num_neurons = None
     topk = get_topk(config, k=k, num_top_neurons=num_neurons)
     key = list(topk.keys())[0]
@@ -59,97 +61,96 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     # unfreeze all parameters
     for param in model.parameters(): param.requires_grad = True
-    # select masking_rate : 0.05
-    for value in (n:= tqdm(num_neuron_groups)):
-        # encoder parameter collectors
-        freeze_params[value] = {'weight': {}, 'bias': {}}
-        train_params[value]  = {'weight': {}, 'bias': {}}
-        total_params[value]  = {'weight': {}, 'bias': {}}
-        count_param =  0
-        #  if 'encoder' not in splited_name: continue
-        #  if 'LayerNorm' in splited_name: continue
-        for name, param in model.named_parameters():
-            cur_name = name.split('.') 
-            #  To load and save model's parameters
-            if 'encoder' in cur_name and 'LayerNorm' not in cur_name:
-                component = None
-                layer_id = int(cur_name[3])
-                count_param  += param.shape[0]
-                # ************* get component *************
-                if 'self' in cur_name:  
-                    component = component_mappings[cur_name[-2]]  # to get Q, K, V
-                elif 'attention' in cur_name and 'output' in cur_name: 
-                    component = component_mappings['attention.output']  
-                else:
-                    component = component_mappings[cur_name[-3]]
-                
-                for neuron_id in range(param.data.shape[0]):
-                    pos = f'L-{layer_id}-{component}-{neuron_id}'
-                    total_params[value][cur_name[-1]][pos] = param.data[neuron_id] if collect_param else None
-                    # preparing to restore weight that are not in partition gradients
-                    if pos not in list(top_neuron[value].keys()):
-                        # used to masking grad
-                        freeze_params[value][cur_name[-1]][pos] = param.data[neuron_id] if collect_param else None
-                    else:
-                        # used to reverse gradient
-                        train_params[value][cur_name[-1]][pos] = param.data[neuron_id]  if collect_param else None
+    value = num_neuron_groups[0]
+    # encoder parameter collectors
+    freeze_params[value] = {'weight': {}, 'bias': {}}
+    train_params[value]  = {'weight': {}, 'bias': {}}
+    total_params[value]  = {'weight': {}, 'bias': {}}
+    count_param =  0
+    #  if 'encoder' not in splited_name: continue
+    #  if 'LayerNorm' in splited_name: continue
+    for name, param in model.named_parameters():
+        cur_name = name.split('.') 
+        #  To load and save model's parameters
+        if 'encoder' in cur_name and 'LayerNorm' not in cur_name:
+            component = None
+            layer_id = int(cur_name[3])
+            count_param  += param.shape[0]
+            # ************* get component *************
+            if 'self' in cur_name:  
+                component = component_mappings[cur_name[-2]]  # to get Q, K, V
+            elif 'attention' in cur_name and 'output' in cur_name: 
+                component = component_mappings['attention.output']  
             else:
-                print(f'freeze whole tensor: {name}')
-                param.requires_grad = False
-
-        for child in ['weight', 'bias']:
-            assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
-            assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
-            print(f'# {child} train parameters:  {len(train_params[value][child])} ')
-            print(f'# {child} freeze parameters: {len(freeze_params[value][child])} ')
-            print(f'# {child} total oparameters: {len(train_params[value][child]) + len(freeze_params[value][child])} ')
-        print(f'count_param : {count_param}') 
-        
-        for name, param in model.named_parameters(): 
-            if 'encoder' in name.split('.') and 'LayerNorm' not in name.split('.'): 
-                assert param.requires_grad == True, f' Error : {name}'
-            else: 
-                assert param.requires_grad == False, f' Error : {name}'
-        
-        # Todo: rolling out memory
-        encoder_params = [] 
-        for layer_id in range(model.config.num_hidden_layers): 
-            encoder_params.append(LayerParams(layer_id, len(train_params[value]['weight']), len(freeze_params[value]['weight']) ))
-        
-        # collect parameters needed to be frozen while perform optmize step
-        for pos in list(freeze_params[value]['weight'].keys()):
-            layer_id = int(pos.split('-')[1])
-            encoder_params[layer_id].append_frozen(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
-        
-        for pos in list(train_params[value]['weight'].keys()):
-            layer_id = int(pos.split('-')[1])
-            encoder_params[layer_id].append_train(pos, {'weight': train_params[value]['weight'][pos], 'bias': train_params[value]['bias'][pos]})
-        
-        for child in ['weight', 'bias']:
-            assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
-            assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
-            print(f'# {child} train parameters:  {len(train_params[value][child])} ')
-            print(f'# {child} freeze parameters: {len(freeze_params[value][child])} ')
-            print(f'# {child} total oparameters: {len(train_params[value][child]) + len(freeze_params[value][child])} ')
-
-        from utils import test_layer_params
-        test_layer_params(encoder_params, freeze_params, train_params, value)
-
-        restore_path = f'../pickles/restore_weight/{method_name}/'
-        if not os.path.exists(restore_path): os.mkdir(restore_path)
-        
-        for layer in range(len(encoder_params)): 
-            cur_restore_path = os.path.join(restore_path, f'masking-{value}')
-            if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
+                component = component_mappings[cur_name[-3]]
             
-            if mode == 'sorted':
-                cur_restore_path = os.path.join(cur_restore_path,f'{seed}_layer{layer}_collect_param={collect_param}_components.pickle')
-            elif mode == 'random':
-                cur_restore_path = os.path.join(cur_restore_path,f'{seed}_radom_layer{layer}_collect_param={collect_param}_components.pickle')
-            
-            with open(cur_restore_path, 'wb') as handle:
-                pickle.dump(encoder_params[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"saving {layer}'s components into {cur_restore_path}")
+            for neuron_id in range(param.data.shape[0]):
+                pos = f'L-{layer_id}-{component}-{neuron_id}'
+                total_params[value][cur_name[-1]][pos] = param.data[neuron_id] if collect_param else None
+                # preparing to restore weight that are not in partition gradients
+                if pos not in list(top_neuron[value].keys()):
+                    # used to masking grad
+                    freeze_params[value][cur_name[-1]][pos] = param.data[neuron_id] if collect_param else None
+                else:
+                    # used to reverse gradient
+                    train_params[value][cur_name[-1]][pos] = param.data[neuron_id]  if collect_param else None
+        else:
+            print(f'freeze whole tensor: {name}')
+            param.requires_grad = False
+
+    for child in ['weight', 'bias']:
+        assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
+        assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
+        print(f'# {child} train parameters:  {len(train_params[value][child])} ')
+        print(f'# {child} freeze parameters: {len(freeze_params[value][child])} ')
+        print(f'# {child} total oparameters: {len(train_params[value][child]) + len(freeze_params[value][child])} ')
+    print(f'count_param : {count_param}') 
+    
+    for name, param in model.named_parameters(): 
+        if 'encoder' in name.split('.') and 'LayerNorm' not in name.split('.'): 
+            assert param.requires_grad == True, f' Error : {name}'
+        else: 
+            assert param.requires_grad == False, f' Error : {name}'
+    
+    # Todo: rolling out memory
+    encoder_params = [] 
+    for layer_id in range(model.config.num_hidden_layers): 
+        encoder_params.append(LayerParams(layer_id, len(train_params[value]['weight']), len(freeze_params[value]['weight']) ))
+    
+    # collect parameters needed to be frozen while perform optmize step
+    for pos in list(freeze_params[value]['weight'].keys()):
+        layer_id = int(pos.split('-')[1])
+        encoder_params[layer_id].append_frozen(pos, {'weight': freeze_params[value]['weight'][pos], 'bias': freeze_params[value]['bias'][pos]})
+    
+    for pos in list(train_params[value]['weight'].keys()):
+        layer_id = int(pos.split('-')[1])
+        encoder_params[layer_id].append_train(pos, {'weight': train_params[value]['weight'][pos], 'bias': train_params[value]['bias'][pos]})
+    
+    for child in ['weight', 'bias']:
+        assert len(train_params[value][child])  == len(list(top_neuron[value].keys()))
+        assert len(total_params[value][child])  == len(train_params[value][child]) + len(freeze_params[value][child])
+        print(f'# {child} train parameters:  {len(train_params[value][child])} ')
+        print(f'# {child} freeze parameters: {len(freeze_params[value][child])} ')
+        print(f'# {child} total oparameters: {len(train_params[value][child]) + len(freeze_params[value][child])} ')
+
+    from my_package.utils import test_layer_params
+    test_layer_params(encoder_params, freeze_params, train_params, value)
+
+    restore_path = f'../pickles/restore_weight/{method_name}/'
+    if not os.path.exists(restore_path): os.mkdir(restore_path)
+    
+    for layer in range(len(encoder_params)): 
+        cur_restore_path = os.path.join(restore_path, f'masking-{value}')
+        if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
+        
+        if mode == 'sorted':
+            cur_restore_path = os.path.join(cur_restore_path,f'{seed}_layer{layer}_collect_param={collect_param}_components.pickle')
+        elif mode == 'random':
+            cur_restore_path = os.path.join(cur_restore_path,f'{seed}_radom_layer{layer}_collect_param={collect_param}_components.pickle')
+        
+        with open(cur_restore_path, 'wb') as handle:
+            pickle.dump(encoder_params[layer], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"saving {layer}'s components into {cur_restore_path}")
     
     print(f'initial_partition_params mode : {mode}') 
     
@@ -229,7 +230,7 @@ def test_restore_weight(model, config, DEVICE):
                     param[neuron_id] = torch.randn(param[neuron_id].shape)
                     
     # restore weight
-    from optimization import restore_original_weight
+    from my_package.optimization import restore_original_weight
     model = restore_original_weight(model, DEBUG=False)
     # checker
     trace_optimized_params(model, config, DEVICE, is_load_optimized_model = False)
@@ -250,19 +251,23 @@ def masking_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
     # masking out gradients 
     return grad  * mask
 
-def reverse_grad(neuron_ids:int, param_name:str, DEBUG:bool, grad):
+def reverse_grad(grad_direction:str , neuron_ids:int, param_name:str, DEBUG:bool, grad):
     """
         A callback to function and get executed after backward pass to unlearn some parameters of model
-
         Args:
           neuron_ids: specific set of positions of neurons to revese grad correspoding to whole inputs
           param_name: a neuron type
           grad: gradient used to be reversed
     """
     mask = torch.ones_like(grad)
-    mask[neuron_ids] = -1
-    if DEBUG: print(f'call back reverse gradient func: {param_name}, {grad.shape}, {mask[neuron_ids].shape}')
     
+    if grad_direction == "reverse":
+       mask[neuron_ids] = -1
+    elif  grad_direction == "normal":
+       mask[neuron_ids] = 1
+
+    if DEBUG >= 4: print(f'call back {grad_direction} gradient func: {param_name}, {grad.shape}, {mask[neuron_ids].shape}')
+
     return grad  * mask
 
 def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load_model, method_name, device, collect=False):
@@ -293,11 +298,11 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
     print(f'using: {train_data}')
 
     if collect:
-        from data import get_all_model_paths
+        from my_package.data import get_all_model_paths
         all_paths = get_all_model_paths(LOAD_MODEL_PATH)
         path = all_paths[seed]
         if is_load_model:
-            from utils import load_model
+            from my_package.utils import load_model
             model = load_model(path=path, model=model, device=device)
             print(f'Loading model from : {path}')
         else:
@@ -323,7 +328,7 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
         
         print(f'candidated class : {config["candidated_class"]}') 
         # ************* Main model **************
-        from data import CustomDataset
+        from my_package.data import CustomDataset
         train_set = CustomDataset(config, label_maps=main_label_maps, data_mode="train_data", is_trained=False)
         train_dataloader = DataLoader(train_set, batch_size = 32, shuffle = False, num_workers=0)
         tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])

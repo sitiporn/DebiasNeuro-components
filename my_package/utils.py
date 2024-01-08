@@ -8,13 +8,13 @@ import numpy as np
 import gc
 import os
 import os.path
-from intervention import neuron_intervention
+from my_package.intervention import neuron_intervention
 # from tabulate import tabulate
 import statistics 
 from collections import Counter
 from torch.utils.data import Dataset, DataLoader
 from collections import Counter
-from intervention import get_mediators
+from my_package.intervention import get_mediators
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
@@ -560,15 +560,18 @@ def compare_weight(updated_model, reference_model):
     print(f'Comparing weight checking Done!')
 
     
-def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, method_name, value = 0.05):
-    from data import get_specific_component, group_layer_params, get_all_model_paths
+def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, method_name, restore_path):
+    from my_package.data import get_specific_component, group_layer_params, get_all_model_paths
 
     label_maps = config['label_maps'] 
     collect_param = config['collect_param']
     model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
     reference_model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(label_maps.keys()))
+    value = config['k'] / 100
+    restore_path = f'../pickles/restore_weight/{method_name}/'
+    restore_path = os.path.join(restore_path, f'masking-{value}') 
 
-    from utils import load_model
+    from my_package.utils import load_model
     all_model_paths = get_all_model_paths(LOAD_REFERENCE_MODEL_PATH)
     all_optimized_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
     
@@ -583,8 +586,6 @@ def compare_frozen_weight(LOAD_REFERENCE_MODEL_PATH, LOAD_MODEL_PATH, config, me
         component_mappings = {}
         mediators  = get_mediators(optimized_model)
         component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
-        restore_path = f'../pickles/restore_weight/{method_name}/'
-        restore_path = os.path.join(restore_path, f'masking-{value}')
         for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
 
 
@@ -641,18 +642,17 @@ def prunning_neurons(neuron_ids:int, m:torch.Tensor, multiplier:float, param_nam
     return prunning_hook
 
 
-def prunning_biased_neurons(model, seed, NIE_paths, config, method_name, hooks, value = 0.05, DEBUG=False, DEVICE="cuda:0"):
-    from data import get_specific_component, group_layer_params, get_all_model_paths
+def prunning_biased_neurons(model, seed, NIE_paths, config, method_name, hooks, DEBUG=False, DEVICE="cuda:0"):
+    from my_package.data import get_specific_component, group_layer_params, get_all_model_paths
     value = config['masking_rate']
     label_maps = config['label_maps'] 
     collect_param = config['collect_param']
     component_mappings = {}
     mediators  = get_mediators(model)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
-    restore_path = f'../pickles/restore_weight/{method_name}/'
     restore_path = os.path.join(restore_path, f'masking-{value}')
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
-    from cma import scaling_nie_scores
+    from my_package.cma import scaling_nie_scores
     nie_table_df = scaling_nie_scores(config, method_name, NIE_paths, debug=False)
     m = {row['Neuron_ids']: row['M_MinMax'] for index, row in nie_table_df.iterrows()} 
     

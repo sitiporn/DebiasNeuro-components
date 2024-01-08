@@ -1,6 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch 
-from utils import BertAttentionOverride
+from my_package.utils import BertAttentionOverride
 import torch.nn.functional as F
 
 

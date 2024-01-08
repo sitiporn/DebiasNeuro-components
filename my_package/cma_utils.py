@@ -8,15 +8,16 @@ import numpy as np
 import gc
 import os
 import os.path
-from intervention import neuron_intervention
+from my_package.intervention import neuron_intervention
 # from tabulate import tabulate
 import statistics 
 from collections import Counter
 from torch.utils.data import Dataset, DataLoader
 from collections import Counter
-from intervention import get_mediators
+from my_package.intervention import get_mediators
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import get_outliers
+from my_package.utils import get_outliers
+from my_package.counter import count_negations 
 
 class Classifier(nn.Module):
     def __init__(self, model):
@@ -32,10 +33,96 @@ class Classifier(nn.Module):
         logits = self.classifier(pooled_output)
         return logits
 
+def get_component_names(config, intervention=False):
+
+    representations = {}
+    layers = config["layers"]
+    is_averaged_embeddings = config["is_averaged_embeddings"]
+    is_group_by_class = config["is_group_by_class"]
+
+    for component in (["Q","K","V","AO","I","O"]):
+        representations[component] = {}
+        for do in [config["treatment"]]:
+            representations[component][do] = {}
+            for layer in layers:
+                if config["is_averaged_embeddings"]:
+                    representations[component][do][layer] = {} if intervention else []
+                elif config["is_group_by_class"]:
+                    representations[component][do][layer] = {}
+                    for label_text in config['label_maps'].keys(): 
+                        representations[component][do][layer][label_text] = {} if intervention else [] 
+                    
+    
+    # print(representations)
+
+    return representations
+
+def foward_hooks(do, tokenizer, dataloader, model, DEVICE, eval=False, class_name=None, DEBUG=0):
+    """  foward to hook all representations """
+    counter = 0
+    # for eval counterfactual experiment
+    LAST_HIDDEN_STATE = -1 
+    CLS_TOKEN = 0
+    representations = []
+    
+    for batch_idx, (sentences, labels) in enumerate(dataloader):
+        if DEBUG >=4: print(f' ************** batch_idx: {batch_idx} ***************')
+        # ******************* hooks representations **********************
+        premise, hypo = sentences[do] if class_name is None else sentences[do][class_name]
+        pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
+        inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+        inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
+
+        with torch.no_grad():    
+            if eval:
+                outputs = model(**inputs, output_hidden_states=True)
+                representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:]
+                representations.extend(representation)
+            else:
+                outputs = model(**inputs)
+        
+        del outputs
+        counter += inputs['input_ids'].shape[0]
+        inputs = {k: v.to('cpu') for k,v in inputs.items()} 
+
+    if eval: 
+        assert len(representations) == counter
+        representations = torch.stack(representations, dim=0)
+        average_representation = torch.mean(representations, dim=0 ).unsqueeze(dim=0)
+ 
+    return (counter, average_representation) if eval else counter
+
+def register_hooks(hooks, do, layer_modules, config, representations, class_name=None):
+      
+    layers = config["layers"] 
+    is_averaged_embeddings = config["is_averaged_embeddings"]
+    is_group_by_class = config["is_group_by_class"]
+
+    DEBUG = config["DEBUG"]
+
+    for component in (["Q","K","V","AO","I","O"]):
+        for layer in layers:
+            hooks.append(layer_modules[component](layer).register_forward_hook(get_activation(layer, do, component, representations, is_averaged_embeddings, class_name=class_name, DEBUG=DEBUG)))
+    
+    return hooks
+
+def check_counterfactuals(representations, config, counter):
+    for component in (["Q","K","V","AO","I","O"]):
+        for do in [config["treatment"]]:
+            for layer in config["layers"]:
+                if config["is_averaged_embeddings"]:
+                    assert len(representations[component][do][layer]) == counter, f"Expected : {counter}, but found on layer{layer}, {component}, {do} :{len(representations[component][do][layer])}"
+                elif config["is_group_by_class"]:
+                    for label_text in config['label_maps'].keys(): 
+                        assert len(representations[component][do][layer][label_text]) == counter, f"Expected : {counter}, but found on {component},{do}, layer{layer},{label_text}:{len(representations[component][do][layer][label_text])}"
+
+    print(f'Counterfactuals pass test !')
+
 def collect_counterfactuals(model, model_path, dataset_name, method_name, seed,  counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE, all_seeds=False): 
     """ getting all activation's neurons used as mediators(Z) to compute NIE scores later """
-    from utils import load_model
+    from my_package.utils import load_model
     import copy
+    
     if model_path is not None: 
         _model = load_model(path= model_path, model=copy.deepcopy(model))
         print(f'Loading Counterfactual model: {model_path}')
@@ -49,142 +136,43 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
     # getting counterfactual of all components(eg. Q, K) for specific seed
     _counterfactual_paths = counterfactual_paths
     
-    # "NIE_paths": [],
-    # "is_NIE_exist": [],
-    # "is_counterfactual_exist": [],
-    
-    layer_modules = {}
-    # using for register
-    registers = None
-
     #dicts to store the activations
-    q_activation = {}
-    k_activation = {}
-    v_activation = {}
-  
-    ao_activation = {}
-    intermediate_activation = {}
-    out_activation = {} 
-
-    hidden_representations = {}
-    attention_data = {}        
+    representations = {}
     # dict to store  probabilities
     distributions = {}
-    counter = {}
+    counter = 0
 
-    batch_idx = 0
+    # _model to be hook
+    layer_modules = get_mediators(_model)
+    representations = get_component_names(config)
+    treatments = [config["treatment"]]
 
-    if dataset_name == 'fever':
-        hooks =  {"High-overlap" : None}
-        treatments = ["High-overlap"]
-    else:
-        hooks =  {"High-overlap" : None, "Low-overlap": None}
-        treatments = ["High-overlap", "Low-overlap"]
+    for do in treatments:
+        if config["is_averaged_embeddings"]:
+            hooks = []
+            hooks = register_hooks(hooks, do, layer_modules, config, representations, class_name=None)
+            counter = foward_hooks(do, tokenizer, dataloader, _model, DEVICE, DEBUG=config['DEBUG'])
+            for hook in hooks: hook.remove()
+            del hooks
+        elif config["is_group_by_class"]:
+            for text_label in config['label_maps'].keys():
+                hooks = []
+                hooks = register_hooks(hooks, do, layer_modules, config, representations, class_name=text_label)
+                counter = foward_hooks(do, tokenizer, dataloader, _model, DEVICE, class_name=text_label, DEBUG=config['DEBUG'])
+                for hook in hooks: hook.remove()
+                del hooks
     
-
-    # linear layer
-    layer_modules["Q"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
-    layer_modules["K"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.key
-    layer_modules["V"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.value
-    layer_modules["AO"] = lambda layer : _model.bert.encoder.layer[layer].attention.output
-    layer_modules["I"] = lambda layer : _model.bert.encoder.layer[layer].intermediate
-    layer_modules["O"] = lambda layer : _model.bert.encoder.layer[layer].output
-    
-    for component in (["Q","K","V","AO","I","O"]):
-        hidden_representations[component] = {}
-    # **** collecting all counterfactual representations ****    
-    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"counterfactual_set_loader")):
-        for idx, do in enumerate(tqdm(treatments, desc="Do-overlap")):
-            if do not in hidden_representations[component].keys():
-                for component in (["Q","K","V","AO","I","O"]):
-                    hidden_representations[component][do] = {}
-                distributions[do] = {} 
-                counter[do] = {} if experiment_set.is_group_by_class else 0
-            
-            if experiment_set.is_group_by_class:
-                for class_name in sentences[do].keys():
-                    registers = {}
-                    
-                    # ******************* register all modules **********************
-                    if class_name not in counter[do].keys():
-                        counter[do][class_name] = 0 
-
-                    for component in (["Q","K","V","AO","I","O"]):
-                        if class_name not in hidden_representations[component][do].keys():
-                                hidden_representations[component][do][class_name] = {}
-                                # distributions[do][class_name] = {} 
-                        registers[component] = {}
-                    
-                        for layer in layers:
-                            if layer not in hidden_representations[component][do][class_name].keys():
-                                hidden_representations[component][do][class_name][layer] = []
-                            registers[component][layer] = layer_modules[component](layer).register_forward_hook(get_activation(layer, do, component, hidden_representations, is_averaged_embeddings, class_name=class_name))                        
-
-                    # ******************* hooks representations **********************
-                    premise, hypo = sentences[do][class_name]
-                    pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
-                    inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-                    inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
-                    counter[do][class_name] += inputs['input_ids'].shape[0]
-            
-                    with torch.no_grad():    
-                        outputs = _model(**inputs)
-
-            else:
-                registers = {}
-                
-                # ******************* register all modules **********************
-                for component in (["Q","K","V","AO","I","O"]):
-                    registers[component] = {}
-                    for layer in layers:
-                        registers[component][layer] = layer_modules[component](layer).register_forward_hook(get_activation(layer, do, component, hidden_representations, is_averaged_embeddings))                        
-                    
-                # ******************* hooks representations **********************
-                premise, hypo = sentences[do]
-                pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
-                inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-                inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
-                counter[do] += inputs['input_ids'].shape[0]
-        
-                with torch.no_grad():    
-                    outputs = _model(**inputs)
-
-            del outputs
-            inputs = {k: v.to('cpu') for k,v in inputs.items()} 
-
-        batch_idx += 1
-
-    # ********************* clear all register *********************
-    for component in (["Q","K","V","AO","I","O"]):
-        for layer in layers: 
-            registers[component][layer].remove()
-
-    # **** Writing all counterfactual representations into pickles ****
+    check_counterfactuals(representations, config, counter)
+     
     for cur_path in _counterfactual_paths:
-        component = cur_path.split('/')[-1].split('_')[1]
+        component = cur_path.split('/')[-1].split('_')[1 if is_averaged_embeddings else 2]
         print(f'{component}, :{cur_path}')
-        # Todo: recheck this part
-        if component == "I" and not is_averaged_embeddings:
-            do = cur_path.split("_")[4]
-            class_name = cur_path.split("_")[5]
-            # hidden_representations[component][do][class_name][layer][sample_idx]
-            with open(cur_path,'wb') as handle: 
-                pickle.dump(hidden_representations[component][do][class_name], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"saving counterfactual representations into {cur_path} done ! ")
-        else:
-            with open(cur_path, 'wb') as handle: 
-                # nested dict : [component][do][class_name][layer][sample_idx]
-                pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"saving counterfactual representations into {cur_path} done ! ")
+        
+        with open(cur_path, 'wb') as handle: 
+            pickle.dump(representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"saving counterfactual and counter into {cur_path} done ! ")
                 
-    path = f'../pickles/utilizer/{method_name}/'
-    if not os.path.exists(path): os.mkdir(path)
-    path = os.path.join(path, f'utilizer_{seed}_components.pickle')
-    
-    with open(path, 'wb') as handle: 
-        pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"save utilizer to {path}  ! ")
-
 def test_mask(neuron_candidates =[]):
     x  = torch.tensor([[ [1,2,3], 
                          [4,5,6]
@@ -225,28 +213,15 @@ def geting_counterfactual_paths(config, method_name, seed=None):
 
     counterfactual_paths = []
     is_counterfactual_exist = []
+
+    assert isinstance(config["treatment"], str)
     
     for component in tqdm(["Q","K","V","AO","I","O"], desc="Components"): 
+       
         if config["is_averaged_embeddings"]:
-            if config["is_group_by_class"]:
-                cur_path = f'avg_class_level_{component}_counterfactual_representation.pickle'
-            else:
-                cur_path = f'avg_{component}_counterfactual_representation.pickle'
-        else:
-            if config["is_group_by_class"]:
-                if component == "I":
-                    for  do in ['High-overlap','Low-overlap']:
-                        for class_name in ["contradiction","entailment","neutral"]:
-                            cur_path = f'individual_class_level_{component}_{do}_{class_name}_counterfactual_representation.pickle'
-                            counterfactual_paths.append(os.path.join(path, cur_path))
-                            is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
-                else: 
-                    cur_path = f'individual_class_level_{component}_counterfactual_representation.pickle'
-                    counterfactual_paths.append(os.path.join(path, cur_path))
-                    is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
-                continue
-            else:
-                cur_path = f'individual_{component}_counterfactual_representation.pickle'
+            cur_path = f'avg_{component}_counterfactual_representation_{config["treatment"]}.pickle'
+        elif config["is_group_by_class"]:
+            cur_path = f'class_level_{component}_counterfactual_representation_{config["treatment"]}.pickle'
 
         counterfactual_paths.append(os.path.join(path, cur_path))
         is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
@@ -254,7 +229,6 @@ def geting_counterfactual_paths(config, method_name, seed=None):
     return counterfactual_paths, is_counterfactual_exist
 
 def get_overlap_thresholds(df, upper_bound, lower_bound, dataset_name):
-    from counter import count_negations 
      
     thresholds = {"High-overlap": None, "Low-overlap": None}
     
@@ -283,53 +257,16 @@ def group_by_treatment(thresholds, overlap_score, gold_label):
     else:
         return "exclude"
 
-def get_activation(layer, do, component, activation, is_averaged_embeddings, class_name = None):
-
+def get_activation(layer, do, component, activation, is_averaged_embeddings, class_name = None, DEBUG=0):
   # the hook signature
   def hook(model, input, output):
-    
     # bz, seq_len, hid_dim
-    # print(f"layer : {layer}, do:{do}, inp:{input[0].shape}, out:{output.shape} ")
+    if class_name is None and is_averaged_embeddings:
+        activation[component][do][layer].extend(output.detach()[:,0,:].cpu())
+    else: 
+        activation[component][do][layer][class_name].extend(output.detach()[:,0,:].cpu())
 
-    if class_name is None:
-    
-        if layer not in activation[component][do].keys():
-
-            if is_averaged_embeddings:
-                
-                activation[component][do][layer] = 0
-
-            else:
-                activation[component][do][layer] = []
-
-        # grab representation of [CLS] then sum up
-
-        if is_averaged_embeddings:
-
-            activation[component][do][layer] += torch.sum(output.detach()[:,0,:], dim=0)
-
-        else:
-            
-            activation[component][do][layer].extend(output.detach()[:,0,:])
-    else:
-
-        if layer not in activation[component][do][class_name].keys():
-
-            if is_averaged_embeddings:
-                
-                activation[component][do][class_name][layer] = 0
-
-            else:
-                activation[component][do][class_name][layer] = []
-
-        # grab representation of [CLS] then sum up
-
-        if is_averaged_embeddings:
-
-            activation[component][do][class_name][layer] += torch.sum(output.detach()[:,0,:], dim=0)
-
-        else:
-            activation[component][do][class_name][layer].extend(output.detach()[:,0,:])
+    if DEBUG >=4: print(f"{do}, layer : {layer}, component: {component}, class_name: {class_name},inp:{input[0].shape}, out:{output.shape} ")
   
   return hook
 
@@ -565,41 +502,46 @@ def trace_counterfactual(do,
             print(f'saving NIE scores into : {dist_path}')
 
 def get_hidden_representations(config, counterfactual_paths, method_name, seed, layers, is_group_by_class, is_averaged_embeddings):
-    with open(f'../pickles/utilizer/{method_name}/utilizer_{seed}_components.pickle', 'rb') as handle: 
-        # attention_data = pickle.load(handle)
-        counter = pickle.load(handle)
-        # experiment_set = pickle.load(handle)
-        # dataloader, handle = pickle.load(handle)
-    if is_averaged_embeddings:
-        # get average of [CLS] activations
-        counterfactual_representations = {}
-        avg_counterfactual_representations = {}
-        for cur_path in counterfactual_paths:
-            component = cur_path.split('/')[-1].split('_')[1]
-            seed = cur_path.split('/')[3].split('_')[-1]
-            if seed not in counterfactual_representations.keys(): counterfactual_representations[seed] = {}
-            if seed not in avg_counterfactual_representations.keys(): avg_counterfactual_representations[seed] = {}
-            avg_counterfactual_representations[seed][component] = {}
-            # load all output components 
-            with open(cur_path, 'rb') as handle:
-                # get [CLS] activation [do][layer]
-                counterfactual_representations[seed][component] = pickle.load(handle)
-                # attention_data = pickle.load(handle)
-                # counter = pickle.load(handle)
-            treatments = ["High-overlap"]  if config['dataset_name'] == 'fever' else ["High-overlap", "Low-overlap"]
-            for do in treatments:
-                avg_counterfactual_representations[seed][component][do] = {}
-                # concate all batches
-                for layer in layers:
-                    # compute average over samples
-                    if is_group_by_class:
-                        for class_name in counterfactual_representations[seed][component][do].keys():
-                            if class_name not in avg_counterfactual_representations[seed][component][do].keys():
-                                avg_counterfactual_representations[seed][component][do][class_name] = {}
-                            avg_counterfactual_representations[seed][component][do][class_name][layer] = counterfactual_representations[seed][component][do][class_name][layer] / counter[do][class_name]
-                    else:
-                        avg_counterfactual_representations[seed][component][do][layer] = counterfactual_representations[seed][component][do][layer] / counter[do]
-        return  avg_counterfactual_representations
+    from my_package.utils import  report_gpu
+
+    do = config["treatment"]
+    seed = str(config['seed'])
+    counterfactual_representations = {}
+    avg_counterfactual_representations = {}
+    
+    counterfactual_representations[seed] = {}
+    avg_counterfactual_representations[seed] = {}
+
+    avg_counterfactual_representations[seed] = get_component_names(config)
+        
+    # get average of [CLS] activations
+    for cur_path in counterfactual_paths:
+        seed = cur_path.split('/')[3].split('_')[-1]
+        component = cur_path.split('/')[-1].split('_')[1 if is_averaged_embeddings else 2]
+        print(f'{component}:{cur_path}')
+        
+        # load all output components 
+        with open(cur_path, 'rb') as handle:
+            counterfactual_representations[seed][component] = pickle.load(handle)
+            counter = pickle.load(handle)
+
+        # concate all batches
+        for layer in layers:
+            # compute average over samples
+            if is_averaged_embeddings:
+                assert len(counterfactual_representations[seed][component][do][layer]) == counter
+                counterfactual_representations[seed][component][do][layer] = torch.stack(counterfactual_representations[seed][component][do][layer], dim=0)
+                avg_counterfactual_representations[seed][component][do][layer] = torch.mean(counterfactual_representations[seed][component][do][layer],dim=0)
+            elif is_group_by_class:
+                for label_text in config['label_maps']:
+                    assert len(counterfactual_representations[seed][component][do][layer][label_text]) == counter
+                    counterfactual_representations[seed][component][do][layer][label_text] = torch.stack(counterfactual_representations[seed][component][do][layer][label_text], dim=0)
+                    avg_counterfactual_representations[seed][component][do][layer][label_text] = torch.mean(counterfactual_representations[seed][component][do][layer][label_text],dim=0)
+
+        del counterfactual_representations[seed][component]     
+        report_gpu()
+
+    return  avg_counterfactual_representations
 
 def get_single_representation(cur_path, do = None, class_name = None):
     component = sorted(cur_path.split("_"), key=len)[0]  
@@ -652,24 +594,22 @@ def geting_NIE_paths(config, method_name, mode, seed=None):
             NIE_paths.append(NIE_path)
             is_NIE_exist.append(os.path.isfile(NIE_path))
         else:
+            # computed layer each
             for layer in layers:
                 # if not isinstance(layer, list): cur_layer = [layer]
                 NIE_path = os.path.join(path, f'avg_embeddings_{mode[0]}_layer_{layer}_.pickle') 
                 NIE_paths.append(NIE_path)
                 is_NIE_exist.append(os.path.isfile(NIE_path))
-    else:
-        for cur_path in config['counterfactual_paths']:
-            # extract infor from current path 
-            component = sorted(cur_path.split("_"), key=len)[0]  
-            class_name = None
-            # NIE_path = os.path.join(path, f'avg_high_level_{layer}_{mode[0]}.pickle') 
-            NIE_path = os.path.join(path, f'avg_embeddings_{mode[0]}_layer_{layer}_.pickle') 
-            print(f"current path: {NIE_path} , is_exist : {os.path.isfile(cur_path)}")
+    else: # group by class
+        if config['computed_all_layers']: 
+            NIE_path = os.path.join(path, f'class_level_embeddings_{mode[0]}_computed_all_layers_.pickle') 
             NIE_paths.append(NIE_path)
-            is_NIE_exist.append(os.path.isfile(cur_path))
+            is_NIE_exist.append(os.path.isfile(NIE_path))
+    
+    
     return NIE_paths, is_NIE_exist
 
-def get_nie_set_path(config, experiment_set, save_nie_set_path):
+def get_nie_set(config, experiment_set, save_nie_set_path):
     """ prepare validation set used to compute NIE later"""
     combine_types = []
     pairs = {}
@@ -682,7 +622,7 @@ def get_nie_set_path(config, experiment_set, save_nie_set_path):
             # get the whole set of validation 
             pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
             # samples data (exclude mode samples)
-            ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
+            ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //len(config['label_maps']),)))
             pairs[type] = np.array(pairs[type])[ids,:].tolist()
             nie_dataset[type] = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs[type])]
             nie_loader[type] = DataLoader(nie_dataset[type], batch_size=32)
@@ -693,7 +633,7 @@ def get_nie_set_path(config, experiment_set, save_nie_set_path):
             # get the whole set of validation for each class
             pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
             # samples data (exclude mode samples)
-            ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
+            ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //len(config['label_maps']),)))
             pairs[type] = np.array(pairs[type])[ids,:].tolist()
             combine_types.extend(pairs[type])
 

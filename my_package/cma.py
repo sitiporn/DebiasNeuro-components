@@ -9,11 +9,10 @@ import torch.nn as nn
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import get_params, get_num_neurons, load_model
-from data import get_all_model_paths
-from cma_utils import get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
-from cma_utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths, collect_counterfactuals
-from utils import report_gpu
+from my_package.utils import get_params, get_num_neurons, load_model
+from my_package.data import get_all_model_paths
+from my_package.cma_utils import get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
+from my_package.cma_utils import geting_counterfactual_paths, get_single_representation, geting_NIE_paths, collect_counterfactuals
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import argparse
@@ -21,18 +20,19 @@ import sys
 import operator
 import torch.nn.functional as F
 from pprint import pprint
-from data import ExperimentDataset
-from intervention import intervene, high_level_intervention
+from my_package.data import ExperimentDataset
+from my_package.intervention import intervene, high_level_intervention
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, Normalizer
+from my_package.intervention import get_mediators
 #from nn_pruning.patch_coordinator import (
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
 
 
-class ComputingEmbeddings:
-    def __init__(self, label_maps, tokenizer) -> None:
+class CounterfactualRepresentation:
+    def __init__(self, label_maps, tokenizer, is_group_by_class) -> None:
         
         self.representations = {}
         self.poolers = {}
@@ -45,6 +45,28 @@ class ComputingEmbeddings:
         self.label_maps = label_maps
         self.label_remaps = {v:k for k, v in self.label_maps.items()}
         self.tokenizer = tokenizer
+
+        for do in ["High-overlap", "Low-overlap"]:
+            if is_group_by_class:
+                self.representations[do] = {}
+                self.poolers[do] = {}
+                self.counter[do] = {}
+                # scores
+                self.acc[do] = {}
+                self.class_acc[do] = {}
+                self.confident[do] = {}
+            else:
+                self.representations[do] = []
+                self.poolers[do] = 0
+                self.counter[do] = 0
+                # scores
+                self.acc[do] = []
+                self.class_acc[do] = {}
+                self.confident[do] = {}
+                
+                for label_name in self.label_maps.keys():
+                    self.class_acc[do][label_name] = []
+                    self.confident[do][label_name] = 0
 
 def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NIE_paths, save_nie_set_path, model, treatments, tokenizer, experiment_set, DEVICE, DEBUG=False):
     # checking model and counterfactual_paths whether it change corresponding to seeds
@@ -72,13 +94,8 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
         nie_dataset = pickle.load(handle)
         nie_dataloader = pickle.load(handle)
         print(f"loading nie sets from pickle {save_nie_set_path} !")        
-    # mediator used to intervene corresponding to changing _model's seed
-    mediators["Q"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
-    mediators["K"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.key
-    mediators["V"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.value
-    mediators["AO"] = lambda layer : _model.bert.encoder.layer[layer].attention.output
-    mediators["I"]  = lambda layer : _model.bert.encoder.layer[layer].intermediate
-    mediators["O"]  = lambda layer : _model.bert.encoder.layer[layer].output
+    
+    mediators  = get_mediators(_model)
 
     if config['is_averaged_embeddings']: 
         NIE = {}
@@ -133,8 +150,7 @@ def get_topk(config, k=None, num_top_neurons=None):
             topk = {'percent': [config['masking_rate']] if config['masking_rate'] else params['percent']}
     return topk
 
-def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=False, mode='sorted'):
-    print(f'get_candidate_neurons: {mode}')
+def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=False):
     # random seed
     seed = config['seed'] 
     if seed is not None:
@@ -147,6 +163,8 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
 
     # select candidates  based on percentage
     k = config['k']
+    mode = config['top_neuron_mode']
+    print(f'get_candidate_neurons: {mode}')
     # select candidates based on the number of neurons
     num_top_neurons = config['num_top_neurons']
     top_neuron_path = f'../pickles/top_neurons/{method_name}/'
@@ -185,8 +203,8 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
             for value in topk[key]:
                 num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
                 num_neurons = int(num_neurons) 
-                print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
-                top_neurons[round(value, 2) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+                print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
+                top_neurons[round(value, 4) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
             with open(os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_{layer}.pickle'), 'wb') as handle:
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !") 
@@ -197,13 +215,13 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
             for value in topk[key]:
                 num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
                 num_neurons = int(num_neurons)
-                print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
+                print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
                 
                 if mode == 'random':
                     from operator import itemgetter
                     cur_neurons = sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)
                     random.shuffle(cur_neurons)
-                    top_neurons[round(value, 2) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
+                    top_neurons[round(value, 4) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
                     # ids = []
                     # while len(set(ids)) < num_neurons:
                     #     id = int(torch.randint(num_neurons, len(cur_neurons), size=(1,)))
@@ -211,9 +229,9 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
                     #     ids = list(set(ids))
                     # assert len(ids) == len(set(ids)), f"len {len(ids)}, set len: {len(set(ids))}"
                     # assert len(ids) == num_neurons
-                    # top_neurons[round(value, 2) if key == 'percent' else value] = dict(itemgetter(*ids)(cur_neurons))
+                    # top_neurons[round(value, 4) if key == 'percent' else value] = dict(itemgetter(*ids)(cur_neurons))
                 elif mode == 'sorted':
-                    top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+                    top_neurons[round(value, 4) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
             
             if mode == 'random':
                 save_path = os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers.pickle')
@@ -233,129 +251,48 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
                 print(f"NIE values :")
                 print(list(top_neurons[0.01].values())[:20])
 
-average_all_seed_distributions = {}
-count_num_seed = 0
-def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_maps, DEVICE, is_group_by_class, seed=None, model_path=None, DEBUG=False, summarize=False):
+
+def evalutate_counterfactual(experiment_set, dataloader, config, model, tokenizer, label_maps, DEVICE, all_model_paths, DEBUG=False, summarize=False):
     """ To see the difference between High-overlap and Low-overlap score whether our counterfactuals have huge different."""
-    computing_embeddings = {}
+    from my_package.cma_utils import foward_hooks
+    import copy
+    import torch.nn.functional as F
+    
     # To see the change of probs comparing between High bias and Low bias inputs
-    global average_all_seed_distributions
-    global count_num_seed 
+    average_all_seed_distributions = {}
+    count_num_seed = 0
+    distribution = {}
 
-    count_num_seed += 1
-    computing_embeddings= ComputingEmbeddings(label_maps, tokenizer=tokenizer)
-    
-    if model_path is not None: 
-        model = load_model(path= model_path, model=model)
-        model = model.to(DEVICE)
-        print(f'loading model: {model_path}')
-    else:
-        print(f'using original model as input to this function')
-        
-    classifier = Classifier(model=model)
-    representation_loader = DataLoader(experiment_set, batch_size = 64, shuffle = False, num_workers=0)
-    treatments = ['High-overlap'] if config['dataset_name'] == 'fever' else ['High-overlap','Low-overlap']
-    
-    for batch_idx, (sentences, labels) in enumerate(tqdm(representation_loader, desc=f"representation_loader")):
-        for idx, do in enumerate(tqdm(treatments, desc="Do-overlap")):
-            if do not in computing_embeddings.representations.keys():
-                if is_group_by_class:
-                    computing_embeddings.representations[do] = {}
-                    computing_embeddings.poolers[do] = {}
-                    computing_embeddings.counter[do] = {}
-
-                    computing_embeddings.acc[do] = {}
-                    computing_embeddings.class_acc[do] = {}
-                    computing_embeddings.confident[do] = {}
-                else:
-                    computing_embeddings.representations[do] = []
-                    computing_embeddings.poolers[do] = 0
-                    computing_embeddings.counter[do] = 0
-                
-                    computing_embeddings.acc[do] = []
-                    computing_embeddings.class_acc[do] = {}
-                    computing_embeddings.confident[do] = {}
-                    
-                    for label_name in config['label_maps'].keys():
-                        if label_name not in computing_embeddings.class_acc[do].keys(): computing_embeddings.class_acc[do][label_name] = []
-                        if label_name not in computing_embeddings.confident[do].keys(): computing_embeddings.confident[do][label_name] = 0
-                    # computing_embeddings.class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
-                    # computing_embeddings.confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
-            
-            if do not in average_all_seed_distributions.keys():
-                # average_all_seed_distributions[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
-                average_all_seed_distributions[do] = {}
-                for label_name in config['label_maps'].keys(): average_all_seed_distributions[do][label_name] = 0
-
-            if experiment_set.is_group_by_class:
-                for class_name in sentences[do].keys():
-                    if class_name not in computing_embeddings.representations[do].keys():
-                        computing_embeddings.representations[do][class_name] = []
-                        computing_embeddings.poolers[do][class_name] = 0
-                        computing_embeddings.counter[do][class_name] = 0
-                    if class_name not in computing_embeddings.confident[do].keys():
-                        computing_embeddings.confident[do][class_name] =  0 #{"contradiction": 0, "entailment": 0, "neutral": 0}
-                    if class_name not in computing_embeddings.class_acc[do].keys():
-                        computing_embeddings.class_acc[do][class_name] =  [] #{"contradiction": [], "entailment" : [], "neutral" : []}
-                        # each set divide into class level
-                        #computing_embeddings.acc[do] = 0
-                    forward_pair_sentences(sentences[do][class_name],  computing_embeddings, labels[do][class_name], do, model, DEVICE, class_name)
-            else:
-                forward_pair_sentences(sentences[do], computing_embeddings, labels[do], do, model, DEVICE)
-    
-    # **************** Compute for classifier output distributions given avg representation(High vs Low bias as input) to use as counterfactuals ****************
-    if DEBUG: print(f"************* Classifier Output Distributions Given Averaging representations  as Input ************")
-    for do in treatments:
-        if DEBUG: print(f"{do}:")
-        if experiment_set.is_group_by_class:
-            for class_name in config['label_maps'].keys():
-                computing_embeddings.representations[do][class_name] = torch.stack(computing_embeddings.representations[do][class_name], dim=0)
-                average_representation = torch.mean(computing_embeddings.representations[do][class_name], dim=0 ).unsqueeze(dim=0)
-                out = classifier(average_representation).squeeze(dim=0)
-                cur_distribution = F.softmax(out, dim=-1)
-                # print(f"{class_name} set: {cur_distribution[label_maps[class_name]]}")
-                if DEBUG: print(f"{class_name} set: {cur_distribution}")
+    for seed, model_path in all_model_paths.items():
+        if model_path is not None: 
+            _model = load_model(path= model_path, model=copy.deepcopy(model))
+            print(f'Loading Counterfactual model: {model_path}')
         else:
-            computing_embeddings.representations[do] = torch.stack(computing_embeddings.representations[do], dim=0)
-            average_representation = torch.mean(computing_embeddings.representations[do], dim=0 ).unsqueeze(dim=0)
-            # output the distribution using average representation as input to classififer 
-            # rather than single representation
-            out = classifier(average_representation).squeeze(dim=0)
-            cur_distribution = F.softmax(out, dim=-1)
+            _model = copy.deepcopy(model)
+            _model = _model.to(DEVICE)
+            print(f'using original model as input to this function')
+         
+        # distribution[seed] = [] if config["is_averaged_embeddings"] else {}
+        classifier = Classifier(model=_model)
+        treatments = ['High-overlap'] if config['dataset_name'] == 'fever' else ['High-overlap','Low-overlap']
+        counterfactuals = CounterfactualRepresentation(label_maps, tokenizer=tokenizer, is_group_by_class=config["is_group_by_class"])
+        distribution[seed] = {}
+        print(f'*********** {seed} ***********')
 
-            for cur_class in label_maps.keys():
-                if DEBUG: print(f"seed :{seed} {cur_class}: {cur_distribution[label_maps[cur_class]]}")
-                average_all_seed_distributions[do][cur_class] += cur_distribution[label_maps[cur_class]]
-
-    if DEBUG:
-        print(f"************* Stats ************")
         for do in treatments:
-            if is_group_by_class:
-                print(f">>{do}:")
-                for cur_class in label_maps.keys():
-                    computing_embeddings.confident[do][class_name] = computing_embeddings.confident[do][class_name].squeeze(dim=0)
-                    print(f"{class_name} set ; confident: {computing_embeddings.confident[do][class_name] / computing_embeddings.counter[do][class_name]}")
-            else:
-                print(f">>{do}:")
-                print(f'Accuracies:')
-                print(f"avg over all acc: {sum(computing_embeddings.acc[do]) / len(computing_embeddings.acc[do])}")
-                for cur_class in label_maps.keys():
-                    cur_score = sum(computing_embeddings.class_acc[do][cur_class]) / len(computing_embeddings.class_acc[do][cur_class])
-                    print(f"{cur_class} acc: {cur_score} ")   
-                
-                print(f"Distributions:")
-                for cur_class in label_maps.keys():
-                    computing_embeddings.confident[do][cur_class] = computing_embeddings.confident[do][cur_class].squeeze(dim=0)
-                    class_ind = computing_embeddings.label_maps[cur_class]
-                    confident_score = computing_embeddings.confident[do][cur_class][class_ind] / len(computing_embeddings.class_acc[do][cur_class]) 
-                    print(f"average {cur_class} confident: {confident_score}")
-    
-    if summarize and count_num_seed == 5:
-        print('********** Counterfactual Model Output Distribution Summary **********')
-        for do in treatments:
-            print(f'>> {do}')
-            for cur_class in label_maps.keys():
-                print(f" {cur_class}: {average_all_seed_distributions[do][cur_class]/ count_num_seed}")
+            if config["is_averaged_embeddings"]:
+                counter, average_representation = foward_hooks(do, tokenizer, dataloader, _model ,DEVICE, eval=config["eval_counterfactuals"],DEBUG=config['DEBUG'])
+                out = classifier(average_representation.T).squeeze(dim=0)
+                distribution[seed][do] = F.softmax(out, dim=-1).cpu()
+                for label_text, label_id in label_maps.items(): print(f'{do}: {label_text}, { distribution[seed][do][label_id]}')
+            elif config["is_group_by_class"]:
+                distribution[seed][do] = {}
+                for group in config['label_maps'].keys():
+                    counter, average_representation = foward_hooks(do, tokenizer, dataloader, _model, DEVICE, class_name=group, eval=config["eval_counterfactuals"],DEBUG=config['DEBUG'])
+                    out = classifier(average_representation.T).squeeze(dim=0)
+                    distribution[seed][do][group] = F.softmax(out, dim=-1).cpu()
+                    print(f":{group} Group:")
+                    for label_text, label_id in label_maps.items(): print(f'{do}: {label_text}, { distribution[seed][do][group][label_id]}')
 
 def get_embeddings(experiment_set, model, tokenizer, label_maps, DEVICE):
     
@@ -525,70 +462,52 @@ def get_distribution(save_nie_set_path, experiment_set, tokenizer, model, DEVICE
         pickle.dump(label_collectors, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving distribution into pickle !")
 
-def forward_pair_sentences(sentences, computing_embeddings, labels, do, model, DEVICE, class_name = None):
+def forward_pair_sentences(sentences, counterfactuals, labels, do, model, DEVICE, class_name = None):
     
     LAST_HIDDEN_STATE = -1 
     CLS_TOKEN = 0
-
     classifier = Classifier(model=model)
-
+    
     premise, hypo = sentences
-    
     pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
-    
-    inputs = computing_embeddings.tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
-    
+    inputs = counterfactuals.tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
     inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
 
-    golden_answers = [computing_embeddings.label_maps[label] for label in labels]
+    golden_answers = [counterfactuals.label_maps[label] for label in labels]
     golden_answers = torch.tensor(golden_answers).to(DEVICE)
 
     if class_name is None: 
-        
-        computing_embeddings.counter[do] += inputs['input_ids'].shape[0]
+        counterfactuals.counter[do] += inputs['input_ids'].shape[0]
     else:
-        
-        computing_embeddings.counter[do][class_name] += inputs['input_ids'].shape[0]            
-        
-    with torch.no_grad(): 
+        counterfactuals.counter[do][class_name] += inputs['input_ids'].shape[0]            
 
+    breakpoint() 
+    with torch.no_grad(): 
         # Todo: generalize to distribution if the storage is enough
         outputs = model(**inputs, output_hidden_states=True)
-
         # (bz, seq_len, hiden_dim)
         representation = outputs.hidden_states[LAST_HIDDEN_STATE][:,CLS_TOKEN,:].unsqueeze(dim=1)
-
         predictions = torch.argmax(F.softmax(classifier(representation), dim=-1), dim=-1)
 
         # (bz, seq_len, hidden_dim)
         if class_name is None:
-        
             # overall acc
-            computing_embeddings.acc[do].extend((predictions == golden_answers).tolist())
-
-            computing_embeddings.representations[do].extend(representation) 
-            
+            counterfactuals.acc[do].extend((predictions == golden_answers).tolist())
+            counterfactuals.representations[do].extend(representation) 
              # by class
             for idx, label in enumerate(golden_answers.tolist()):
-
-                computing_embeddings.confident[do][computing_embeddings.label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
-                computing_embeddings.class_acc[do][computing_embeddings.label_remaps[label]].extend([int(predictions[idx]) == label])
-                
-
+                counterfactuals.confident[do][counterfactuals.label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
+                counterfactuals.class_acc[do][counterfactuals.label_remaps[label]].extend([int(predictions[idx]) == label])
         else:
-
             # overall acc of current set
-            # computing_embeddings.acc[do].extend((predictions == golden_answers).tolist())
-            computing_embeddings.representations[do][class_name].extend(representation) 
-             
+            # counterfactuals.acc[do].extend((predictions == golden_answers).tolist())
+            counterfactuals.representations[do][class_name].extend(representation) 
              # by class
             for idx, label in enumerate(golden_answers.tolist()):
-
-                # computing_embeddings.confident[do][class_name] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
-                # computing_embeddings.class_acc[do][class_name].extend([int(predictions[idx]) == label])
-                
-                computing_embeddings.confident[do][computing_embeddings.label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
-                computing_embeddings.class_acc[do][computing_embeddings.label_remaps[label]].extend([int(predictions[idx]) == label])
+                # counterfactuals.confident[do][class_name] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
+                # counterfactuals.class_acc[do][class_name].extend([int(predictions[idx]) == label])
+                counterfactuals.confident[do][counterfactuals.label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
+                counterfactuals.class_acc[do][counterfactuals.label_remaps[label]].extend([int(predictions[idx]) == label])
 
 def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted') -> pd.DataFrame:
     # select candidates  based on percentage
@@ -631,7 +550,7 @@ def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted
             for value in topk[key]:
                 num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
                 num_neurons = int(num_neurons)
-                print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
+                print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
                 cur_neurons = sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)
                 cur_neurons = dict(cur_neurons)
                 scores["Neuron_ids"] = list(cur_neurons.keys())

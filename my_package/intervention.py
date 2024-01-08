@@ -40,7 +40,7 @@ def get_mediators(model):
     
     return mediators
 
-def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, intervention_type='replace', debug=False):
+def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, intervention_type='replace', debug=0):
     def intervention_hook(module, input, output):
         """ Hook for changing representation during forward pass """
         CLS_TOKEN = 0
@@ -49,7 +49,7 @@ def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, in
         # where to intervene
         # bz, seq_len, hidden_dim
         scatter_mask[:, CLS_TOKEN, neuron_ids] = 1
-        if debug:
+        if debug >=5:
             print(f'******** Before Intervention *************')
             print(f"intervention type:{intervention_type} on neuron_ids: {neuron_ids}")
             print(output[:2,:3, neuron_ids])
@@ -68,13 +68,13 @@ def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, in
             neuron_values = value[neuron_ids]
             neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1)
             output.masked_scatter_(scatter_mask, neuron_values)
-        if debug:
+        if debug >=5:
             print(f'******** After Intervention Hook  *************')
             print(f'intervention mode : {intervention_type}')
             print(f"component-neuron_ids-value: {component}-{neuron_ids}-{value[neuron_ids]}")
             print(output[:2,:3, neuron_ids])
             # print(output[:2,:3, :2])
-
+    
     return intervention_hook
 
 # ************  intervention  *******************
@@ -125,7 +125,7 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
                         NIE[do][component][layer] = {}
                         counter[do][component][layer] = {}
                     # loading Z scale
-                    Z = cls[component][do][layer]
+                    Z = cls[component][do][layer].to(DEVICE) 
                     for neuron_id in range(Z.shape[0]):
                         hooks = [] 
                         hooks.append(mediators[component](layer).register_forward_hook(neuron_intervention(neuron_ids = [neuron_id], 
@@ -133,7 +133,7 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
                                                                                                             DEVICE = DEVICE,
                                                                                                             value=Z,
                                                                                                             intervention_type=config['intervention_type'],
-                                                                                                            debug=False)))
+                                                                                                            debug=config["DEBUG"])))
                         with torch.no_grad(): 
                             intervene_probs = F.softmax(model(**inputs).logits , dim=-1)
                             # entail_probs = intervene_probs[:, label_maps["entailment"]]
