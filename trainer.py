@@ -614,7 +614,7 @@ def main():
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/developing_baseline/' 
+    output_dir = '../models/recent_baseline_missing_seed/' 
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
     # random seed

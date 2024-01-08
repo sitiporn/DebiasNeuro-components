@@ -14,12 +14,12 @@
   # Tokenizer
   "tokens": {
     "type": "pretrained_transformer",
-    "model_name": "../bert-base-uncased/", 
+    "model_name": "/ist-project/scads/sit/bert-base-uncased/", 
     "max_length": 512
   },
   
   # dataset
-  "data_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
+  "data_path": "../data/nli/",
   "train_data": "multinli_1.0_train.jsonl",
   "validation_data": "multinli_1.0_dev_matched.jsonl", 
   "test_data": "multinli_1.0_dev_mismatched.jsonl",
@@ -37,7 +37,7 @@
   # models; 
   # follow allennlp setups, the rest is the default of bert-base-uncased
   "model": {
-    "model_name": "../bert-base-uncased/",
+    "model_name": "/ist-project/scads/sit/bert-base-uncased/",
     transformer_model,
     "max_length": 512
   },
@@ -61,7 +61,7 @@
   "cuda_device" : 0,
   # 1548, 3990, 409, 3099
   #  [42, 3099, 3785, 3990,  409] for experiments
-  "seed": 409,   
+  "seed": 3099,   
   "evaluation_strategy": "steps",
   "eval_steps": 500,
   "load_best_model_at_end": True,

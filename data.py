@@ -660,6 +660,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
 
     all_masking_score_path = os.path.join(eval_path, f'seed_{seed}', 'all_masking_scores.pickle')
     
+    
     with open(all_masking_score_path, 'wb') as handle: 
         pickle.dump(all_valid_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(all_test_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -1082,7 +1083,42 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
         model_path = path
         config["dev_json"] = {}
         config['dev-name'] = None
+        for dataset_name,  json_file in zip(dataset_names, json_files):
+            config['dev-name'] = dataset_name
+            config["dev_json"][dataset_name] = json_file
+            get_conditional_inferences(config, mode[0], model_path, model, method_name, NIE_paths, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
+            config["dev_json"].pop(f'{dataset_name}')
         
+        get_condition_inference_scores(config, model, method_name, seed)
+
+def masking_representation_exp_quick(config, model, method_name, experiment_set, dataloader, NIE_paths, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True):
+    """ """
+    # load model 
+    # prepare biased neuron positions
+    import copy
+    from cma_utils import collect_counterfactuals
+    eval_path = f'../pickles/evaluations/{method_name}/'
+    model = copy.deepcopy(model)
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
+    group_counterfactual_paths = {} 
+    json_files = ['multinli_1.0_dev_matched.jsonl', 'multinli_1.0_dev_mismatched.jsonl', 'heuristics_evaluation_set.jsonl']
+    dataset_names = ['matched', 'mismatched', 'hans']
+    if not config['compute_all_seeds']: all_paths = {str(config["seed"]):all_paths[str(config['seed'])]} 
+
+    for path in counterfactual_paths: 
+        cur_seed = path.split('/')[3]
+        if  cur_seed not in group_counterfactual_paths.keys(): group_counterfactual_paths[cur_seed] = []
+        group_counterfactual_paths[cur_seed].append(path)
+
+    for seed, path in all_paths.items():
+        hooks = []
+        # model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
+        model_path = path
+        config["dev_json"] = {}
+        config['dev-name'] = None
+        # hans only
+        # try 0 on small numbers of top neurons
         for dataset_name,  json_file in zip(dataset_names, json_files):
             config['dev-name'] = dataset_name
             config["dev_json"][dataset_name] = json_file
@@ -1091,6 +1127,18 @@ def masking_representation_exp(config, model, method_name, experiment_set, datal
         
         get_condition_inference_scores(config, model, method_name, seed)
         
+        all_masking_score_path = os.path.join(eval_path, f'seed_{seed}', 'all_masking_scores.pickle')
+        pickle_file = open(all_masking_score_path,'rb')
+        all_valid_scores = pickle.load(pickle_file)
+        all_test_scores = pickle.load(pickle_file)
+        all_hans_scores = pickle.load(pickle_file)
+        pickle_file.close()
+        print(f'HAN scores : ')
+        print(all_hans_scores[0.0][0.005]['Null'].item(),all_hans_scores[0.0][0.005]['Intervene'].item())
+        # get_condition_inference_scores(config, model, method_name, seed)
+        
+
+
 def convert_text_to_hans_scores(text_answer_path, config, result_path, group): 
     tables = {}
     fi = open(text_answer_path, "r")

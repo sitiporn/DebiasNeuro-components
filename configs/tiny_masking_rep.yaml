@@ -16,8 +16,8 @@
   "num_top_neurons": null, 
   "range_percents": True, 
   'neurons': True, 
-  "model_name": "../bert-base-uncased-mnli/",
-  "dev_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
+  "model_name": "/ist-project/scads/sit/bert-base-uncased-mnli/",
+  "dev_path": "../data/nli/",
   "exp_json": "multinli_1.0_dev_matched.jsonl",
   "dev_json": {},
   # data settings
@@ -43,7 +43,7 @@
   # default
   # "topk_neurons": True,
   # together with compute all seeds
-  "get_candidate_neurons": False,
+  "get_candidate_neurons": True,
   "distribution": False,
   # To get counterfactual
   "compute_all_seeds": True,
@@ -55,24 +55,24 @@
   "partition_params": False,
   # ******************** soft masking neurons ********************
   # we mask top 5% neurons
-  "weaken_rate": 0.9, # best score on has (0.6299)
+  "weaken_rate": 0.0, # best score on has (0.6299)
   # "weaken_rate": 0.1,
   # "weaken_rate": 0.97,
   # "weaken_rate": 1.0,
   # "weaken_rate": null,
   "get_masking_value": False,
   # percent of neurons to mask
-  "masking_rate": 0.05, 
+  "masking_rate": 0.005, 
   # number of neurons to mask
   "neuron_group": null,
   "rank_losses": False, 
   # range 0.0 to 0.10, step = 0.01
   # searching masking rates
   "percent": {
-    "low": 0.0, 
-    "high": 0.11,
+    "low": 0.01, 
+    "high": 0.1,
     "step": 0.025,
-    "size": 5,
+    "size": 1,
     "mode": 0o666,
     "acc": {}
     },
@@ -87,11 +87,11 @@
     },
   "single_neuron": False,
   # do hyperparameter search on value used modify neurons's activations
-  "soft_masking_value_search": True,
+  "soft_masking_value_search": False,
   # do hyperparameter search on the percentages of all neurons to mask
-  "masking_rate_search": True,
-  "get_condition_inferences": False,
-  "get_condition_inference_scores": False,
+  "masking_rate_search": False,
+  "get_condition_inferences": True,
+  "get_condition_inference_scores": True,
   # ******************** test  stuff ********************
   "eval_model": False,
   "traced": False, 
