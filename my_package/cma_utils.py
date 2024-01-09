@@ -222,7 +222,6 @@ def geting_counterfactual_paths(config, method_name, seed=None):
             cur_path = f'avg_{component}_counterfactual_representation_{config["treatment"]}.pickle'
         elif config["is_group_by_class"]:
             cur_path = f'class_level_{component}_counterfactual_representation_{config["treatment"]}.pickle'
-
         counterfactual_paths.append(os.path.join(path, cur_path))
         is_counterfactual_exist.append(os.path.isfile(os.path.join(path, cur_path)))
 
@@ -501,7 +500,7 @@ def trace_counterfactual(do,
             pickle.dump(median, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f'saving NIE scores into : {dist_path}')
 
-def get_hidden_representations(config, counterfactual_paths, method_name, seed, layers, is_group_by_class, is_averaged_embeddings):
+def get_hidden_representations(config, counterfactual_paths, method_name, layers, is_group_by_class, is_averaged_embeddings):
     from my_package.utils import  report_gpu
 
     do = config["treatment"]
@@ -511,7 +510,6 @@ def get_hidden_representations(config, counterfactual_paths, method_name, seed, 
     
     counterfactual_representations[seed] = {}
     avg_counterfactual_representations[seed] = {}
-
     avg_counterfactual_representations[seed] = get_component_names(config)
         
     # get average of [CLS] activations
@@ -646,9 +644,3 @@ def get_nie_set(config, experiment_set, save_nie_set_path):
         pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving validation set used to compute NIE into {save_nie_set_path} !") 
 
-def summary_eval_counterfactual(average_all_seed_distributions, label_maps, all_paths):
-    print('==== Summary ===')
-    for do in ['High-overlap','Low-overlap']:
-        print(f'>> {do}')
-        for cur_class in label_maps.keys():
-            print(f" {cur_class} acc : {average_all_seed_distributions[do][cur_class]/ len(all_paths)}")
