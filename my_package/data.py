@@ -297,7 +297,7 @@ class CustomDataset(Dataset):
 def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_paths, counterfactual_paths, tokenizer, DEVICE, seed=None , debug = False):
     """ getting inferences while modifiying activations on dev-matched/dev-mm/HANS"""
     import copy
-    from cma import scaling_nie_scores
+    from my_package.cma import scaling_nie_scores
     layer = config['layer']
     criterion = nn.CrossEntropyLoss(reduction = 'none')
     seed = config['seed'] if seed is None else seed
@@ -321,7 +321,7 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_
     
     dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
-    
+    key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     select_neuron_mode = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
@@ -338,7 +338,7 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_
     m = {row['Neuron_ids']: row['M_MinMax'] for index, row in nie_table_df.iterrows()} 
 
     # cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
-    cls = get_hidden_representations(counterfactual_paths, method_name, seed, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
+    cls = get_hidden_representations(config, counterfactual_paths, method_name, seed, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     cls = cls[seed]
     # iterate throught all weaken rates
     for eps_id, epsilon in enumerate(t := tqdm(epsilons)): 
@@ -620,7 +620,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     layer = config["layer"]
     k = config['k']
     num_neurons = None
-    from cma import get_topk
+    from my_package.cma import get_topk
     topk = get_topk(config, k=k, num_top_neurons=num_neurons)
     key = list(topk.keys())[0] # masking model eg. percent, k, num_neurons
     do = config["eval"]["do"]
@@ -1157,7 +1157,7 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
     # load model 
     # prepare biased neuron positions
     import copy
-    from cma_utils import collect_counterfactuals
+    from my_package.cma_utils import collect_counterfactuals
     eval_path = f'../pickles/evaluations/{method_name}/'
     model = copy.deepcopy(model)
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
@@ -1171,7 +1171,6 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
         cur_seed = path.split('/')[3]
         if  cur_seed not in group_counterfactual_paths.keys(): group_counterfactual_paths[cur_seed] = []
         group_counterfactual_paths[cur_seed].append(path)
-
     for seed, path in all_paths.items():
         hooks = []
         # model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 

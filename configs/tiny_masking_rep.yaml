@@ -2,6 +2,8 @@
   # ******************** LOAD STUFF ********************
   # "model_name": "../bert-base-uncased/",
   "collect_representation": False,
+  "top_neuron_mode": "sorted",
+  "dataset_name": "mnli",
   "DEBUG": True,
   "debug": False, 
   "num_samples": 300,
@@ -57,13 +59,6 @@
   # "weaken_rate": 0.97,
   # "weaken_rate": 1.0,
   # "weaken_rate": null,
-  # ******************** soft masking neurons ********************
-  # we mask top 5% neurons
-  # "weaken_rate": 0.9, # best score on has (0.6299)
-  # "weaken_rate": 0.1,
-  # "weaken_rate": 0.97,
-  # "weaken_rate": 1.0,
-  "weaken_rate": null,
   "get_masking_value": False,
   # percent of neurons to mask
   "masking_rate": 0.005, 
@@ -136,7 +131,15 @@
   "save_rank": True,
   # neurons components
   "attention_components": 3,
-  "nums": {}
+  "nums": {},
+    # Tokenizer
+  "tokens": {
+    "type": "pretrained_transformer",
+    "model_name": "/ist-project/scads/sit/bert-base-uncased-mnli/", 
+    "max_length": 512
+  },
+
+
 }
 
 
