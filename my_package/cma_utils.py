@@ -505,7 +505,7 @@ def get_hidden_representations(config, counterfactual_paths, method_name, seed, 
     from my_package.utils import  report_gpu
 
     do = config["treatment"]
-    seed = str(config['seed'])
+    # seed = str(config['seed'])
     counterfactual_representations = {}
     avg_counterfactual_representations = {}
     
@@ -513,7 +513,6 @@ def get_hidden_representations(config, counterfactual_paths, method_name, seed, 
     avg_counterfactual_representations[seed] = {}
 
     avg_counterfactual_representations[seed] = get_component_names(config)
-        
     # get average of [CLS] activations
     for cur_path in counterfactual_paths:
         seed = cur_path.split('/')[3].split('_')[-1]
