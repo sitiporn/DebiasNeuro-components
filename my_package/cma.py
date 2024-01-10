@@ -25,6 +25,7 @@ from my_package.intervention import intervene, high_level_intervention
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, Normalizer
 from my_package.intervention import get_mediators
+from my_package.cma_utils import get_component_names
 #from nn_pruning.patch_coordinator import (
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
@@ -94,49 +95,27 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
         nie_dataset = pickle.load(handle)
         nie_dataloader = pickle.load(handle)
         print(f"loading nie sets from pickle {save_nie_set_path} !")        
-    
+  
     mediators  = get_mediators(_model)
+    NIE = get_component_names(config, intervention=True)
+    counter = get_component_names(config, intervention=True)
+    #shape: cls[seed][component][do][layer][neuron_id] or cls[seed][component][do][layer][class_name][neuron_id]
+    cls = get_hidden_representations(config, counterfactual_paths, method_name, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
 
     if config['is_averaged_embeddings']: 
-        NIE = {}
-        counter = {}
-        # cls shape: [seed][component][do][layer][neuron_ids]
-        cls = get_hidden_representations(config, counterfactual_paths, method_name, seed,layers, config['is_group_by_class'], config['is_averaged_embeddings'])
-        # mediators:change respect to seed
-        # cls: change respect to seed
-        high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter , counter_predictions, layers, _model, config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
+        high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter ,layers , _model, config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
+    elif config["is_group_by_class"]:
+        for label_text in config['label_maps'].keys():
+            print(f'********** {label_text} group **********')
+            high_level_intervention(config, nie_dataloader[label_text], mediators, cls, NIE, counter ,layers , _model, config['label_maps'], tokenizer, treatments, DEVICE, class_name=label_text, seed=seed)
         
-        with open(NIE_path, 'wb') as handle: 
-            pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f'saving NIE scores into : {NIE_path}')
-    else:
-        for cur_path in (t := tqdm(config['counterfactual_paths'])):
-            counter = {}
-            NIE = {}
-            probs = {}
-            # extract infor from current path 
-            component = sorted(cur_path.split("_"), key=len)[0]  
-            do = cur_path.split("_")[4]
-            class_name = cur_path.split("_")[5]
-            counterfactual_components = None
-            t.set_description(f"Component : {component}")
-            if do not in treatments and  component == "I": continue
-            if component == "I":
-                counterfactual_components = get_single_representation(cur_path, do = do, class_name = class_name)
-                NIE_path = f'../pickles/individual_class_level/{layers}_{component}_{do}_{class_name}.pickle'
-            else:
-                counterfactual_components = get_single_representation(cur_path = cur_path)
-                NIE_path = f'../pickles/individual_class_level/{layers}_{component}_{treatments[0]}.pickle'
-            intervene(nie_dataloader, [component], mediators, counterfactual_components, NIE, counter, probs,counter_predictions, layers, _model, config['label_maps'], tokenizer, treatments, DEVICE)
-            with open(NIE_path, 'wb') as handle: 
-                pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                pickle.dump(probs, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f'saving NIE scores into : {NIE_path}')
-            del counterfactual_components
-            report_gpu()
-     
+    
+    with open(NIE_path, 'wb') as handle: 
+        pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f'saving NIE scores into : {NIE_path}')
+
+
 def get_topk(config, k=None, num_top_neurons=None):
     if config['eval_candidates']:
         topk = {'percent': k / 100}
@@ -571,3 +550,27 @@ def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted
                     print(f"Done saving NIE table into {nie_table_path} !")
 
     return df
+
+def get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug=False):
+    # random seed
+    seed = config['seed'] 
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+    else: 
+        seed = str(seed)
+
+    # select candidates  based on percentage
+    k = config['k']
+    mode = config['top_neuron_mode']
+
+    # nie_df = scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted')
+    # with open(, 'rb') as handle:
+    #     nie_df = pickle.load(handle)
+    # breakpoint()
+
+
+    
+    
