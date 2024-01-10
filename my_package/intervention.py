@@ -40,7 +40,7 @@ def get_mediators(model):
     
     return mediators
 
-def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, intervention_type='replace', debug=0):
+def neuron_intervention(neuron_ids, component, DEVICE, scaler=False, value=None, epsilon=0, intervention_type='replace', debug=0):
     def intervention_hook(module, input, output):
         """ Hook for changing representation during forward pass """
         CLS_TOKEN = 0
@@ -55,7 +55,13 @@ def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, in
             print(output[:2,:3, neuron_ids])
             # print(output[:2,:3, :2])
         # ******************** soft masking on on valid set ********************
-        if intervention_type == "weaken": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * epsilon
+        if intervention_type == "weaken": 
+            # breakpoint()
+            output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * epsilon
+            if scaler == True:
+                print('Applying Dropout style Scaler')
+                breakpoint()
+        
         elif intervention_type == "neg": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * -1
         elif intervention_type ==  'remove':
             value[neuron_ids] = 0 + epsilon

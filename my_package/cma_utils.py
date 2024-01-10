@@ -500,7 +500,7 @@ def trace_counterfactual(do,
             pickle.dump(median, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f'saving NIE scores into : {dist_path}')
 
-def get_hidden_representations(config, counterfactual_paths, method_name, layers, is_group_by_class, is_averaged_embeddings):
+def get_hidden_representations(config, counterfactual_paths, method_name, seed,layers, is_group_by_class, is_averaged_embeddings):
     from my_package.utils import  report_gpu
 
     do = config["treatment"]

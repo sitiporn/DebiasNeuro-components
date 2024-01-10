@@ -294,6 +294,179 @@ class CustomDataset(Dataset):
         else:
             return self.sentences1[idx], self.sentences2[idx], self.labels[idx]
 
+def get_conditional_inferences_mask(config, do,  model_path, model, method_name, NIE_paths, counterfactual_paths, tokenizer, DEVICE, seed=None , debug = False):
+    """ getting inferences while modifiying activations on dev-matched/dev-mm/HANS"""
+    import copy
+    from my_package.cma import scaling_nie_scores
+    layer = config['layer']
+    criterion = nn.CrossEntropyLoss(reduction = 'none')
+    seed = config['seed'] if seed is None else seed
+    seed = str(seed)
+    layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
+    # Todo: fix loading model using deep copy method
+    # load model
+    if model_path is not None: 
+        _model = load_model(path= model_path, model=copy.deepcopy(model))
+    else:
+        _model = copy.deepcopy(model)
+        print(f'using original model : {config["model_name"]}')
+    
+    print(f'{config["dev-name"]} : compute on {config["dev_json"]}')
+    mediators  = get_mediators(_model)
+    params  = get_params(config) 
+    digits = [ len(str(epsilon).split('.')[-1]) for epsilon in params['epsilons'] ]
+    total_neurons = get_num_neurons(config)
+    epsilons = params['epsilons']
+    if not isinstance(epsilons, list): epsilons = epsilons.tolist()
+    
+    dev_set = Dev(config['dev_path'], config['dev_json'])
+    dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
+    key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
+    select_neuron_mode = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
+    top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
+    path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
+    # why top neurons dont chage according to get_top_k
+    # get position of top neurons 
+    with open(path, 'rb') as handle: 
+        top_neuron = pickle.load(handle) 
+    
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
+    if config['masking_rate_search']: num_neuron_groups = params['percent']
+    top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
+
+    nie_table_df = scaling_nie_scores(config, method_name, NIE_paths, debug=False)
+    m = {row['Neuron_ids']: row['M_MinMax'] for index, row in nie_table_df.iterrows()} 
+
+    # cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
+    cls = get_hidden_representations(config, counterfactual_paths, method_name, seed, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
+    cls = cls[seed]
+    # iterate throught all weaken rates
+    for eps_id, epsilon in enumerate(t := tqdm(epsilons)): 
+        prediction_path = f'../pickles/prediction/{method_name}/seed_{seed}/' 
+        if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
+        # where to save modifying activation results
+        prediction_path =  os.path.join(prediction_path, f'esp-{round(epsilon, digits[eps_id])}')
+        if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
+        t.set_description(f"epsilon : {epsilon} , prediction path : {prediction_path}")
+        # iterate through all top-k 
+        for masking_rate in (n:= tqdm(num_neuron_groups)):
+            n.set_description(f"masking_rate : {masking_rate}")
+            cur_num_neurons = nie_table_df.shape[0] * masking_rate
+            cur_num_neurons = int(cur_num_neurons)
+            acc = {}
+            top_nie_table_df = nie_table_df[:cur_num_neurons]
+            top_nie_table_df['layer_id']=top_nie_table_df.apply(lambda x: x['Neuron_ids'].split('-')[1],axis=1)
+            top_nie_table_df['component_id']=top_nie_table_df.apply(lambda x: x['Neuron_ids'].split('-')[2],axis=1)
+            top_nie_table_df['neuron_id']=top_nie_table_df.apply(lambda x: x['Neuron_ids'].split('-')[3],axis=1)
+            mask_count_df = top_nie_table_df.value_counts(['layer_id','component_id']).reset_index()
+            layer_component_to_mask =  [(comp['layer_id'], comp['component_id']) for row, comp in mask_count_df.iterrows()]
+            if config['computed_all_layers']:
+                layer_ids  = [neuron['Neuron_ids'].split('-')[1] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+                components = [neuron['Neuron_ids'].split('-')[2] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+                neuron_ids = [neuron['Neuron_ids'].split('-')[3] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+            else:
+                # Todo: customize for specific layers
+                components = [neuron['Neuron_ids'].split('-')[0] for row, neuron in nie_table_df.iterrows()]
+                neuron_ids = [neuron['Neuron_ids'].split('-')[1] for row, neuron in nie_table_df.iterrows()]
+                layer_ids  = [layer] * len(components)
+
+            if config['single_neuron']: 
+                layer_ids  =  [layer]
+                components = [components[0]]
+                neuron_ids = [neuron_ids[0]]
+                raw_distribution_path = f'raw_distribution_{do}_L{layer}_{component}_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
+            else:
+                if config['computed_all_layers']:
+                    raw_distribution_path = f'raw_distribution_{do}_all_layers_{masking_rate}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'  
+                else:
+                    raw_distribution_path = f'raw_distribution_{do}_L{layer}_{masking_rate}-k_{config["intervention_type"]}_{config["dev-name"]}.pickle'
+            
+            distributions = {}
+            losses = {}
+            golden_answers = {}
+            
+            for mode in ["Null", "Intervene"]: 
+                distributions[mode] = []
+                golden_answers[mode] = []
+                losses[mode] = []
+            for batch_idx, (inputs) in enumerate(b:=tqdm(dev_loader)):
+                b.set_description(f"batch_idx: {batch_idx}")
+                cur_inputs = {} 
+                for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
+                pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+                pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
+                pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
+
+                # ignore label_ids when running experiment on hans
+                label_ids = torch.tensor([config['label_maps'][label] for label in cur_inputs['gold_label']]) if config['dev-name'] != 'hans' else None
+                scalers = cur_inputs['weight_score'] if config["dev-name"] == 'reweight' else 1
+
+                # ignore label_ids when running experiment on hans
+                if label_ids is not None: label_ids = label_ids.to(DEVICE)
+                if config['dev-name'] == 'reweight': scalers = scalers.to(DEVICE)
+                # mediator used to intervene
+                cur_dist = {}
+                cur_loss = {}
+                for mode in ["Null", "Intervene"]:
+                    if mode == "Intervene": 
+                        hooks = []
+                        # for layer_id, component, neuron_id in zip(layer_ids, components, neuron_ids):
+                        for layer_id, component in layer_component_to_mask:
+                            neurons_list = top_nie_table_df.loc[(top_nie_table_df['layer_id'] == layer_id) & (top_nie_table_df['component_id']== component)]['neuron_id'].unique().tolist() 
+                            neurons_list = [int(neuron_id) for neuron_id in neurons_list]
+                            Z = cls[component][do][int(layer_id)]
+                            hooks.append(mediators[component](int(layer_id)).register_forward_hook(neuron_intervention(
+                                                                                        neuron_ids = neurons_list, 
+                                                                                        component=component,
+                                                                                        DEVICE = DEVICE ,
+                                                                                        scaler = True,
+                                                                                        value = Z,
+                                                                                        epsilon=epsilon,
+                                                                                        intervention_type=config["intervention_type"],
+                                                                                        debug=debug)))
+                    with torch.no_grad(): 
+                        # Todo: generalize to distribution if the storage is enough
+                        outs =  _model(**pair_sentences, labels= label_ids if config['dev-name'] != 'hans' else None)
+
+                        cur_dist[mode] = F.softmax(outs.logits , dim=-1)
+                        cur_loss[mode] = outs.loss
+
+                        if config['dev-name'] != 'hans':
+                            loss = criterion(outs.logits, label_ids)
+                            test_loss = torch.mean(loss)
+                            assert (test_loss - cur_loss[mode]) < 1e-6
+                            if debug: print(f"test loss : {test_loss},  BERT's loss : {cur_loss[mode]}")
+                            if debug: print(f"Before reweight : {test_loss}")
+                            
+                            loss =  scalers * loss
+                            
+                            if debug: print(f"After reweight : {torch.mean(loss)}")
+
+                    if mode == "Intervene": 
+                        for hook in hooks: hook.remove() 
+
+                    distributions[mode].extend(cur_dist[mode])
+                    golden_answers[mode].extend(label_ids if label_ids is not None else cur_inputs['gold_label']) 
+                    if config['dev-name'] != 'hans': losses[mode].extend(loss) 
+
+            raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
+
+            with open(raw_distribution_path, 'wb') as handle: 
+                pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(losses, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print(f'saving distributions and labels into : {raw_distribution_path}')
+            
+            if dev_set.dev_name != 'hans': 
+                acc[masking_rate] = compute_acc(raw_distribution_path, config["label_maps"])
+
+                eval_path  = get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, masking_rate, do)
+            
+                with open(eval_path,'wb') as handle:
+                    pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    print(f"saving all accuracies into {eval_path} ")
+
+
 def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_paths, counterfactual_paths, tokenizer, DEVICE, seed=None , debug = False):
     """ getting inferences while modifiying activations on dev-matched/dev-mm/HANS"""
     import copy
@@ -499,7 +672,7 @@ def get_masking_value(config):
         print(f"Null : {acc[value]['Null']['all']*100:.2f}, Intervene at {best_val}:{scores[cur_best_key]*100:.2f}")
 
 
-def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
+def convert_to_text_ans(config, neuron_path, params, digits, method_name, do,seed, text_answer_path = None, raw_distribution_path = None):
     
     """changing distributions into text anaswers on hans set
     
@@ -510,7 +683,6 @@ def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = 
     """
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
     if config['masking_rate_search']: num_neuron_groups = params['percent']
-    
     digits = [ len(str(epsilon).split('.')[-1]) for epsilon in params['epsilons'] ]
     layer = config['layer']
     epsilons = params['epsilons']
@@ -639,7 +811,9 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     # ********** follow **********
     # ********** original function **********
     # required distribution of hans
-    if config['to_text']: convert_to_text_ans(config, top_neuron, method_name, params, do, seed)
+    # def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
+    if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits, method_name, do, seed)
+    # if config['to_text']: convert_to_text_ans(config, top_neuron, method_name, params, do, seed)
  
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
     if config['masking_rate_search']: num_neuron_groups = params['percent']
@@ -1182,7 +1356,7 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
         for dataset_name,  json_file in zip(dataset_names, json_files):
             config['dev-name'] = dataset_name
             config["dev_json"][dataset_name] = json_file
-            get_conditional_inferences(config, mode[0], model_path, model, method_name, NIE_paths, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
+            get_conditional_inferences_mask(config, mode[0], model_path, model, method_name, NIE_paths, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
             config["dev_json"].pop(f'{dataset_name}')
         
         get_condition_inference_scores(config, model, method_name, seed)
