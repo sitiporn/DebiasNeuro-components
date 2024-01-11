@@ -133,13 +133,7 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
     
     layers = config["layers"] 
     is_averaged_embeddings = config["is_averaged_embeddings"]
-    # getting counterfactual of all components(eg. Q, K) for specific seed
     _counterfactual_paths = counterfactual_paths
-    
-    #dicts to store the activations
-    representations = {}
-    # dict to store  probabilities
-    distributions = {}
     counter = 0
 
     # _model to be hook
@@ -535,6 +529,8 @@ def get_hidden_representations(config, counterfactual_paths, method_name, layers
                     assert len(counterfactual_representations[seed][component][do][layer][label_text]) == counter
                     counterfactual_representations[seed][component][do][layer][label_text] = torch.stack(counterfactual_representations[seed][component][do][layer][label_text], dim=0)
                     avg_counterfactual_representations[seed][component][do][layer][label_text] = torch.mean(counterfactual_representations[seed][component][do][layer][label_text],dim=0)
+        if component == 'I':
+            breakpoint()
 
         del counterfactual_representations[seed][component]     
         report_gpu()
