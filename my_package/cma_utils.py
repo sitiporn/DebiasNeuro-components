@@ -72,7 +72,6 @@ def foward_hooks(do, tokenizer, dataloader, model, DEVICE, eval=False, class_nam
         pair_sentences = [[premise, hypo] for premise, hypo in zip(premise, hypo)]
         inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
         inputs = {k: v.to(DEVICE) for k,v in inputs.items()} 
-
         with torch.no_grad():    
             if eval:
                 outputs = model(**inputs, output_hidden_states=True)
@@ -80,7 +79,6 @@ def foward_hooks(do, tokenizer, dataloader, model, DEVICE, eval=False, class_nam
                 representations.extend(representation)
             else:
                 outputs = model(**inputs)
-        
         del outputs
         counter += inputs['input_ids'].shape[0]
         inputs = {k: v.to('cpu') for k,v in inputs.items()} 
@@ -253,13 +251,20 @@ def group_by_treatment(thresholds, overlap_score, gold_label):
 def get_activation(layer, do, component, activation, is_averaged_embeddings, class_name = None, DEBUG=0):
   # the hook signature
   def hook(model, input, output):
+    CLS_TOKEN = 0
     # bz, seq_len, hid_dim
     if class_name is None and is_averaged_embeddings:
-        activation[component][do][layer].extend(output.detach()[:,0,:].cpu())
+        activation[component][do][layer].extend(output.detach()[:,CLS_TOKEN,:].cpu())
     else: 
-        activation[component][do][layer][class_name].extend(output.detach()[:,0,:].cpu())
-
+        activation[component][do][layer][class_name].extend(output.detach()[:,CLS_TOKEN,:].cpu())
+    
     if DEBUG >=4: print(f"{do}, layer : {layer}, component: {component}, class_name: {class_name},inp:{input[0].shape}, out:{output.shape} ")
+    if DEBUG ==0: 
+        print(f'*** layer: {layer} component: {component} ')
+        print(f'input[:2,0,:5]:')
+        print(input[0].detach()[:2,0,:5])
+        print(f'output[:2,0,:5]:')
+        print(output.detach()[:2,0,:5])
   
   return hook
 
@@ -529,8 +534,8 @@ def get_hidden_representations(config, counterfactual_paths, method_name, layers
                     assert len(counterfactual_representations[seed][component][do][layer][label_text]) == counter
                     counterfactual_representations[seed][component][do][layer][label_text] = torch.stack(counterfactual_representations[seed][component][do][layer][label_text], dim=0)
                     avg_counterfactual_representations[seed][component][do][layer][label_text] = torch.mean(counterfactual_representations[seed][component][do][layer][label_text],dim=0)
-        if component == 'I':
-            breakpoint()
+        # if component == 'I':
+        #     breakpoint()
 
         del counterfactual_representations[seed][component]     
         report_gpu()
