@@ -1,0 +1,562 @@
+Loading path for single at seed:409, layer: 11
+Q: ../counterfactuals/recent_baseline/seed_409/avg_Q_counterfactual_representation.pickle
+K: ../counterfactuals/recent_baseline/seed_409/avg_K_counterfactual_representation.pickle
+V: ../counterfactuals/recent_baseline/seed_409/avg_V_counterfactual_representation.pickle
+AO: ../counterfactuals/recent_baseline/seed_409/avg_AO_counterfactual_representation.pickle
+I: ../counterfactuals/recent_baseline/seed_409/avg_I_counterfactual_representation.pickle
+O: ../counterfactuals/recent_baseline/seed_409/avg_O_counterfactual_representation.pickle
+NIE_paths: ['../NIE/recent_baseline/seed_409/avg_embeddings_High-overlap_computed_all_layers_.pickle']
+current recent_baseline : seed : 409
+== statistic ==
+{'High-overlap': 0.7777777777777778, 'Low-overlap': 0.0}
+loading NIE : ../NIE/recent_baseline/seed_409/avg_embeddings_High-overlap_computed_all_layers_.pickle
+++++++++ Component-Neuron_id: 0.05 neurons :+++++++++
+Done saving top neurons into pickle !
+Loading from ../pickles/advantaged/recent_baseline_clean_409_inferences.pickle done ! 
+Loading model from ../models/recent_baseline/seed_409/checkpoint-36500/pytorch_model.bin
+Loading model from : ../models/recent_baseline/seed_409/checkpoint-36500/pytorch_model.bin to optimize on PCGU
+freeze whole tensor: bert.embeddings.word_embeddings.weight
+freeze whole tensor: bert.embeddings.position_embeddings.weight
+freeze whole tensor: bert.embeddings.token_type_embeddings.weight
+freeze whole tensor: bert.embeddings.LayerNorm.weight
+freeze whole tensor: bert.embeddings.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.0.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.0.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.0.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.0.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.1.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.1.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.1.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.1.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.2.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.2.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.2.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.2.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.3.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.3.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.3.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.3.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.4.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.4.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.4.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.4.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.5.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.5.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.5.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.5.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.6.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.6.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.6.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.6.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.7.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.7.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.7.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.7.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.8.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.8.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.8.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.8.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.9.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.9.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.9.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.9.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.10.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.10.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.10.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.10.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.11.attention.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.11.attention.output.LayerNorm.bias
+freeze whole tensor: bert.encoder.layer.11.output.LayerNorm.weight
+freeze whole tensor: bert.encoder.layer.11.output.LayerNorm.bias
+freeze whole tensor: bert.pooler.dense.weight
+freeze whole tensor: bert.pooler.dense.bias
+freeze whole tensor: classifier.weight
+freeze whole tensor: classifier.bias
+# weight train parameters:  4147 
+# weight freeze parameters: 78797 
+# weight total oparameters: 82944 
+# bias train parameters:  4147 
+# bias freeze parameters: 78797 
+# bias total oparameters: 82944 
+count_param : 165888
+# weight train parameters:  4147 
+# weight freeze parameters: 78797 
+# weight total oparameters: 82944 
+# bias train parameters:  4147 
+# bias freeze parameters: 78797 
+# bias total oparameters: 82944 
+summary after combine parameters
+********** weight  ************
+# Train : 4147
+# Freeze : 78797
+# Total  : 82944
+********** bias  ************
+# Train : 4147
+# Freeze : 78797
+# Total  : 82944
+saving 0's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer0_collect_param=False_components.pickle
+saving 1's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer1_collect_param=False_components.pickle
+saving 2's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer2_collect_param=False_components.pickle
+saving 3's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer3_collect_param=False_components.pickle
+saving 4's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer4_collect_param=False_components.pickle
+saving 5's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer5_collect_param=False_components.pickle
+saving 6's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer6_collect_param=False_components.pickle
+saving 7's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer7_collect_param=False_components.pickle
+saving 8's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer8_collect_param=False_components.pickle
+saving 9's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer9_collect_param=False_components.pickle
+saving 10's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer10_collect_param=False_components.pickle
+saving 11's components into ../pickles/restore_weight/recent_baseline/masking-0.05/409_layer11_collect_param=False_components.pickle
+************ bert.encoder.layer.0.attention.self.query.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.0.attention.self.query.weight
+************ bert.encoder.layer.0.attention.self.query.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.0.attention.self.query.bias
+************ bert.encoder.layer.0.attention.self.key.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.0.attention.self.key.weight
+************ bert.encoder.layer.0.attention.self.key.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.0.attention.self.key.bias
+************ bert.encoder.layer.0.attention.self.value.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.0.attention.self.value.weight
+************ bert.encoder.layer.0.attention.self.value.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.0.attention.self.value.bias
+************ bert.encoder.layer.0.attention.output.dense.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.0.attention.output.dense.weight
+************ bert.encoder.layer.0.attention.output.dense.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.0.attention.output.dense.bias
+************ bert.encoder.layer.0.intermediate.dense.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.0.intermediate.dense.weight
+************ bert.encoder.layer.0.intermediate.dense.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.0.intermediate.dense.bias
+************ bert.encoder.layer.0.output.dense.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.0.output.dense.weight
+************ bert.encoder.layer.0.output.dense.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.0.output.dense.bias
+************ bert.encoder.layer.1.attention.self.query.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.1.attention.self.query.weight
+************ bert.encoder.layer.1.attention.self.query.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.1.attention.self.query.bias
+************ bert.encoder.layer.1.attention.self.key.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.1.attention.self.key.weight
+************ bert.encoder.layer.1.attention.self.key.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.1.attention.self.key.bias
+************ bert.encoder.layer.1.attention.self.value.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.1.attention.self.value.weight
+************ bert.encoder.layer.1.attention.self.value.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.1.attention.self.value.bias
+************ bert.encoder.layer.1.attention.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.1.attention.output.dense.weight
+************ bert.encoder.layer.1.attention.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.1.attention.output.dense.bias
+************ bert.encoder.layer.1.intermediate.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.1.intermediate.dense.weight
+************ bert.encoder.layer.1.intermediate.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.1.intermediate.dense.bias
+************ bert.encoder.layer.1.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.1.output.dense.weight
+************ bert.encoder.layer.1.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.1.output.dense.bias
+************ bert.encoder.layer.2.attention.self.query.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.2.attention.self.query.weight
+************ bert.encoder.layer.2.attention.self.query.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.2.attention.self.query.bias
+************ bert.encoder.layer.2.attention.self.key.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.2.attention.self.key.weight
+************ bert.encoder.layer.2.attention.self.key.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.2.attention.self.key.bias
+************ bert.encoder.layer.2.attention.self.value.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.2.attention.self.value.weight
+************ bert.encoder.layer.2.attention.self.value.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.2.attention.self.value.bias
+************ bert.encoder.layer.2.attention.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.2.attention.output.dense.weight
+************ bert.encoder.layer.2.attention.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.2.attention.output.dense.bias
+************ bert.encoder.layer.2.intermediate.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.2.intermediate.dense.weight
+************ bert.encoder.layer.2.intermediate.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.2.intermediate.dense.bias
+************ bert.encoder.layer.2.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.2.output.dense.weight
+************ bert.encoder.layer.2.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.2.output.dense.bias
+************ bert.encoder.layer.3.attention.self.query.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.3.attention.self.query.weight
+************ bert.encoder.layer.3.attention.self.query.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.3.attention.self.query.bias
+************ bert.encoder.layer.3.attention.self.key.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.3.attention.self.key.weight
+************ bert.encoder.layer.3.attention.self.key.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.3.attention.self.key.bias
+************ bert.encoder.layer.3.attention.self.value.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.3.attention.self.value.weight
+************ bert.encoder.layer.3.attention.self.value.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.3.attention.self.value.bias
+************ bert.encoder.layer.3.attention.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.3.attention.output.dense.weight
+************ bert.encoder.layer.3.attention.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.3.attention.output.dense.bias
+************ bert.encoder.layer.3.intermediate.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.3.intermediate.dense.weight
+************ bert.encoder.layer.3.intermediate.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.3.intermediate.dense.bias
+************ bert.encoder.layer.3.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.3.output.dense.weight
+************ bert.encoder.layer.3.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.3.output.dense.bias
+************ bert.encoder.layer.4.attention.self.query.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.4.attention.self.query.weight
+************ bert.encoder.layer.4.attention.self.query.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.4.attention.self.query.bias
+************ bert.encoder.layer.4.attention.self.key.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.4.attention.self.key.weight
+************ bert.encoder.layer.4.attention.self.key.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.4.attention.self.key.bias
+************ bert.encoder.layer.4.attention.self.value.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.4.attention.self.value.weight
+************ bert.encoder.layer.4.attention.self.value.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.4.attention.self.value.bias
+************ bert.encoder.layer.4.attention.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.4.attention.output.dense.weight
+************ bert.encoder.layer.4.attention.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.4.attention.output.dense.bias
+************ bert.encoder.layer.4.intermediate.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.4.intermediate.dense.weight
+************ bert.encoder.layer.4.intermediate.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.4.intermediate.dense.bias
+************ bert.encoder.layer.4.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.4.output.dense.weight
+************ bert.encoder.layer.4.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.4.output.dense.bias
+************ bert.encoder.layer.5.attention.self.query.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.5.attention.self.query.weight
+************ bert.encoder.layer.5.attention.self.query.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.5.attention.self.query.bias
+************ bert.encoder.layer.5.attention.self.key.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.5.attention.self.key.weight
+************ bert.encoder.layer.5.attention.self.key.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.5.attention.self.key.bias
+************ bert.encoder.layer.5.attention.self.value.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.5.attention.self.value.weight
+************ bert.encoder.layer.5.attention.self.value.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.5.attention.self.value.bias
+************ bert.encoder.layer.5.attention.output.dense.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.5.attention.output.dense.weight
+************ bert.encoder.layer.5.attention.output.dense.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.5.attention.output.dense.bias
+************ bert.encoder.layer.5.intermediate.dense.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.5.intermediate.dense.weight
+************ bert.encoder.layer.5.intermediate.dense.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.5.intermediate.dense.bias
+************ bert.encoder.layer.5.output.dense.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.5.output.dense.weight
+************ bert.encoder.layer.5.output.dense.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.5.output.dense.bias
+************ bert.encoder.layer.6.attention.self.query.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.6.attention.self.query.weight
+************ bert.encoder.layer.6.attention.self.query.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.6.attention.self.query.bias
+************ bert.encoder.layer.6.attention.self.key.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.6.attention.self.key.weight
+************ bert.encoder.layer.6.attention.self.key.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.6.attention.self.key.bias
+************ bert.encoder.layer.6.attention.self.value.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.6.attention.self.value.weight
+************ bert.encoder.layer.6.attention.self.value.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.6.attention.self.value.bias
+************ bert.encoder.layer.6.attention.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.6.attention.output.dense.weight
+************ bert.encoder.layer.6.attention.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.6.attention.output.dense.bias
+************ bert.encoder.layer.6.intermediate.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.6.intermediate.dense.weight
+************ bert.encoder.layer.6.intermediate.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.6.intermediate.dense.bias
+************ bert.encoder.layer.6.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.6.output.dense.weight
+************ bert.encoder.layer.6.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.6.output.dense.bias
+************ bert.encoder.layer.7.attention.self.query.weight ****************
+#train components :4, #frozen components 6
+exlude_grad func : bert.encoder.layer.7.attention.self.query.weight
+************ bert.encoder.layer.7.attention.self.query.bias ****************
+#train components :4, #frozen components 6
+exlude_grad func : bert.encoder.layer.7.attention.self.query.bias
+************ bert.encoder.layer.7.attention.self.key.weight ****************
+#train components :4, #frozen components 6
+exlude_grad func : bert.encoder.layer.7.attention.self.key.weight
+************ bert.encoder.layer.7.attention.self.key.bias ****************
+#train components :4, #frozen components 6
+exlude_grad func : bert.encoder.layer.7.attention.self.key.bias
+************ bert.encoder.layer.7.attention.self.value.weight ****************
+#train components :4, #frozen components 6
+exlude_grad func : bert.encoder.layer.7.attention.self.value.weight
+************ bert.encoder.layer.7.attention.self.value.bias ****************
+#train components :4, #frozen components 6
+exlude_grad func : bert.encoder.layer.7.attention.self.value.bias
+************ bert.encoder.layer.7.attention.output.dense.weight ****************
+#train components :4, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.7.attention.output.dense.weight
+************ bert.encoder.layer.7.attention.output.dense.bias ****************
+#train components :4, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.7.attention.output.dense.bias
+************ bert.encoder.layer.7.intermediate.dense.weight ****************
+#train components :4, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.7.intermediate.dense.weight
+************ bert.encoder.layer.7.intermediate.dense.bias ****************
+#train components :4, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.7.intermediate.dense.bias
+************ bert.encoder.layer.7.output.dense.weight ****************
+#train components :4, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.7.output.dense.weight
+************ bert.encoder.layer.7.output.dense.bias ****************
+#train components :4, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.7.output.dense.bias
+************ bert.encoder.layer.8.attention.self.query.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.8.attention.self.query.weight
+************ bert.encoder.layer.8.attention.self.query.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.8.attention.self.query.bias
+************ bert.encoder.layer.8.attention.self.key.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.8.attention.self.key.weight
+************ bert.encoder.layer.8.attention.self.key.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.8.attention.self.key.bias
+************ bert.encoder.layer.8.attention.self.value.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.8.attention.self.value.weight
+************ bert.encoder.layer.8.attention.self.value.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func : bert.encoder.layer.8.attention.self.value.bias
+************ bert.encoder.layer.8.attention.output.dense.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.8.attention.output.dense.weight
+************ bert.encoder.layer.8.attention.output.dense.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.8.attention.output.dense.bias
+************ bert.encoder.layer.8.intermediate.dense.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.8.intermediate.dense.weight
+************ bert.encoder.layer.8.intermediate.dense.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.8.intermediate.dense.bias
+************ bert.encoder.layer.8.output.dense.weight ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.8.output.dense.weight
+************ bert.encoder.layer.8.output.dense.bias ****************
+#train components :5, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.8.output.dense.bias
+************ bert.encoder.layer.9.attention.self.query.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.9.attention.self.query.weight
+************ bert.encoder.layer.9.attention.self.query.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.9.attention.self.query.bias
+************ bert.encoder.layer.9.attention.self.key.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.9.attention.self.key.weight
+************ bert.encoder.layer.9.attention.self.key.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.9.attention.self.key.bias
+************ bert.encoder.layer.9.attention.self.value.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.9.attention.self.value.weight
+************ bert.encoder.layer.9.attention.self.value.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.9.attention.self.value.bias
+************ bert.encoder.layer.9.attention.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.9.attention.output.dense.weight
+************ bert.encoder.layer.9.attention.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.9.attention.output.dense.bias
+************ bert.encoder.layer.9.intermediate.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.9.intermediate.dense.weight
+************ bert.encoder.layer.9.intermediate.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.9.intermediate.dense.bias
+************ bert.encoder.layer.9.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.9.output.dense.weight
+************ bert.encoder.layer.9.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.9.output.dense.bias
+************ bert.encoder.layer.10.attention.self.query.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.10.attention.self.query.weight
+************ bert.encoder.layer.10.attention.self.query.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.10.attention.self.query.bias
+************ bert.encoder.layer.10.attention.self.key.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.10.attention.self.key.weight
+************ bert.encoder.layer.10.attention.self.key.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.10.attention.self.key.bias
+************ bert.encoder.layer.10.attention.self.value.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.10.attention.self.value.weight
+************ bert.encoder.layer.10.attention.self.value.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.10.attention.self.value.bias
+************ bert.encoder.layer.10.attention.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.10.attention.output.dense.weight
+************ bert.encoder.layer.10.attention.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.10.attention.output.dense.bias
+************ bert.encoder.layer.10.intermediate.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.10.intermediate.dense.weight
+************ bert.encoder.layer.10.intermediate.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.10.intermediate.dense.bias
+************ bert.encoder.layer.10.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.10.output.dense.weight
+************ bert.encoder.layer.10.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.10.output.dense.bias
+************ bert.encoder.layer.11.attention.self.query.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.11.attention.self.query.weight
+************ bert.encoder.layer.11.attention.self.query.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.11.attention.self.query.bias
+************ bert.encoder.layer.11.attention.self.key.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.11.attention.self.key.weight
+************ bert.encoder.layer.11.attention.self.key.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.11.attention.self.key.bias
+************ bert.encoder.layer.11.attention.self.value.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.11.attention.self.value.weight
+************ bert.encoder.layer.11.attention.self.value.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func : bert.encoder.layer.11.attention.self.value.bias
+************ bert.encoder.layer.11.attention.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.11.attention.output.dense.weight
+************ bert.encoder.layer.11.attention.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.11.attention.output.dense.bias
+************ bert.encoder.layer.11.intermediate.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.11.intermediate.dense.weight
+************ bert.encoder.layer.11.intermediate.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.11.intermediate.dense.bias
+************ bert.encoder.layer.11.output.dense.weight ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.11.output.dense.weight
+************ bert.encoder.layer.11.output.dense.bias ****************
+#train components :6, #frozen components 6
+exlude_grad func dense : bert.encoder.layer.11.output.dense.bias
+========= train_data ===========
+========= validation_data ===========
+========= test_data ===========
+Config of dataloader
+Group by len : True
+Dynamics padding : True, DataCollatorWithPadding(tokenizer=PreTrainedTokenizerFast(name_or_path='../bert-base-uncased-mnli/', vocab_size=30522, model_max_len=512, is_fast=True, padding_side='right', truncation_side='right', special_tokens={'unk_token': '[UNK]', 'sep_token': '[SEP]', 'pad_token': '[PAD]', 'cls_token': '[CLS]', 'mask_token': '[MASK]'}), padding=True, max_length=None, pad_to_multiple_of=None, return_tensors='pt')
+label smoother is None :
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.8076, 'eval_samples_per_second': 96.407, 'eval_steps_per_second': 3.015, 'epoch': 1.35}
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.9379, 'eval_samples_per_second': 96.284, 'eval_steps_per_second': 3.012, 'epoch': 2.7}
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.6651, 'eval_samples_per_second': 96.542, 'eval_steps_per_second': 3.02, 'epoch': 4.05}
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.5128, 'eval_samples_per_second': 96.687, 'eval_steps_per_second': 3.024, 'epoch': 5.41}
+{'loss': 1.95, 'learning_rate': 2.1518504845685404e-07, 'epoch': 6.76}
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.489, 'eval_samples_per_second': 96.71, 'eval_steps_per_second': 3.025, 'epoch': 6.76}
+save best at 500, eval_accuracy :0.8246561385634233
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.6047, 'eval_samples_per_second': 96.6, 'eval_steps_per_second': 3.022, 'epoch': 8.11}
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.7354, 'eval_samples_per_second': 96.476, 'eval_steps_per_second': 3.018, 'epoch': 9.46}
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.6652, 'eval_samples_per_second': 96.542, 'eval_steps_per_second': 3.02, 'epoch': 10.81}
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.58, 'eval_samples_per_second': 96.623, 'eval_steps_per_second': 3.022, 'epoch': 12.16}
+{'loss': 1.9436, 'learning_rate': 2.1518504845685404e-07, 'epoch': 13.51}
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.5442, 'eval_samples_per_second': 96.657, 'eval_steps_per_second': 3.023, 'epoch': 13.51}
+{'eval_loss': 0.5690494179725647, 'eval_accuracy': 0.8246561385634233, 'eval_runtime': 101.5384, 'eval_samples_per_second': 96.663, 'eval_steps_per_second': 3.023, 'epoch': 14.86}
+{'train_runtime': 2171.7266, 'train_samples_per_second': 16.321, 'train_steps_per_second': 0.511, 'train_loss': 1.9440047805373732, 'epoch': 15.0}

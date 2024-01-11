@@ -32,11 +32,12 @@ class Classifier(nn.Module):
         logits = self.classifier(pooled_output)
         return logits
 
-def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE, all_seeds=False): 
+def collect_counterfactuals(model, model_path, dataset_name, method_name, seed,  counterfactual_paths, config, experiment_set, dataloader, tokenizer, DEVICE, all_seeds=False): 
     """ getting all activation's neurons used as mediators(Z) to compute NIE scores later """
     from utils import load_model
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
+        print(f'Loading Counterfactual model: {model_path}')
     else:
         _model = model
         print(f'using original model as input to this function')
@@ -45,6 +46,7 @@ def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, conf
     is_averaged_embeddings = config["is_averaged_embeddings"]
     # getting counterfactual of all components(eg. Q, K) for specific seed
     _counterfactual_paths = counterfactual_paths
+    model = model.to(DEVICE)
     
     # "NIE_paths": [],
     # "is_NIE_exist": [],
@@ -70,7 +72,14 @@ def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, conf
     counter = {}
 
     batch_idx = 0
-    hooks =  {"High-overlap" : None, "Low-overlap": None}
+
+    if dataset_name == 'fever':
+        hooks =  {"High-overlap" : None}
+        treatments = ["High-overlap"]
+    else:
+        hooks =  {"High-overlap" : None, "Low-overlap": None}
+        treatments = ["High-overlap", "Low-overlap"]
+    
 
     # linear layer
     layer_modules["Q"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
@@ -83,8 +92,8 @@ def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, conf
     for component in (["Q","K","V","AO","I","O"]):
         hidden_representations[component] = {}
     # **** collecting all counterfactual representations ****    
-    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"Intervene_set_loader")):
-        for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+    for batch_idx, (sentences, labels) in enumerate(tqdm(dataloader, desc=f"counterfactual_set_loader")):
+        for idx, do in enumerate(tqdm(treatments, desc="Do-overlap")):
             if do not in hidden_representations[component].keys():
                 for component in (["Q","K","V","AO","I","O"]):
                     hidden_representations[component][do] = {}
@@ -155,19 +164,20 @@ def collect_counterfactuals(model, model_path, seed,  counterfactual_paths, conf
             # hidden_representations[component][do][class_name][layer][sample_idx]
             with open(cur_path,'wb') as handle: 
                 pickle.dump(hidden_representations[component][do][class_name], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"saving to {cur_path} done ! ")
+                print(f"saving counterfactual representations into {cur_path} done ! ")
         else:
             with open(cur_path, 'wb') as handle: 
                 # nested dict : [component][do][class_name][layer][sample_idx]
                 pickle.dump(hidden_representations[component], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"saving to {cur_path} done ! ")
+                print(f"saving counterfactual representations into {cur_path} done ! ")
                 
-    with open('../pickles/utilizer_components.pickle', 'wb') as handle: 
+    path = f'../pickles/utilizer/{method_name}/'
+    if not os.path.exists(path): os.mkdir(path)
+    path = os.path.join(path, f'utilizer_{seed}_components.pickle')
+    
+    with open(path, 'wb') as handle: 
         pickle.dump(counter, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # pickle.dump(attention_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # pickle.dump(experiment_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # pickle.dump(dataloader, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"save utilizer to pickles/utilizer_components.pickle  ! ")
+        print(f"save utilizer to {path}  ! ")
 
 def test_mask(neuron_candidates =[]):
     x  = torch.tensor([[ [1,2,3], 
@@ -200,9 +210,10 @@ def test_mask(neuron_candidates =[]):
     print(f"after masking X ")
     print(x.masked_scatter_(mask, value))
 
-def geting_counterfactual_paths(config, seed=None):
+def geting_counterfactual_paths(config, method_name, seed=None):
 
-    path = f'../counterfactuals/'
+    path = f'../counterfactuals/{method_name}/'
+    if not os.path.exists(path): os.mkdir(path) 
     path = os.path.join(path, "seed_"+ str( config['seed'] if seed is None else seed ) ) 
     if not os.path.exists(path): os.mkdir(path) 
 
@@ -236,16 +247,23 @@ def geting_counterfactual_paths(config, seed=None):
 
     return counterfactual_paths, is_counterfactual_exist
 
-def get_overlap_thresholds(df, upper_bound, lower_bound):
-    
+def get_overlap_thresholds(df, upper_bound, lower_bound, dataset_name):
+    from counter import count_negations 
+     
     thresholds = {"High-overlap": None, "Low-overlap": None}
+    
+    if dataset_name == 'fever':
+        df['count_negations']  = df['claim'].apply(count_negations)
+    elif dataset_name == 'qqp':
+        df['overlap_scores'] = df['pair_label'].apply(get_qqp_bias_scores)
+        # df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
+    else:    
+        df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
+        
+    biased_scores = df['count_negations'] if dataset_name == 'fever'  else df['overlap_scores'] 
 
-    df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
-
-    overlap_scores = df['overlap_scores'] 
-
-    thresholds["Low-overlap"]  = np.percentile(overlap_scores, lower_bound)
-    thresholds["High-overlap"] = np.percentile(overlap_scores, upper_bound)
+    thresholds["Low-overlap"]  = 0.0 if dataset_name == 'fever' else np.percentile(biased_scores, lower_bound)
+    thresholds["High-overlap"] = 1.0 if dataset_name == 'fever' else np.percentile(biased_scores, upper_bound)
 
     return thresholds
     
@@ -313,18 +331,18 @@ def get_overlap_score(pair_label):
     prem_words = []
     hyp_words = []
 
-    premise = pair_label[0].strip()
-    hypothesis = pair_label[1].strip()
-    gold_label = pair_label[2].strip()
+    sentence1 = pair_label[0].strip()
+    sentence2 = pair_label[1].strip()
+    gold_label = pair_label[2].strip() 
 
-    for word in premise.split():
+    for word in sentence1.split():
         if word not in [".", "?", "!"]:
             prem_words.append(word.lower())
 
-    for word in hypothesis.split():
+    for word in sentence2.split():
         if word not in [".", "?", "!"]:
             hyp_words.append(word.lower())
-
+    
     prem_filtered = " ".join(prem_words)
     hyp_filtered = " ".join(hyp_words)
 
@@ -336,6 +354,39 @@ def get_overlap_score(pair_label):
     overlap_score = count/len(hyp_words)        
 
     return overlap_score
+
+def get_qqp_bias_scores(pair_label):
+    # order of word are not import important  for pharaphasing 
+    sent1 = []
+    sent2 = []
+
+    sentence1 = pair_label[0].strip()
+    sentence2 = pair_label[1].strip()
+    gold_label = pair_label[2].strip() 
+
+    sentence1 = set(sentence1.split())
+    sentence2 = set(sentence2.split())
+
+    for ignore  in [".", "?", "!"]:
+        if ignore in sentence1: sentence1.remove(ignore)
+        if ignore in sentence2: sentence2.remove(ignore)
+
+    if sentence1 == sentence2:
+        return 2.0
+    else:
+        sent = {}
+        major_sent = sentence1 if len(sentence1) > len(sentence2) else sentence2
+        minor_sent = sentence1 if len(sentence1) < len(sentence2) else sentence2
+    
+        count = 0
+        for word in minor_sent:
+            if word in major_sent:
+                count+=1
+    
+        overlap_score = count/len(minor_sent)        
+
+        return overlap_score
+
 
 def trace_counterfactual(do, 
                         layer, 
@@ -507,8 +558,8 @@ def trace_counterfactual(do,
             pickle.dump(median, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f'saving NIE scores into : {dist_path}')
 
-def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, is_averaged_embeddings):
-    with open('../pickles/utilizer_components.pickle', 'rb') as handle: 
+def get_hidden_representations(config, counterfactual_paths, method_name, seed, layers, is_group_by_class, is_averaged_embeddings):
+    with open(f'../pickles/utilizer/{method_name}/utilizer_{seed}_components.pickle', 'rb') as handle: 
         # attention_data = pickle.load(handle)
         counter = pickle.load(handle)
         # experiment_set = pickle.load(handle)
@@ -519,7 +570,7 @@ def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, 
         avg_counterfactual_representations = {}
         for cur_path in counterfactual_paths:
             component = cur_path.split('/')[-1].split('_')[1]
-            seed = cur_path.split('/')[2].split('_')[-1]
+            seed = cur_path.split('/')[3].split('_')[-1]
             if seed not in counterfactual_representations.keys(): counterfactual_representations[seed] = {}
             if seed not in avg_counterfactual_representations.keys(): avg_counterfactual_representations[seed] = {}
             avg_counterfactual_representations[seed][component] = {}
@@ -529,7 +580,8 @@ def get_hidden_representations(counterfactual_paths, layers, is_group_by_class, 
                 counterfactual_representations[seed][component] = pickle.load(handle)
                 # attention_data = pickle.load(handle)
                 # counter = pickle.load(handle)
-            for do in ["High-overlap", "Low-overlap"]:
+            treatments = ["High-overlap"]  if config['dataset_name'] == 'fever' else ["High-overlap", "Low-overlap"]
+            for do in treatments:
                 avg_counterfactual_representations[seed][component][do] = {}
                 # concate all batches
                 for layer in layers:
@@ -579,10 +631,11 @@ def get_single_representation(cur_path, do = None, class_name = None):
 
     return hidden_representations
 
-def geting_NIE_paths(config, mode, seed=None):
+def geting_NIE_paths(config, method_name, mode, seed=None):
     NIE_paths = []
     is_NIE_exist = []
-    path = f'../NIE/'
+    path = f'../NIE/{method_name}/'
+    if not os.path.exists(path): os.mkdir(path) 
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
     if not os.path.exists(path): os.mkdir(path) 
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
@@ -611,6 +664,7 @@ def geting_NIE_paths(config, mode, seed=None):
     return NIE_paths, is_NIE_exist
 
 def get_nie_set_path(config, experiment_set, save_nie_set_path):
+    """ prepare validation set used to compute NIE later"""
     combine_types = []
     pairs = {}
 
@@ -618,10 +672,10 @@ def get_nie_set_path(config, experiment_set, save_nie_set_path):
         nie_dataset = {}
         nie_loader = {}
 
-        for type in ["contradiction","entailment","neutral"]:
+        for type in config['label_maps'].keys():
             # get the whole set of validation 
             pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
-            # samples data
+            # samples data (exclude mode samples)
             ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
             pairs[type] = np.array(pairs[type])[ids,:].tolist()
             nie_dataset[type] = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs[type])]
@@ -629,10 +683,10 @@ def get_nie_set_path(config, experiment_set, save_nie_set_path):
 
     else:
         # balacing nie set across classes
-        for type in ["contradiction","entailment","neutral"]:
-            # get the whole set of validation 
+        for type in config['label_maps'].keys():
+            # get the whole set of validation for each class
             pairs[type] = list(experiment_set.df[experiment_set.df.gold_label == type].pair_label)
-            # samples data
+            # samples data (exclude mode samples)
             ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //3,)))
             pairs[type] = np.array(pairs[type])[ids,:].tolist()
             combine_types.extend(pairs[type])
@@ -644,7 +698,7 @@ def get_nie_set_path(config, experiment_set, save_nie_set_path):
     with open(save_nie_set_path, 'wb') as handle:
         pickle.dump(nie_dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"Done saving NIE set  into {save_nie_set_path} !")
+        print(f"Done saving validation set used to compute NIE into {save_nie_set_path} !") 
 
 def summary_eval_counterfactual(average_all_seed_distributions, label_maps, all_paths):
     print('==== Summary ===')

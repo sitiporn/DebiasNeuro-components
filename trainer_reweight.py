@@ -673,9 +673,11 @@ def main(argv):
     opitmizer = AdamW(params=model.parameters(),
                     lr= float(config['optimizer']['lr']) , 
                     weight_decay = config['optimizer']['weight_decay'])
+
     # NOTE: for baseline just change 
     # config: baseline_config.yaml
     # model: BertForSequenceClassification
+
     trainer = ReweightTrainer(
         model,
         training_args,
@@ -695,5 +697,4 @@ def main(argv):
 if __name__ == "__main__":
     main(sys.argv[1:])
      
-
 

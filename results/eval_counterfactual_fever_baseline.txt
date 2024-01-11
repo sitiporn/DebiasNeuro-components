@@ -1,0 +1,100 @@
+config: ./configs/pcgu_config_fever.yaml
+== statistic ==
+{'High-overlap': 1.0, 'Low-overlap': 0.0}
+Counterfactual type: ['High-overlap']
+Intervention type : weaken
+Loading model from ../models/baseline_fever/seed_3990/checkpoint-22500/pytorch_model.bin
+loading model: ../models/baseline_fever/seed_3990/checkpoint-22500/pytorch_model.bin
+************* Classifier Output Distributions Given Averaging representations  as Input ************
+High-overlap:
+seed :3990 SUPPORTS: 0.3135279417037964
+seed :3990 REFUTES: 0.5610435605049133
+seed :3990 NOT ENOUGH INFO: 0.1254284828901291
+************* Stats ************
+>>High-overlap:
+Accuracies:
+avg over all acc: 0.8405797101449275
+SUPPORTS acc: 0.6086956521739131 
+REFUTES acc: 1.0 
+NOT ENOUGH INFO acc: 0.9130434782608695 
+Distributions:
+average SUPPORTS confident: 0.6324699521064758
+average REFUTES confident: 0.9633472561836243
+average NOT ENOUGH INFO confident: 0.8973215222358704
+Loading model from ../models/baseline_fever/seed_409/checkpoint-22500/pytorch_model.bin
+loading model: ../models/baseline_fever/seed_409/checkpoint-22500/pytorch_model.bin
+************* Classifier Output Distributions Given Averaging representations  as Input ************
+High-overlap:
+seed :409 SUPPORTS: 0.20201560854911804
+seed :409 REFUTES: 0.6974695324897766
+seed :409 NOT ENOUGH INFO: 0.10051492601633072
+************* Stats ************
+>>High-overlap:
+Accuracies:
+avg over all acc: 0.8840579710144928
+SUPPORTS acc: 0.6956521739130435 
+REFUTES acc: 1.0 
+NOT ENOUGH INFO acc: 0.9565217391304348 
+Distributions:
+average SUPPORTS confident: 0.7224608063697815
+average REFUTES confident: 0.9058710932731628
+average NOT ENOUGH INFO confident: 0.9388747811317444
+Loading model from ../models/baseline_fever/seed_1548/checkpoint-22500/pytorch_model.bin
+loading model: ../models/baseline_fever/seed_1548/checkpoint-22500/pytorch_model.bin
+************* Classifier Output Distributions Given Averaging representations  as Input ************
+High-overlap:
+seed :1548 SUPPORTS: 0.177566796541214
+seed :1548 REFUTES: 0.6791779398918152
+seed :1548 NOT ENOUGH INFO: 0.14325524866580963
+************* Stats ************
+>>High-overlap:
+Accuracies:
+avg over all acc: 0.8405797101449275
+SUPPORTS acc: 0.5652173913043478 
+REFUTES acc: 1.0 
+NOT ENOUGH INFO acc: 0.9565217391304348 
+Distributions:
+average SUPPORTS confident: 0.6029402613639832
+average REFUTES confident: 0.9621058702468872
+average NOT ENOUGH INFO confident: 0.9530622363090515
+Loading model from ../models/baseline_fever/seed_3099/checkpoint-22500/pytorch_model.bin
+loading model: ../models/baseline_fever/seed_3099/checkpoint-22500/pytorch_model.bin
+************* Classifier Output Distributions Given Averaging representations  as Input ************
+High-overlap:
+seed :3099 SUPPORTS: 0.21073302626609802
+seed :3099 REFUTES: 0.6117731928825378
+seed :3099 NOT ENOUGH INFO: 0.17749378085136414
+************* Stats ************
+>>High-overlap:
+Accuracies:
+avg over all acc: 0.8405797101449275
+SUPPORTS acc: 0.5217391304347826 
+REFUTES acc: 1.0 
+NOT ENOUGH INFO acc: 1.0 
+Distributions:
+average SUPPORTS confident: 0.5625755786895752
+average REFUTES confident: 0.9734299182891846
+average NOT ENOUGH INFO confident: 0.9698638916015625
+Loading model from ../models/baseline_fever/seed_3785/checkpoint-22500/pytorch_model.bin
+loading model: ../models/baseline_fever/seed_3785/checkpoint-22500/pytorch_model.bin
+************* Classifier Output Distributions Given Averaging representations  as Input ************
+High-overlap:
+seed :3785 SUPPORTS: 0.12776601314544678
+seed :3785 REFUTES: 0.7779998779296875
+seed :3785 NOT ENOUGH INFO: 0.09423412382602692
+************* Stats ************
+>>High-overlap:
+Accuracies:
+avg over all acc: 0.8115942028985508
+SUPPORTS acc: 0.4782608695652174 
+REFUTES acc: 1.0 
+NOT ENOUGH INFO acc: 0.9565217391304348 
+Distributions:
+average SUPPORTS confident: 0.5136861205101013
+average REFUTES confident: 0.9666736721992493
+average NOT ENOUGH INFO confident: 0.9388285875320435
+********** Counterfactual Model Output Distribution Summary **********
+>> High-overlap
+ SUPPORTS: 0.20632188022136688
+ REFUTES: 0.665492832660675
+ NOT ENOUGH INFO: 0.12818531692028046

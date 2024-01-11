@@ -23,6 +23,8 @@ import torch.nn.functional as F
 from pprint import pprint
 from data import ExperimentDataset
 from intervention import intervene, high_level_intervention
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler, Normalizer
 #from nn_pruning.patch_coordinator import (
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
@@ -44,7 +46,7 @@ class ComputingEmbeddings:
         self.label_remaps = {v:k for k, v in self.label_maps.items()}
         self.tokenizer = tokenizer
 
-def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save_nie_set_path, model, treatments, tokenizer, experiment_set, DEVICE, DEBUG=False):
+def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NIE_paths, save_nie_set_path, model, treatments, tokenizer, experiment_set, DEVICE, DEBUG=False):
     # checking model and counterfactual_paths whether it change corresponding to seeds
     mediators = {}
     counter = None
@@ -53,35 +55,34 @@ def cma_analysis(config, model_path, seed, counterfactual_paths, NIE_paths, save
     counter_predictions  = {} 
     layers = config['layers']  if config['computed_all_layers'] else [config['layer']]
     assert len(layers) == 12, f"This doesn't cover all layers"
-    NIE_path = { sorted(path.split('_'),key=len)[0]: path for path in NIE_paths} 
+    NIE_path = { sorted(path.split('_'),key=len)[1 if config['dataset_name'] == 'qqp' else 0  ]: path for path in NIE_paths} 
     NIE_path =  NIE_path['all'] if 'all' in NIE_path.keys() else NIE_path[str(config['layer'])]
     print(f"perform Causal Mediation analysis...")
+    
     if model_path is not None: 
         _model = load_model(path= model_path, model=model)
+        print(f'Loading CMA model: {model_path}')
     else:
         _model = model
         print(f'using original model as input to this function')
-    
+    breakpoint() 
     with open(save_nie_set_path, 'rb') as handle:
         nie_dataset = pickle.load(handle)
         nie_dataloader = pickle.load(handle)
         print(f"loading nie sets from pickle {save_nie_set_path} !")        
     # mediator used to intervene corresponding to changing _model's seed
-    mediators["Q"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
-    mediators["K"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.key
-    mediators["V"] = lambda layer : _model.bert.encoder.layer[layer].attention.self.value
-    mediators["AO"]  = lambda layer : _model.bert.encoder.layer[layer].attention.output
+    mediators["Q"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.query
+    mediators["K"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.key
+    mediators["V"]  = lambda layer : _model.bert.encoder.layer[layer].attention.self.value
+    mediators["AO"] = lambda layer : _model.bert.encoder.layer[layer].attention.output
     mediators["I"]  = lambda layer : _model.bert.encoder.layer[layer].intermediate
     mediators["O"]  = lambda layer : _model.bert.encoder.layer[layer].output
 
     if config['is_averaged_embeddings']: 
         NIE = {}
         counter = {}
-        # Done checking counterfactual_paths change according to seed
-        # Dont need model as input because we load counterfactual from -> counterfactual_paths
-        # dont need head to specify components
         # cls shape: [seed][component][do][layer][neuron_ids]
-        cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
+        cls = get_hidden_representations(config, counterfactual_paths, method_name, seed,layers, config['is_group_by_class'], config['is_averaged_embeddings'])
         # mediators:change respect to seed
         # cls: change respect to seed
         high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter , counter_predictions, layers, _model, config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
@@ -130,11 +131,24 @@ def get_topk(config, k=None, num_top_neurons=None):
             topk = {'percent': [config['masking_rate']] if config['masking_rate'] else params['percent']}
     return topk
 
-def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
+def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=False, mode='sorted'):
+    print(f'get_candidate_neurons: {mode}')
+    # random seed
+    seed = config['seed'] 
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+    else: 
+        seed = str(seed)
+
     # select candidates  based on percentage
     k = config['k']
     # select candidates based on the number of neurons
     num_top_neurons = config['num_top_neurons']
+    top_neuron_path = f'../pickles/top_neurons/{method_name}/'
+    if not os.path.exists(top_neuron_path): os.mkdir(top_neuron_path)
     top_neurons = {}
     num_neurons = None
     topk = get_topk(config, k=k, num_top_neurons=num_neurons)
@@ -150,33 +164,28 @@ def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
             NIE = pickle.load(handle)
             counter = pickle.load(handle)
             print(f"loading NIE : {cur_path}")
+
         # get seed number
-        seed = cur_path.split('/')[2].split('_')[-1]
+        seed = cur_path.split('/')[3].split('_')[-1]
         # get treatment type
         do = cur_path.split('/')[-1].split('_')[2]
         t.set_description(f"{seed}, {do} : {cur_path}")
-        # if seed not in ranking_nie.keys(): ranking_nie[seed] = {}
+        if seed is None: seed = str(seed)
         for layer in layers:
             # layer = int(cur_path.split('_')[-2][1:-1])
             for component in NIE[do].keys():
                 for neuron_id in NIE[do][component][layer].keys():
                     NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter[do][component][layer][neuron_id]
-                    # if config['computed_all_layers']:
-                    #     ranking_nie[f"L-{layer}-"+ component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
-                    # else:
-                    #     ranking_nie[component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
                     ranking_nie[(f"L-{layer}-" if config['computed_all_layers'] else "") + component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
-            # Todo: get component and neuron_id and value 
-        # top_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:5])
         # sort layer each
         if not config['computed_all_layers']: 
             all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
             for value in topk[key]:
                 num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
-                num_neurons = int(num_neurons)
+                num_neurons = int(num_neurons) 
                 print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
                 top_neurons[round(value, 2) if key == 'percent' else num_neurons] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
-            with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_{layer}.pickle', 'wb') as handle:
+            with open(os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_{layer}.pickle'), 'wb') as handle:
                 pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print(f"Done saving top neurons into pickle !") 
         # sort whole layers
@@ -187,22 +196,40 @@ def get_candidate_neurons(config, NIE_paths, treatments, debug=False):
                 num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
                 num_neurons = int(num_neurons)
                 print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
-                top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+                
+                if mode == 'random':
+                    from operator import itemgetter
+                    cur_neurons = sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)
+                    random.shuffle(cur_neurons)
+                    top_neurons[round(value, 2) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
+                    # ids = []
+                    # while len(set(ids)) < num_neurons:
+                    #     id = int(torch.randint(num_neurons, len(cur_neurons), size=(1,)))
+                    #     ids.append(id)
+                    #     ids = list(set(ids))
+                    # assert len(ids) == len(set(ids)), f"len {len(ids)}, set len: {len(set(ids))}"
+                    # assert len(ids) == num_neurons
+                    # top_neurons[round(value, 2) if key == 'percent' else value] = dict(itemgetter(*ids)(cur_neurons))
+                elif mode == 'sorted':
+                    top_neurons[round(value, 2) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
             
-            with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle:
-                pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print(f"Done saving top neurons into pickle !") 
+            if mode == 'random':
+                save_path = os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers.pickle')
+                with open(save_path, 'wb') as handle:
+                    pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    print(f"Done saving random top neurons into pickle! : {save_path}") 
             
+            elif mode == 'sorted':
+                save_path = os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_all_layers.pickle')
+                with open(save_path, 'wb') as handle:
+                    pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    print(f"Done saving top neurons into pickle!: {save_path}") 
+             
             if debug:
                 print(f"neurons:")
                 print(list(top_neurons[0.01].keys())[:20])
                 print(f"NIE values :")
                 print(list(top_neurons[0.01].values())[:20])
-        
-        # with open(f'../pickles/top_neurons/top_neuron_{}_{key}_{do}_all_layers.pickle', 'rb') as handle:
-        #     cur_top_neurons = pickle.load(handle)
-        #     print(f"loading top neurons from pickles !") 
-
 
 average_all_seed_distributions = {}
 count_num_seed = 0
@@ -214,19 +241,21 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
     global count_num_seed 
 
     count_num_seed += 1
-
     computing_embeddings= ComputingEmbeddings(label_maps, tokenizer=tokenizer)
     
     if model_path is not None: 
         model = load_model(path= model_path, model=model)
+        model = model.to(DEVICE)
+        print(f'loading model: {model_path}')
     else:
         print(f'using original model as input to this function')
         
     classifier = Classifier(model=model)
     representation_loader = DataLoader(experiment_set, batch_size = 64, shuffle = False, num_workers=0)
-        
+    treatments = ['High-overlap'] if config['dataset_name'] == 'fever' else ['High-overlap','Low-overlap']
+    
     for batch_idx, (sentences, labels) in enumerate(tqdm(representation_loader, desc=f"representation_loader")):
-        for idx, do in enumerate(tqdm(['High-overlap','Low-overlap'], desc="Do-overlap")):
+        for idx, do in enumerate(tqdm(treatments, desc="Do-overlap")):
             if do not in computing_embeddings.representations.keys():
                 if is_group_by_class:
                     computing_embeddings.representations[do] = {}
@@ -242,11 +271,19 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
                     computing_embeddings.counter[do] = 0
                 
                     computing_embeddings.acc[do] = []
-                    computing_embeddings.class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
-                    computing_embeddings.confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
+                    computing_embeddings.class_acc[do] = {}
+                    computing_embeddings.confident[do] = {}
+                    
+                    for label_name in config['label_maps'].keys():
+                        if label_name not in computing_embeddings.class_acc[do].keys(): computing_embeddings.class_acc[do][label_name] = []
+                        if label_name not in computing_embeddings.confident[do].keys(): computing_embeddings.confident[do][label_name] = 0
+                    # computing_embeddings.class_acc[do] = {"contradiction": [], "entailment" : [], "neutral" : []}
+                    # computing_embeddings.confident[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
             
             if do not in average_all_seed_distributions.keys():
-                average_all_seed_distributions[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
+                # average_all_seed_distributions[do] = {"contradiction": 0, "entailment": 0, "neutral": 0}
+                average_all_seed_distributions[do] = {}
+                for label_name in config['label_maps'].keys(): average_all_seed_distributions[do][label_name] = 0
 
             if experiment_set.is_group_by_class:
                 for class_name in sentences[do].keys():
@@ -265,11 +302,11 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
                 forward_pair_sentences(sentences[do], computing_embeddings, labels[do], do, model, DEVICE)
     
     # **************** Compute for classifier output distributions given avg representation(High vs Low bias as input) to use as counterfactuals ****************
-    if DEBUG: print(f"==== Classifier Output Distributions Given Averaging representations  as Input =====")
-    for do in ['High-overlap','Low-overlap']:
-        if DEBUG: print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+    if DEBUG: print(f"************* Classifier Output Distributions Given Averaging representations  as Input ************")
+    for do in treatments:
+        if DEBUG: print(f"{do}:")
         if experiment_set.is_group_by_class:
-            for class_name in ["contradiction", "entailment", "neutral"]:
+            for class_name in config['label_maps'].keys():
                 computing_embeddings.representations[do][class_name] = torch.stack(computing_embeddings.representations[do][class_name], dim=0)
                 average_representation = torch.mean(computing_embeddings.representations[do][class_name], dim=0 ).unsqueeze(dim=0)
                 out = classifier(average_representation).squeeze(dim=0)
@@ -289,14 +326,15 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
                 average_all_seed_distributions[do][cur_class] += cur_distribution[label_maps[cur_class]]
 
     if DEBUG:
-        for do in ['High-overlap','Low-overlap']:
+        print(f"************* Stats ************")
+        for do in treatments:
             if is_group_by_class:
-                print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+                print(f">>{do}:")
                 for cur_class in label_maps.keys():
                     computing_embeddings.confident[do][class_name] = computing_embeddings.confident[do][class_name].squeeze(dim=0)
                     print(f"{class_name} set ; confident: {computing_embeddings.confident[do][class_name] / computing_embeddings.counter[do][class_name]}")
             else:
-                print(f"++++++++++++++++++  {do} ++++++++++++++++++")
+                print(f">>{do}:")
                 print(f'Accuracies:')
                 print(f"avg over all acc: {sum(computing_embeddings.acc[do]) / len(computing_embeddings.acc[do])}")
                 for cur_class in label_maps.keys():
@@ -312,7 +350,7 @@ def evalutate_counterfactual(experiment_set, config, model, tokenizer, label_map
     
     if summarize and count_num_seed == 5:
         print('********** Counterfactual Model Output Distribution Summary **********')
-        for do in ['High-overlap','Low-overlap']:
+        for do in treatments:
             print(f'>> {do}')
             for cur_class in label_maps.keys():
                 print(f" {cur_class}: {average_all_seed_distributions[do][cur_class]/ count_num_seed}")
@@ -533,6 +571,7 @@ def forward_pair_sentences(sentences, computing_embeddings, labels, do, model, D
 
                 computing_embeddings.confident[do][computing_embeddings.label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
                 computing_embeddings.class_acc[do][computing_embeddings.label_remaps[label]].extend([int(predictions[idx]) == label])
+                
 
         else:
 
@@ -548,3 +587,66 @@ def forward_pair_sentences(sentences, computing_embeddings, labels, do, model, D
                 
                 computing_embeddings.confident[do][computing_embeddings.label_remaps[label]] += F.softmax(classifier(representation[idx,:,:].unsqueeze(dim=0)), dim=-1)
                 computing_embeddings.class_acc[do][computing_embeddings.label_remaps[label]].extend([int(predictions[idx]) == label])
+
+def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted') -> pd.DataFrame:
+    # select candidates  based on percentage
+    k = config['k']
+    # select candidates based on the number of neurons
+    num_top_neurons = config['num_top_neurons']
+    top_neurons = {}
+    num_neurons = None
+    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    key = list(topk.keys())[0]
+    # rank for NIE
+    layers = config['layers'] if config['computed_all_layers'] else config['layer']
+    # compute average NIE
+    # ranking_nie = {} if config['compute_all_seeds'] else None
+    scores = {"Neuron_ids": None, "NIE_scores": None }
+    scaler = MinMaxScaler()
+    treatment = "High-overlap"  if config['treatment'] else  "Low-overlap"
+
+    for cur_path in (t:=tqdm(NIE_paths)):
+        ranking_nie = {}
+        with open(cur_path, 'rb') as handle:
+            NIE = pickle.load(handle)
+            counter = pickle.load(handle)
+            print(f"loading NIE : {cur_path}")
+
+        seed = cur_path.split('/')[3].split('_')[-1]
+        do = cur_path.split('/')[-1].split('_')[2]
+        path = f'../NIE/{method_name}/'
+        path = os.path.join(path, "seed_"+ str(seed))
+        for layer in layers:
+            for component in NIE[do].keys():
+                for neuron_id in NIE[do][component][layer].keys():
+                    NIE[do][component][layer][neuron_id] = NIE[do][component][layer][neuron_id] / counter[do][component][layer][neuron_id]
+                    ranking_nie[(f"L-{layer}-" if config['computed_all_layers'] else "") + component + "-" + str(neuron_id)] = NIE[do][component][layer][neuron_id].to('cpu')
+        
+        # sort whole layers
+        if config['computed_all_layers']:
+            all_neurons = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True))
+            if not isinstance(topk[key], list): topk[key] = [topk[key]]
+            for value in topk[key]:
+                num_neurons =  len(list(all_neurons.keys())) * value if key == 'percent' else value
+                num_neurons = int(num_neurons)
+                print(f"++++++++ Component-Neuron_id: {round(value, 2) if key == 'percent' else num_neurons} neurons :+++++++++")
+                cur_neurons = sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)
+                cur_neurons = dict(cur_neurons)
+                scores["Neuron_ids"] = list(cur_neurons.keys())
+                scores["NIE_scores"] = list(cur_neurons.values())
+                df = pd.DataFrame(scores)
+                df['NIE_scores'] = df['NIE_scores'].apply(lambda row :  float(row))
+                scaler.fit(df['NIE_scores'].to_numpy().reshape(-1, 1))
+                transformer = Normalizer().fit(df['NIE_scores'].to_numpy().reshape(-1, 1))
+                df['MinMax'] = scaler.transform(df['NIE_scores'].to_numpy().reshape(-1, 1))
+                df['Normalize'] = transformer.transform(df['NIE_scores'].to_numpy().reshape(-1, 1))
+                df['M_MinMax'] = df['MinMax'].apply(lambda row : 1-row)
+                df['M_Normalize'] = df['Normalize'].apply(lambda row : 1-row)
+                df['M_NIE_scores'] = df['NIE_scores'].apply(lambda row : 1-row)
+                nie_table_path = os.path.join(path, f'nie_table_avg_embeddings_{treatment}_computed_all_layers_.pickle') 
+                
+                with open(nie_table_path, 'wb') as handle:
+                    pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    print(f"Done saving NIE table into {nie_table_path} !")
+
+    return df
