@@ -1,3 +1,4 @@
+import sys
 import os
 import os.path
 import pandas as pd
@@ -606,7 +607,7 @@ def compute_metrics(eval_pred):
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
 
-def main():
+def main(argv):
     global tokenizer
     global label_maps
     global metric
@@ -619,12 +620,13 @@ def main():
     
     dataset = {}
     tokenized_datasets = {}
-    output_dir = '../models/reweight_clark_ipw2' 
+    output_dir = '../models/reweight_clark' 
 
     label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
     
     # random seed
-    seed = config['seed'] #random.randint(0,10000)
+    # seed = config['seed'] #random.randint(0,10000)
+    seed = int(argv[0])
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -691,7 +693,7 @@ def main():
     
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
      
 
 
