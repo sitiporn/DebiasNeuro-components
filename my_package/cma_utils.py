@@ -643,6 +643,19 @@ def get_nie_set(config, experiment_set, save_nie_set_path):
         pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving validation set used to compute NIE into {save_nie_set_path} !") 
 
+def combine_nie(row, config):
+    sum_nie = 0
+    
+    for label_text in config['label_maps']:
+        sum_nie += row[f'{label_text}_NIE'] 
+        if config['DEBUG'] == 3:
+            print(f'{label_text}_NIE: {row[f"{label_text}_NIE"]}')
+
+    avg_nie = sum_nie / len(config['label_maps'])
+    if config['DEBUG'] == 3: print(f'averaged nie : {avg_nie}')
+
+    return avg_nie
+
 def get_avg_nie(config, cur_path, layers):
     seed = cur_path.split('/')[3].split('_')[-1]
     do = cur_path.split('/')[-1].split('_')[2 if config['is_averaged_embeddings'] else 3 ]
