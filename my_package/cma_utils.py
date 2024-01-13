@@ -18,6 +18,7 @@ from my_package.intervention import get_mediators
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from my_package.utils import get_outliers
 from my_package.counter import count_negations 
+import pandas as pd 
 
 class Classifier(nn.Module):
     def __init__(self, model):
@@ -697,9 +698,11 @@ def get_avg_nie(config, cur_path, layers):
                             df_nie['Neuron_ids'].append(neuron_id) 
                             df_nie['Treatments'].append(do) 
     
-    import pandas as pd 
     df_nie = pd.DataFrame.from_dict(df_nie)
     if config['is_group_by_class']:
         df_nie['NIE'] = df_nie.apply(lambda row: combine_nie(row, config), axis=1)
 
     return NIE, counter, df_nie
+
+def combine_pos(row):
+    return f"L-{row['Layers']}-{row['Components']}-{row['Neuron_ids']}"
