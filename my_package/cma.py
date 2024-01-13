@@ -166,6 +166,7 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
         df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
         # df_nie.sort_values(by = ['NIE'], ascending = False)
         ranking_nie = {row['combine_pos']: row['NIE'] for index, row in df_nie.iterrows()}
+        breakpoint()
 
         # sort globally
         if config['computed_all_layers']:
@@ -176,7 +177,7 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
                 print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
                 if mode == 'random':
                     from operator import itemgetter
-                    cur_neurons = sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)
+                    cur_neurons =  [(k, v) for k, v in ranking_nie.items()]
                     random.shuffle(cur_neurons)
                     top_neurons[round(value, 4) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
                 elif mode == 'sorted':
