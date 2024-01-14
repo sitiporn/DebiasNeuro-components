@@ -674,6 +674,10 @@ def get_avg_nie(config, cur_path, layers):
         counter = pickle.load(handle)
         print(f"loading NIE : {cur_path}")
     
+    if do in NIE.keys():
+        NIE = swap_hierarchy(NIE)
+        counter = swap_hierarchy(counter)
+    
     for component in NIE.keys():
         for layer in layers:
             mode = f"L-{layer}-" if config['computed_all_layers'] else ""
@@ -706,3 +710,13 @@ def get_avg_nie(config, cur_path, layers):
 
 def combine_pos(row):
     return f"L-{row['Layers']}-{row['Components']}-{row['Neuron_ids']}"
+
+
+def swap_hierarchy(cur_dict):
+    from collections import defaultdict
+    res = defaultdict(dict)
+    for key, val in cur_dict.items():
+        for key_in, val_in in val.items():
+            res[key_in][key] = val_in
+
+    return res
