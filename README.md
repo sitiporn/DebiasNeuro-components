@@ -11,6 +11,7 @@
 *  
 * implement group by class in get_hidden_representations
 * extend counterfactual set from validation to training set
+* Recheck bugs in getitem of ExperimentDataset as used as counterfactual datasets
 
 ## Open questions
 
