@@ -166,11 +166,10 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
         df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
         # df_nie.sort_values(by = ['NIE'], ascending = False)
         ranking_nie = {row['combine_pos']: row['NIE'] for index, row in df_nie.iterrows()}
-        breakpoint()
-
         # sort globally
         if config['computed_all_layers']:
             if not isinstance(topk[key], list): topk[key] = [topk[key]]
+            # ********  write it to pickle *********
             for value in topk[key]:
                 num_neurons =  value * df_nie.shape[0] if key == 'percent' else value
                 num_neurons = int(num_neurons)
@@ -182,7 +181,7 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
                     top_neurons[round(value, 4) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
                 elif mode == 'sorted':
                     top_neurons[round(value, 4) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
-            
+            # ********  write it to pickle *********
             if mode == 'random':
                 if config['is_averaged_embeddings']:
                     save_path = os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers.pickle')
@@ -476,6 +475,8 @@ def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted
     return df
 
 def get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug=False):
+    from my_package.cma_utils import get_avg_nie
+    from my_package.cma_utils import combine_pos
     # random seed
     seed = config['seed'] 
     if seed is not None:
@@ -485,16 +486,57 @@ def get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug
         torch.cuda.manual_seed(seed)
     else: 
         seed = str(seed)
+    
+    top_neuron_path = f'../pickles/top_neurons/{method_name}/'
+    if not os.path.exists(top_neuron_path): os.mkdir(top_neuron_path)
 
     # select candidates  based on percentage
     k = config['k']
     mode = config['top_neuron_mode']
+    num_neurons = None
+    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    key = list(topk.keys())[0]
+    layers = config['layers'] if config['computed_all_layers'] else config['layer']
+    sorted_local = {}
+    
 
-    nie_df = scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted')
-    # with open(, 'rb') as handle:
-    #     nie_df = pickle.load(handle)
-    # breakpoint()
+    # compute average NIE
+    for cur_path in (t:=tqdm(NIE_paths)):
+        seed = cur_path.split('/')[3].split('_')[-1]
+        do = cur_path.split('/')[-1].split('_')[2 if config['is_averaged_embeddings'] else 3]
+        t.set_description(f"{seed}, {do} : {cur_path}")
+        NIE, counter, df_nie = get_avg_nie(config, cur_path, layers)
+        df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
+        # df_nie.sort_values(by = ['NIE'], ascending = False)
+        # ranking_nie = {row['combine_pos']: row['NIE'] for index, row in df_nie.iterrows()}
+        if not isinstance(topk[key], list): topk[key] = [topk[key]]
 
+        for value in topk[key]:
+            sorted_local[value] = {}
+            for layer in layers:
+                sorted_local[value][layer] = df_nie[df_nie.Layers == layer]
+                num_neurons =  value * sorted_local[value][layer].shape[0] if key == 'percent' else value
+                num_neurons = int(num_neurons)
+                sorted_local[value][layer] = {row['combine_pos']: row['NIE'] for index, row in sorted_local[value][layer].iterrows()}
+                sorted_local[value][layer] = dict(sorted(sorted_local[value][layer].items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+                
+    if config['is_averaged_embeddings']:
+        save_path = os.path.join(top_neuron_path, f'top_neuron_layer_each_{seed}_{key}_{do}_all_layers.pickle')
+    elif config['is_group_by_class']:
+        save_path = os.path.join(top_neuron_path, f'top_neuron_layer_each_{seed}_{key}_{do}_all_layers_class_level.pickle')
+    
+    with open(save_path, 'wb') as handle:
+        pickle.dump(sorted_local, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"Done saving top neurons for each layer into pickle!: {save_path}") 
+           
+
+
+
+
+
+
+
+  
 
     
     
