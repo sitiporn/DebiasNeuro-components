@@ -31,7 +31,7 @@ from my_package.data import rank_losses
 from my_package.intervention import intervene, high_level_intervention
 from my_package.cma import cma_analysis,  get_distribution
 from my_package.utils import debias_test
-from my_package.cma_utils import get_nie_set_path
+from my_package.cma_utils import get_nie_set
 import yaml
 from my_package.utils import get_num_neurons, get_params, get_diagnosis
 from my_package.data import get_analysis 
@@ -83,21 +83,27 @@ from transformers.utils import is_torch_tpu_available
 from transformers.trainer_utils import speed_metrics, TrainOutput
 from my_package.data import get_all_model_paths
 from my_package.optimization_utils import get_advantaged_samples
+from my_package.cma import evalutate_counterfactual
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--collect_counterfactuals", type=bool,  default=False,  help="The random advanated samples")	
+parser.add_argument("--eval_counterfactuals", type=bool,  default=False)	
+parser.add_argument("--collect_counterfactuals", type=bool,  default=False)	
 parser.add_argument("--compute_nie_scores", type=bool, default=False,  help="collect advanated samples")	
-parser.add_argument("--get_candidate_neurons", type=bool, default=False, help="model to filter advantaged samples")	
+parser.add_argument("--get_candidate_neurons", type=bool, default=False, help="get top neurons looking globally")	
+parser.add_argument("--get_top_neurons_layer_each", type=bool, default=False, help="get top neurons looking locally")	
 parser.add_argument("--intervention_type", type=str, help="tye of neuron intervention") 
 parser.add_argument("--intervention_class", type=str, help="class used to compute NIE scores") 
 parser.add_argument("--candidated_class", type=str, help="class used to filter advantaged samples") 
-parser.add_argument("--is_averaged_embeddings", type=bool, default=True, help="Average representation across samples")	
+parser.add_argument("--is_averaged_embeddings", type=bool, default=False, help="Average counterfactual representation across samples")	
+parser.add_argument("--is_group_by_class", type=bool, default=False, help="Grouping counterfactual representation by class")	
 parser.add_argument("--dataset_name", type=str, help="dataset to intervene") 
-parser.add_argument("--seed", type=int, default=1548, help="The random seed value")	
+parser.add_argument("--seed", type=int, required=True, help="The random seed value")	
 parser.add_argument("--method_name", type=str, help="method of model to intervene") 
 parser.add_argument("--model_load_path", type=str, default=None, required=True, help="The directory where the model checkpoints will be read to train.")
 parser.add_argument('--treatment', type=str, choices=['High-overlap', 'Low-overlap'], required=True, help="The type of treatment to use as counterfactuals")
+parser.add_argument("--k", type=int, default=5, help="the percentage of total number of neurons") 
+parser.add_argument("--DEBUG", type=int, default=0, help="Mode used to debug")	
 
 args = parser.parse_args()
 print(args)
@@ -105,18 +111,24 @@ config_path = "./configs/cma_experiment.yaml"
 with open(config_path, "r") as yamlfile:
     config = yaml.load(yamlfile, Loader=yaml.FullLoader)
 
+config["eval_counterfactuals"] = args.eval_counterfactuals
 config["collect_counterfactuals"] = args.collect_counterfactuals
 config["compute_nie_scores"] = args.compute_nie_scores
 config["get_candidate_neurons"] = args.get_candidate_neurons 
+config["get_top_neurons_layer_each"] = args.get_top_neurons_layer_each
 config["intervention_type"] = args.intervention_type
 config["intervention_class"] = [args.intervention_class]
 config["candidated_class"] = args.candidated_class
 config["is_averaged_embeddings"]  = args.is_averaged_embeddings
+config["is_group_by_class"] = args.is_group_by_class
 config['dataset_name'] = args.dataset_name
 config["seed"] = args.seed
 config['method_name'] = args.method_name
 config["model_load_path"] = args.model_load_path
 config["treatment"] = args.treatment
+config["DEBUG"] = args.DEBUG
+config['k'] = args.k
+
 
 dataset = {}
 tokenized_datasets = {}
@@ -124,29 +136,31 @@ NIE_paths = []
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 dataset_name = config['dataset_name']
 method_name = config["method_name"]
-mode = [args.treatment]
+treatments = [args.treatment]
 print(f'current dataset_name: {dataset_name}')
 LOAD_MODEL_PATH = args.model_load_path
 # ******************** PATH ********************
-# Model to intervene
-# method_name =  f'separation_replace_intervention_recent_baseline'
+if config['is_group_by_class']:
+    save_nie_set_path = f'../pickles/{dataset_name}_class_level_nie_{config["num_samples"]}_samples.pickle' 
+elif config["is_averaged_embeddings"]:
+    save_nie_set_path = f'../pickles/{dataset_name}_nie_{config["num_samples"]}_samples.pickle'
 
-save_nie_set_path = f'../pickles/{dataset_name}_class_level_nie_{config["num_samples"]}_samples.pickle' if config['is_group_by_class'] else f'../pickles/{dataset_name}_nie_{config["num_samples"]}_samples.pickle'
 tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
-
 if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
 model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
 
-# prepare validation for computing NIE scores
-experiment_set = ExperimentDataset(config, encode = tokenizer, dataset_name=dataset_name)                            
+# prepare validation for Counterfactual Generations
+experiment_set = ExperimentDataset(config, encode = tokenizer, dataset_name=dataset_name, DEBUG=config['DEBUG'])                            
 exp_loader = DataLoader(experiment_set, batch_size = 32, shuffle = False, num_workers=0)
-
-if not os.path.isfile(save_nie_set_path): get_nie_set_path(config, experiment_set, save_nie_set_path)
+# not used gettiem of ExperimentDataset
+if not os.path.isfile(save_nie_set_path): get_nie_set(config, experiment_set, save_nie_set_path)
 counterfactual_paths, _ = geting_counterfactual_paths(config, method_name)
 # path to save NIE scores
-NIE_paths, _ = geting_NIE_paths(config, method_name, mode)
+NIE_paths, _ = geting_NIE_paths(config, method_name, treatments)
 print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
-for path in counterfactual_paths: print(f"{path.split('/')[-1].split('_')[1]}: {path}")
+for path in counterfactual_paths: 
+    component = path.split('/')[-1].split('_')[1 if config["is_averaged_embeddings"] else 2]
+    print(f"{component}: {path}")
 print(f'NIE_paths: {NIE_paths}')
 
 # random seed
@@ -168,10 +182,33 @@ model = BertForSequenceClassification.from_pretrained(config['tokens']['model_na
 
 assert config["intervention_type"] == 'replace', f'intervention type is not replace mode'
 # ******************* Causal Mediation Analysis ********************* 
-if args.collect_counterfactuals:
-    collect_counterfactuals(model, model_path, dataset_name, method_name, seed, counterfactual_paths, config, experiment_set, exp_loader, tokenizer, DEVICE=DEVICE) 
+# eval counterfactual
+if args.eval_counterfactuals:
+    evalutate_counterfactual(experiment_set, 
+                             exp_loader, 
+                             config, 
+                             model, 
+                             tokenizer, 
+                             config['label_maps'], 
+                             DEVICE, 
+                             all_model_paths, 
+                             summarize=True, 
+                             DEBUG=True)
 
-# Todo: recheck is hooks in the model
+if args.collect_counterfactuals:
+    # used getitem ExperimentDataset
+    collect_counterfactuals(model, 
+                            model_path, 
+                            dataset_name, 
+                            method_name, 
+                            seed, 
+                            counterfactual_paths, 
+                            config, 
+                            experiment_set, 
+                            exp_loader, 
+                            tokenizer, 
+                            DEVICE=DEVICE) 
+
 if args.compute_nie_scores:
     cma_analysis(config, 
                 model_path,
@@ -181,11 +218,16 @@ if args.compute_nie_scores:
                 NIE_paths, 
                 save_nie_set_path = save_nie_set_path, 
                 model = model, 
-                treatments = mode, 
+                treatments = treatments, 
                 tokenizer = tokenizer, 
                 experiment_set = experiment_set, 
                 DEVICE = DEVICE, 
                 DEBUG = True)   
 
 if args.get_candidate_neurons: 
-    get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False, mode=config['top_neuron_mode']) 
+    get_candidate_neurons(config, method_name, NIE_paths, treatments=treatments, debug=False) 
+
+if args.get_top_neurons_layer_each:
+    from my_package.cma import get_top_neurons_layer_each
+    get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug=False)
+
