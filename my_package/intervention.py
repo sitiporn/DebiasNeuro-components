@@ -49,7 +49,7 @@ def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, in
         # where to intervene
         # bz, seq_len, hidden_dim
         scatter_mask[:, CLS_TOKEN, neuron_ids] = 1
-        if debug >=5:
+        if debug >=5 and component not in ['Q','K','V']:
             print(f'******** Before Intervention *************')
             print(f"intervention type:{intervention_type} on neuron_ids: {neuron_ids}")
             print(output[:2,:3, neuron_ids])
@@ -68,7 +68,7 @@ def neuron_intervention(neuron_ids, component, DEVICE, value=None, epsilon=0, in
             neuron_values = value[neuron_ids]
             neuron_values = neuron_values.repeat(output.shape[0], output.shape[1], 1)
             output.masked_scatter_(scatter_mask, neuron_values)
-        if debug >=5:
+        if debug >=5 and component not in ['Q','K','V']:
             print(f'******** After Intervention Hook  *************')
             print(f'intervention mode : {intervention_type}')
             print(f"component-neuron_ids-value: {component}-{neuron_ids}-{value[neuron_ids]}")
@@ -97,7 +97,6 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
     assert len(components) == 6, f"don't cover all component types of transformer modules" 
     assert len(layers) == 12, f"the computation does not cover follow all layers"
     assert isinstance(do, str)
- 
     
     for batch_idx, (sentences, labels) in (t := tqdm(enumerate(nie_dataloader))):
         t.set_description(f"NIE_dataloader, batch_idx : {batch_idx}")
@@ -105,7 +104,7 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
         pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
         inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
         inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
-        
+
         with torch.no_grad(): 
             null_probs = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps[INTERVENTION_CLASS]]
         
