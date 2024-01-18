@@ -226,14 +226,10 @@ def get_overlap_thresholds(df, upper_bound, lower_bound, dataset_name):
     
     if dataset_name == 'fever':
         df['count_negations']  = df['claim'].apply(count_negations)
-    elif dataset_name == 'qqp':
-        df['overlap_scores'] = df['pair_label'].apply(get_qqp_bias_scores)
-        # df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
     else:    
         df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
         
     biased_scores = df['count_negations'] if dataset_name == 'fever'  else df['overlap_scores'] 
-
     thresholds["Low-overlap"]  = 0.0 if dataset_name == 'fever' else np.percentile(biased_scores, lower_bound)
     thresholds["High-overlap"] = 1.0 if dataset_name == 'fever' else np.percentile(biased_scores, upper_bound)
 
@@ -260,7 +256,7 @@ def get_activation(layer, do, component, activation, is_averaged_embeddings, cla
         activation[component][do][layer][class_name].extend(output.detach()[:,CLS_TOKEN,:].cpu())
     
     if DEBUG >=4: print(f"{do}, layer : {layer}, component: {component}, class_name: {class_name},inp:{input[0].shape}, out:{output.shape} ")
-    if DEBUG ==0: 
+    if DEBUG ==1: 
         print(f'*** layer: {layer} component: {component} ')
         print(f'input[:2,0,:5]:')
         print(input[0].detach()[:2,0,:5])
@@ -293,6 +289,8 @@ def get_overlap_score(pair_label):
         if word in prem_words:
             count+=1
 
+    if len(hyp_words) == 0: return 0
+    
     overlap_score = count/len(hyp_words)        
 
     return overlap_score
@@ -522,7 +520,7 @@ def get_hidden_representations(config, counterfactual_paths, method_name, layers
         with open(cur_path, 'rb') as handle:
             counterfactual_representations[seed][component] = pickle.load(handle)
             counter = pickle.load(handle)
-
+        
         # concate all batches
         for layer in layers:
             # compute average over samples
