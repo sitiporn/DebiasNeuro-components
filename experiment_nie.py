@@ -107,9 +107,17 @@ parser.add_argument("--DEBUG", type=int, default=0, help="Mode used to debug")
 
 args = parser.parse_args()
 print(args)
-config_path = "./configs/cma_experiment.yaml"
+
+if args.dataset_name == 'mnli':
+    config_path = "./configs/cma_experiment.yaml"
+elif args.dataset_name == 'qqp':
+    config_path = "./configs/cma_qqp_experiment.yaml"
+elif args.dataset_name == 'fever':
+    pass
+
 with open(config_path, "r") as yamlfile:
     config = yaml.load(yamlfile, Loader=yaml.FullLoader)
+    print(f'{args.dataset_name} config : {config_path}')
 
 config["eval_counterfactuals"] = args.eval_counterfactuals
 config["collect_counterfactuals"] = args.collect_counterfactuals
@@ -164,7 +172,7 @@ for path in counterfactual_paths:
 print(f'NIE_paths: {NIE_paths}')
 
 # random seed
-seed = config['seed'] 
+seed = config['seed']
 if seed is not None:
     random.seed(seed)
     np.random.seed(seed)
@@ -230,4 +238,5 @@ if args.get_candidate_neurons:
 if args.get_top_neurons_layer_each:
     from my_package.cma import get_top_neurons_layer_each
     get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug=False)
+
 
