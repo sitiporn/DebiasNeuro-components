@@ -92,14 +92,14 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
     do = config["treatment"]
     print(f'Intervention Class: {INTERVENTION_CLASS}')
     print(f'Intervention mode: {config["intervention_type"]}')
-    print(f'Treatment mdoe: {do}')
+    print(f'Treatment mode: {do}')
     components = cls.keys() # 
     assert len(components) == 6, f"don't cover all component types of transformer modules" 
     assert len(layers) == 12, f"the computation does not cover follow all layers"
     assert isinstance(do, str)
     
     for batch_idx, (sentences, labels) in (t := tqdm(enumerate(nie_dataloader))):
-        t.set_description(f"NIE_dataloader, batch_idx : {batch_idx}")
+        t.set_description(f"NIE_dataloader, batch_idx : {batch_idx} / {len(nie_dataloader)}")
         premise, hypo = sentences
         pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
         inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
@@ -109,7 +109,8 @@ def high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter
             null_probs = F.softmax(model(**inputs).logits , dim=-1)[:, label_maps[INTERVENTION_CLASS]]
         
         for component in components:
-            for layer in layers:
+            for layer in (l:= tqdm(layers)):
+                l.set_description(f"component: {component}, layer_id : {layer}")
                 Z = cls[component][do][layer].to(DEVICE) if config["is_averaged_embeddings"] else cls[component][do][layer][class_name].to(DEVICE)
                 for neuron_id in range(Z.shape[0]):
                     hooks = [] 
