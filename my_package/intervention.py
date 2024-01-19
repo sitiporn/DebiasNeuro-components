@@ -56,11 +56,14 @@ def neuron_intervention(neuron_ids, component, DEVICE, scaler=False, value=None,
             # print(output[:2,:3, :2])
         # ******************** soft masking on on valid set ********************
         if intervention_type == "weaken": 
-            # breakpoint()
-            output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * epsilon
+            output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * epsilon # weaken_mask
+
             if scaler == True:
-                print('Applying Dropout style Scaler')
-                breakpoint()
+                # print('Applying Dropout style Scaler')
+                scaler_mask = torch.ones_like(output[:,CLS_TOKEN, :]) 
+                scaler_mask[:, neuron_ids] = scaler_mask[:, neuron_ids]* 0
+                scaler_mask = scaler_mask / (1.0 - ((len(neuron_ids)*(1.0-epsilon))/output.shape[2]))
+                output[:,CLS_TOKEN, :] = output[:,CLS_TOKEN, :].mul(scaler_mask)
         
         elif intervention_type == "neg": output[:,CLS_TOKEN, neuron_ids] = output[:,CLS_TOKEN, neuron_ids] * -1
         elif intervention_type ==  'remove':

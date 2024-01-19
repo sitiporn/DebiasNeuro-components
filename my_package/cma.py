@@ -25,6 +25,7 @@ from my_package.intervention import intervene, high_level_intervention
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, Normalizer
 from my_package.intervention import get_mediators
+from my_package.cma_utils import swap_hierarchy
 #from nn_pruning.patch_coordinator import (
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
@@ -537,6 +538,11 @@ def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted
         do = cur_path.split('/')[-1].split('_')[2]
         path = f'../NIE/{method_name}/'
         path = os.path.join(path, "seed_"+ str(seed))
+        # check structure
+        if do not in NIE.keys():
+            NIE = swap_hierarchy(NIE)
+            counter = swap_hierarchy(counter)
+
         for layer in layers:
             for component in NIE[do].keys():
                 for neuron_id in NIE[do][component][layer].keys():

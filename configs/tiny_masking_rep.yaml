@@ -3,6 +3,7 @@
   # "model_name": "../bert-base-uncased/",
   "collect_representation": False,
   "top_neuron_mode": "sorted",
+  "random_mask": False,
   "dataset_name": "mnli",
   "DEBUG": True,
   "debug": False, 
@@ -61,16 +62,17 @@
   # "weaken_rate": null,
   "get_masking_value": False,
   # percent of neurons to mask
-  "masking_rate": 0.005, 
+  "masking_rate": 0.001,
+  "scaler": True,
   # number of neurons to mask
   "neuron_group": null,
   "rank_losses": False, 
   # range 0.0 to 0.10, step = 0.01
   # searching masking rates
   "percent": {
-    "low": 0.01, 
-    "high": 0.1,
-    "step": 0.025,
+    "low": 0.001, 
+    "high": 0.05,
+    "step": 0.001,
     "size": 1,
     "mode": 0o666,
     "acc": {}

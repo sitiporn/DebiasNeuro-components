@@ -643,3 +643,11 @@ def get_nie_set(config, experiment_set, save_nie_set_path):
         pickle.dump(nie_loader, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving validation set used to compute NIE into {save_nie_set_path} !") 
 
+def swap_hierarchy(cur_dict):
+    from collections import defaultdict
+    res = defaultdict(dict)
+    for key, val in cur_dict.items():
+        for key_in, val_in in val.items():
+            res[key_in][key] = val_in
+
+    return res

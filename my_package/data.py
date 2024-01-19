@@ -329,12 +329,14 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
     # get position of top neurons 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
-    
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     if config['masking_rate_search']: num_neuron_groups = params['percent']
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
 
     nie_table_df = scaling_nie_scores(config, method_name, NIE_paths, debug=False)
+    neuron_ids_copy = nie_table_df['Neuron_ids'].tolist()
+    random.shuffle(neuron_ids_copy)
+    if config['random_mask']: nie_table_df['Neuron_ids'] = neuron_ids_copy # for random ablation experiment
     m = {row['Neuron_ids']: row['M_MinMax'] for index, row in nie_table_df.iterrows()} 
 
     # cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
@@ -419,7 +421,7 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
                                                                                         neuron_ids = neurons_list, 
                                                                                         component=component,
                                                                                         DEVICE = DEVICE ,
-                                                                                        scaler = True,
+                                                                                        scaler = config["scaler"],
                                                                                         value = Z,
                                                                                         epsilon=epsilon,
                                                                                         intervention_type=config["intervention_type"],
@@ -502,7 +504,6 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_
     # get position of top neurons 
     with open(path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
-    
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     if config['masking_rate_search']: num_neuron_groups = params['percent']
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
@@ -1340,7 +1341,10 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
     json_files = ['multinli_1.0_dev_matched.jsonl', 'multinli_1.0_dev_mismatched.jsonl', 'heuristics_evaluation_set.jsonl']
     dataset_names = ['matched', 'mismatched', 'hans']
     if not config['compute_all_seeds']: all_paths = {str(config["seed"]):all_paths[str(config['seed'])]} 
-
+    null_mm = []
+    intervene_mm = []
+    null_hans = []
+    inteverne_hans = []
     for path in counterfactual_paths: 
         cur_seed = path.split('/')[3]
         if  cur_seed not in group_counterfactual_paths.keys(): group_counterfactual_paths[cur_seed] = []
@@ -1368,9 +1372,20 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
         all_hans_scores = pickle.load(pickle_file)
         pickle_file.close()
         print(f'HAN scores : ')
-        print(all_hans_scores[0.0][0.005]['Null'].item(),all_hans_scores[0.0][0.005]['Intervene'].item())
-        # get_condition_inference_scores(config, model, method_name, seed)
-        
+        print(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Null'].item(), all_hans_scores[config['weaken_rate']][config['masking_rate']]['Intervene'].item())
+        get_condition_inference_scores(config, model, method_name, seed)
+        null_mm.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
+        intervene_mm.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
+        null_hans.append(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Null'].item())
+        inteverne_hans.append(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Intervene'].item())
+    print("null_mm:")
+    print(sum(null_mm) / len(null_mm), null_mm )
+    print("intervene_mm:")
+    print(sum(intervene_mm) / len(intervene_mm), intervene_mm )
+    print("null_hans:")
+    print(sum(null_hans) / len(null_hans), null_hans )
+    print("inteverne_hans:")
+    print(sum(inteverne_hans) / len(inteverne_hans), inteverne_hans )
 
 
 def convert_text_to_hans_scores(text_answer_path, config, result_path, group): 
