@@ -536,6 +536,7 @@ def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, mode
     k = config['k']
     mode = config['top_neuron_mode']
     seed = config['seed']
+    do = config['treatment']
     INTERVENTION_CLASS = config['intervention_class'][0] 
     label_maps = config['label_maps']
     layers = config['layers'] if config['computed_all_layers'] else config['layer']
