@@ -24,7 +24,7 @@ from my_package.cma import get_candidate_neurons
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-from my_package.data import ExperimentDataset, Dev, get_conditional_inferences, eval_model, print_config
+from my_package.data import ExperimentDataset, Dev, get_conditional_inferences, eval_model, print_config, eval_model_qqp
 from my_package.optimization_utils import trace_optimized_params, initial_partition_params
 from my_package.optimization import partition_param_train, restore_original_weight
 from my_package.data import rank_losses
@@ -92,6 +92,7 @@ parser.add_argument("--collect_counterfactuals", type=bool,  default=False)
 parser.add_argument("--compute_nie_scores", type=bool, default=False,  help="collect advanated samples")	
 parser.add_argument("--get_candidate_neurons", type=bool, default=False, help="get top neurons looking globally")	
 parser.add_argument("--get_top_neurons_layer_each", type=bool, default=False, help="get top neurons looking locally")	
+parser.add_argument("--get_top_seq_candidate_neurons", type=bool, default=False, help="get top neurons looking locally")	
 parser.add_argument("--intervention_type", type=str, help="tye of neuron intervention") 
 parser.add_argument("--intervention_class", type=str, help="class used to compute NIE scores") 
 parser.add_argument("--candidated_class", type=str, help="class used to filter advantaged samples") 
@@ -238,5 +239,10 @@ if args.get_candidate_neurons:
 if args.get_top_neurons_layer_each:
     from my_package.cma import get_top_neurons_layer_each
     get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug=False)
+
+if args.get_top_seq_candidate_neurons:
+    from my_package.cma import get_sequential_neurons
+    get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, model_path, model, method_name, NIE_paths, tokenizer, DEVICE, debug=False)
+    
 
 

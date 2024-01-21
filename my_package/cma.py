@@ -26,6 +26,9 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, Normalizer
 from my_package.intervention import get_mediators
 from my_package.cma_utils import get_component_names
+from my_package.cma_utils import get_avg_nie
+from my_package.cma_utils import combine_pos
+from my_package.intervention import ablation_intervention
 #from nn_pruning.patch_coordinator import (
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
@@ -101,7 +104,7 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
     counter = get_component_names(config, intervention=True)
     #shape: cls[seed][component][do][layer][neuron_id] or cls[seed][component][do][layer][class_name][neuron_id]
     cls = get_hidden_representations(config, counterfactual_paths, method_name, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
-
+    
     if config['is_averaged_embeddings']: 
         high_level_intervention(config, nie_dataloader, mediators, cls, NIE, counter ,layers , _model, config['label_maps'], tokenizer, treatments, DEVICE, seed=seed)
     elif config["is_group_by_class"]:
@@ -475,8 +478,6 @@ def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted
     return df
 
 def get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug=False):
-    from my_package.cma_utils import get_avg_nie
-    from my_package.cma_utils import combine_pos
     # random seed
     seed = config['seed'] 
     if seed is not None:
@@ -528,15 +529,82 @@ def get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug
     with open(save_path, 'wb') as handle:
         pickle.dump(sorted_local, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Done saving top neurons for each layer into pickle!: {save_path}") 
-           
 
+def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, model_path, model, method_name, NIE_paths, tokenizer, DEVICE, debug=False):
+    import copy 
+    
+    k = config['k']
+    mode = config['top_neuron_mode']
+    seed = config['seed']
+    INTERVENTION_CLASS = config['intervention_class'][0] 
+    label_maps = config['label_maps']
+    layers = config['layers'] if config['computed_all_layers'] else config['layer']
+    top_neuron_path = f'../pickles/top_neurons/{method_name}/'
+    if not os.path.exists(top_neuron_path): os.mkdir(top_neuron_path)
+    
+    print(f'Intervention Class: {INTERVENTION_CLASS}')
+    print(f'Intervention type : {config["intervention_type"]}')
+    print(f'Treatment : {config["treatment"]}')
+    print(f'Seed : {seed}')
+    assert len(NIE_paths) == 1, f'Expect len 1 but found :{len(NIE_paths)}'
+   
+    topk = get_topk(config, k=k, num_top_neurons=None)
+    key = list(topk.keys())[0]
+    cur_path = NIE_paths[0]
+    NIE, counter, df_nie = get_avg_nie(config, cur_path, layers)
+    df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
+    step = df_nie[df_nie.Layers == 0].shape[0] / 5 # follow papers
+    step = int(step)
 
-
-
-
-
-
+    cls = get_hidden_representations(config, counterfactual_paths, method_name, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
+    
+    if seed is not None:
+        print(f'high level intervention seed:{seed}')
+        if isinstance(seed, int): seed = str(seed)
+        cls = cls[seed]
+    else:
+        # when using original model
+        cls = cls[str(seed)] 
+    
+    if model_path is not None: 
+        _model = load_model(path= model_path, model=copy.deepcopy(model))
+        print(f'Loading CMA model: {model_path}')
+    else:
+        _model = copy.deepcopy(model)
+        _model = _model.to(DEVICE)
+        print(f'using original model as input to this function')
+    
+    with open(save_nie_set_path, 'rb') as handle:
+        nie_dataset = pickle.load(handle)
+        nie_dataloader = pickle.load(handle)
+        print(f"loading nie sets from pickle {save_nie_set_path} !")        
   
+    mediators  = get_mediators(_model)
+    NIE = {}
+    
+    for neuron_num in range(step,  df_nie.shape[0], step): 
+        print(f'{neuron_num} / {df_nie.shape[0]}')
+        NIE[neuron_num] = {}
+        for group in [10, 11, 'all']:
+            if group != 'all' and  neuron_num >= df_nie[df_nie.Layers == 0].shape[0]: continue
+            hooks = []
+            NIE[neuron_num][group] = ablation_intervention(config, hooks, _model, nie_dataloader, neuron_num, df_nie, group, mediators, cls,  label_maps, tokenizer, DEVICE)
+            for hook in hooks: hook.remove()
+            del hooks
 
     
+    path = f'../NIE/{method_name}/'
+    if not os.path.exists(path): os.mkdir(path) 
+    path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )
+    if not os.path.exists(path): os.mkdir(path) 
     
+    if config['is_averaged_embeddings']:
+        group_NIE_path = os.path.join(path, f'ablation_avg_embeddings_{do}_computed_all_layers_.pickle') 
+    elif config['is_group_by_class']: 
+        group_NIE_path = os.path.join(path, f'ablation_class_level_embeddings_{do}_computed_all_layers_.pickle')
+
+    with open(group_NIE_path, 'wb') as handle: 
+        pickle.dump(NIE, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"saving Ablation NIE into {group_NIE_path} done ! ")
+
+
