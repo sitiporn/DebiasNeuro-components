@@ -1510,11 +1510,11 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
                 if 'Null' in maf1.keys():
                     maf1 = maf1['Null']
                 print(f"overall maf1 : {maf1['all']}")
-                print(f"is_duplicate maf1 : {maf1['is_duplicate']}")
+                print(f"is_duplicate maf1 : {maf1['duplicate']}")
                 print(f"not_duplicate maf1 : {maf1['not_duplicate']}")
                 # print(f"neutral acc : {acc['neutral']}")
                 maf1_avg += maf1['all']
-                is_dup_avg += maf1['is_duplicate']
+                is_dup_avg += maf1['duplicate']
                 not_dup_avg += maf1['not_duplicate']
                 computed_maf1_count += 1
             elif config['get_paws_result'] and 'paws'in cur_json: 
@@ -1524,12 +1524,12 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
                     maf1_paws = maf1_paws['Null']
                 print(f"overall paws maf1 : {maf1_paws['all']}")
                 print(f"not_dup paws maf1 : {maf1_paws['not_duplicate']}")
-                print(f"is_dup paws maf1 : {maf1_paws['is_duplicate']}")
+                print(f"is_dup paws maf1 : {maf1_paws['duplicate']}")
                 # print(f"neutral acc : {acc['neutral']}")
 
                 paws_avg += maf1_paws['all']
                 paws_not_dup_avg += maf1_paws['not_duplicate']
-                paws_is_dup_avg += maf1_paws['is_duplicate']
+                paws_is_dup_avg += maf1_paws['duplicate']
                 computed_paws_count += 1
                 # breakpoint()
                 # cur_hans_score = get_symm_result(cur_raw_distribution_path, config)
