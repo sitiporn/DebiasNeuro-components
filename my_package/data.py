@@ -23,7 +23,7 @@ from pprint import pprint
 from my_package.utils import  LayerParams
 from my_package.cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
 from my_package.intervention import Intervention, neuron_intervention, get_mediators
-from my_package.utils import get_ans, compute_acc
+from my_package.utils import get_ans, compute_acc, compute_maf1
 from my_package.utils import get_num_neurons, get_params, relabel, give_weight
 from torch.optim import Adam
 from transformers import AutoTokenizer, BertForSequenceClassification
@@ -69,7 +69,6 @@ class ExperimentDataset(Dataset):
         
         data_path = os.path.join(data_path, json_file)
         self.df = pd.read_json(data_path, lines=True)
-        
 
         if config['dataset_name'] != 'qqp':
             if '-' in self.df.gold_label.unique():
@@ -91,7 +90,7 @@ class ExperimentDataset(Dataset):
         # Todo: 
         # from counter import count_negations
         thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound, dataset_name)
-
+        
         # get HOL and LOL set
         self.df['Treatment'] = self.df.apply(lambda row: group_by_treatment(
             thresholds, 
@@ -645,7 +644,6 @@ def get_condition_inference_hans_result(config):
     with open(neuron_path, 'rb') as handle: 
         top_neuron = pickle.load(handle)
 
-    breakpoint()
 
     params, digits = get_params(config)
     
@@ -946,8 +944,6 @@ def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, met
             losses = []
             golden_answers = []
 
-           
-            
             dev_set = Dev(config['dev_path'] , cur_json)
             dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
             
@@ -1447,13 +1443,13 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
     CHALLENGE_SET_JSONL = 'paws.dev_and_test.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
     json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
-    acc_avg = 0
+    maf1_avg = 0
     is_dup_avg = 0
     not_dup_avg = 0   
     paws_is_dup_avg = 0
     paws_not_dup_avg = 0   
     paws_avg = 0
-    computed_acc_count = 0
+    computed_maf1_count = 0
     computed_paws_count = 0
     for seed, path in all_paths.items():
         if is_load_model:
@@ -1509,32 +1505,31 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
                 print(f'saving without condition distribution into : {cur_raw_distribution_path}')
             
             if 'paws' not in cur_json: 
-                acc = compute_acc(cur_raw_distribution_path, config["label_maps"])
+                maf1 = compute_maf1(cur_raw_distribution_path, config["label_maps"])
                
-                if 'Null' in acc.keys():
-                    acc = acc['Null']
-                print(f"overall acc : {acc['all']}")
-                print(f"is_duplicate acc : {acc['duplicate']}")
-                print(f"not_duplicate acc : {acc['not_duplicate']}")
+                if 'Null' in maf1.keys():
+                    maf1 = maf1['Null']
+                print(f"overall maf1 : {maf1['all']}")
+                print(f"is_duplicate maf1 : {maf1['is_duplicate']}")
+                print(f"not_duplicate maf1 : {maf1['not_duplicate']}")
                 # print(f"neutral acc : {acc['neutral']}")
-
-                acc_avg += acc['all']
-                is_dup_avg += acc['duplicate']
-                not_dup_avg += acc['not_duplicate']
-                computed_acc_count += 1
+                maf1_avg += maf1['all']
+                is_dup_avg += maf1['is_duplicate']
+                not_dup_avg += maf1['not_duplicate']
+                computed_maf1_count += 1
             elif config['get_paws_result'] and 'paws'in cur_json: 
-                acc_paws = compute_acc(cur_raw_distribution_path, config["label_maps"])
+                maf1_paws = compute_maf1(cur_raw_distribution_path, config["label_maps"])
                
-                if 'Null' in acc_paws.keys():
-                    acc_paws = acc_paws['Null']
-                print(f"overall paws acc : {acc_paws['all']}")
-                print(f"not_dup paws acc : {acc_paws['not_duplicate']}")
-                print(f"is_dup paws acc : {acc_paws['duplicate']}")
+                if 'Null' in maf1_paws.keys():
+                    maf1_paws = maf1_paws['Null']
+                print(f"overall paws maf1 : {maf1_paws['all']}")
+                print(f"not_dup paws maf1 : {maf1_paws['not_duplicate']}")
+                print(f"is_dup paws maf1 : {maf1_paws['is_duplicate']}")
                 # print(f"neutral acc : {acc['neutral']}")
 
-                paws_avg += acc_paws['all']
-                paws_not_dup_avg += acc_paws['not_duplicate']
-                paws_is_dup_avg += acc_paws['duplicate']
+                paws_avg += maf1_paws['all']
+                paws_not_dup_avg += maf1_paws['not_duplicate']
+                paws_is_dup_avg += maf1_paws['is_duplicate']
                 computed_paws_count += 1
                 # breakpoint()
                 # cur_hans_score = get_symm_result(cur_raw_distribution_path, config)
@@ -1542,12 +1537,13 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
                 # print(f'symm score :{cur_hans_score}')
     
     print(f'==================== Average scores ===================')
-    print(f"average overall acc : {acc_avg / len(all_paths)}")
-    print(f"averge not dup acc : {not_dup_avg / len(all_paths)}")
-    print(f"average is dup acc : {is_dup_avg   / len(all_paths)}")
+    print(f"average overall maf1 : {maf1_avg / len(all_paths)}")
+    print(f"averge not dup maf1 : {not_dup_avg / len(all_paths)}")
+    print(f"average is dup maf1 : {is_dup_avg   / len(all_paths)}")
     print(f'avarge paws score : { paws_avg  / len(all_paths)}')
-    print(f"averge paws not dup acc : {paws_not_dup_avg / len(all_paths)}")
-    print(f"average paws dup SUPPORTS acc : {paws_is_dup_avg   / len(all_paths)}") 
+    print(f"averge paws not dup maf1 : {paws_not_dup_avg / len(all_paths)}")
+    print(f"average paws dup SUPPORTS maf1 : {paws_is_dup_avg   / len(all_paths)}") 
+
 
 class DevQQP(Dataset):
     def __init__(self, 
