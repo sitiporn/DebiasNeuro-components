@@ -621,7 +621,7 @@ def get_nie_set(config, experiment_set, save_nie_set_path):
             ids = list(torch.randint(0, len(pairs[type]), size=(config['num_samples'] //len(config['label_maps']),)))
             pairs[type] = np.array(pairs[type])[ids,:].tolist()
             nie_dataset[type] = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(pairs[type])]
-            nie_loader[type] = DataLoader(nie_dataset[type], batch_size=32)
+            nie_loader[type] = DataLoader(nie_dataset[type], batch_size=64)
 
     else:
         # balacing nie set across classes
@@ -635,7 +635,7 @@ def get_nie_set(config, experiment_set, save_nie_set_path):
 
         # dataset = [([premise, hypo], label) for idx, (premise, hypo, label) in enumerate(pairs['entailment'])]
         nie_dataset = [[[premise, hypo], label] for idx, (premise, hypo, label) in enumerate(combine_types)]
-        nie_loader = DataLoader(nie_dataset, batch_size=32)
+        nie_loader = DataLoader(nie_dataset, batch_size=128)
     
     with open(save_nie_set_path, 'wb') as handle:
         pickle.dump(nie_dataset, handle, protocol=pickle.HIGHEST_PROTOCOL)
