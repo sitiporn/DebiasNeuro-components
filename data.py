@@ -1466,7 +1466,7 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
     print(f"average is dup maf1 : {is_dup_avg   / len(all_paths)}")
     print(f'avarge paws score : { paws_avg  / len(all_paths)}')
     print(f"averge paws not dup maf1 : {paws_not_dup_avg / len(all_paths)}")
-    print(f"average paws dup SUPPORTS maf1 : {paws_is_dup_avg   / len(all_paths)}") 
+    print(f"average paws dup maf1 : {paws_is_dup_avg   / len(all_paths)}") 
 
 
 def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
