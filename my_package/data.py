@@ -58,14 +58,9 @@ class ExperimentDataset(Dataset):
         self.label_maps = config['label_maps']
         self.DEBUG = DEBUG
         
-        if dataset_name == 'fever': 
-            self.treatments = ["High-overlap"]
-            self.sets = {"High-overlap": {}} 
-            nums = {"High-overlap": {}}
-        else:
-            self.treatments = ["High-overlap", "Low-overlap"]
-            self.sets = {"High-overlap": {}, "Low-overlap": {} } 
-            nums = {"High-overlap": {}, "Low-overlap": {} }
+        self.treatments = ["High-overlap", "Low-overlap"]
+        self.sets = {"High-overlap": {}, "Low-overlap": {} } 
+        nums = {"High-overlap": {}, "Low-overlap": {} }
         
         data_path = os.path.join(data_path, json_file)
         self.df = pd.read_json(data_path, lines=True)

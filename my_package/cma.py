@@ -226,7 +226,8 @@ def evalutate_counterfactual(experiment_set, dataloader, config, model, tokenize
          
         # distribution[seed] = [] if config["is_averaged_embeddings"] else {}
         classifier = Classifier(model=_model)
-        treatments = ['High-overlap'] if config['dataset_name'] == 'fever' else ['High-overlap','Low-overlap']
+        # treatments = ['High-overlap'] if config['dataset_name'] == 'fever' else ['High-overlap','Low-overlap']
+        treatments =['High-overlap','Low-overlap']
         counterfactuals = CounterfactualRepresentation(label_maps, tokenizer=tokenizer, is_group_by_class=config["is_group_by_class"])
         distribution[seed] = {}
         print(f'*********** {seed} ***********')
@@ -556,6 +557,7 @@ def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, mode
     df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
     step = df_nie[df_nie.Layers == 0].shape[0] / 5 # follow papers
     step = int(step)
+    breakpoint()
 
     cls = get_hidden_representations(config, counterfactual_paths, method_name, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     
@@ -589,7 +591,7 @@ def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, mode
         for group in [10, 11, 'all']:
             if group != 'all' and  neuron_num >= df_nie[df_nie.Layers == 0].shape[0]: continue
             hooks = []
-            NIE[neuron_num][group] = ablation_intervention(config, hooks, _model, nie_dataloader, neuron_num, df_nie, group, mediators, cls,  label_maps, tokenizer, DEVICE)
+            NIE[neuron_num][group] = ablation_intervention(config, hooks, _model, nie_dataloader, neuron_num, df_nie, step, group, mediators, cls,  label_maps, tokenizer, DEVICE)
             for hook in hooks: hook.remove()
             del hooks
 
