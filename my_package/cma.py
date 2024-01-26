@@ -557,7 +557,9 @@ def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, mode
     df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
     step = df_nie[df_nie.Layers == 0].shape[0] / 5 # follow papers
     step = int(step)
-    breakpoint()
+    point_num = 20
+    import math
+    # 
 
     cls = get_hidden_representations(config, counterfactual_paths, method_name, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     
@@ -585,17 +587,32 @@ def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, mode
     mediators  = get_mediators(_model)
     NIE = {}
     
-    for neuron_num in range(step,  df_nie.shape[0], step): 
-        print(f'{neuron_num} / {df_nie.shape[0]}')
-        NIE[neuron_num] = {}
+    for pt in range(point_num): 
+        neuron_num = int(math.pow(10, pt/5) * 10)
+        next_neuron_num = int(math.pow(10, (pt+1) / 5) * 10)
+         
+        print(f'************')
         for group in [10, 11, 'all']:
-            if group != 'all' and  neuron_num >= df_nie[df_nie.Layers == 0].shape[0]: continue
+            if group != 'all' and  neuron_num > df_nie[df_nie.Layers == 0].shape[0]: continue
+            
+            candidate_neurons = df_nie[df_nie.Layers == group].copy() if group != 'all' else  df_nie.copy()
+            #sorted 
+            candidate_neurons = candidate_neurons.sort_values(by=['NIE'], ascending=False)
+            candidate_neurons = candidate_neurons.reset_index(drop=True)
+
+            if neuron_num <= candidate_neurons.shape[0] and  next_neuron_num >= candidate_neurons.shape[0]:
+                print(f'{neuron_num} -> {candidate_neurons.shape[0]}')
+                neuron_num = candidate_neurons.shape[0]
+            
+            print(f'{group}: {neuron_num} / {df_nie.shape[0]}, {candidate_neurons.shape[0]}')
+            if neuron_num not in NIE.keys():
+                NIE[neuron_num] = {}
+            
             hooks = []
-            NIE[neuron_num][group] = ablation_intervention(config, hooks, _model, nie_dataloader, neuron_num, df_nie, step, group, mediators, cls,  label_maps, tokenizer, DEVICE)
+            NIE[neuron_num][group] = ablation_intervention(config, hooks, _model, nie_dataloader, neuron_num, candidate_neurons, step, group, mediators, cls,  label_maps, tokenizer, DEVICE)
             for hook in hooks: hook.remove()
             del hooks
 
-    
     path = f'../NIE/{method_name}/'
     if not os.path.exists(path): os.mkdir(path) 
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )

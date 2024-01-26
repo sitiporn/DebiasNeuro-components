@@ -224,31 +224,22 @@ def intervene(dataloader, components, mediators, cls, NIE, counter, probs, count
                                     for hook in hooks: hook.remove() 
                                     
  
-def ablation_intervention(config, hooks, model, nie_dataloader, neuron_num, df_nie, group, mediators, cls, label_maps, tokenizer, DEVICE):
+def ablation_intervention(config, hooks, model, nie_dataloader, neuron_num, df_nie, step, group, mediators, cls, label_maps, tokenizer, DEVICE):
     """ used for single intervention"""
 
-    if group != 'all': 
-        candidate_neurons = df_nie[df_nie.Layers == group]
-    else: 
-        candidate_neurons = df_nie
-
-    #sorted 
-    candidate_neurons = candidate_neurons.sort_values(by=['NIE'], ascending=False)
-    candidate_neurons = candidate_neurons.reset_index(drop=True)
-
-    layer_ids  = [row for index, row in candidate_neurons['Layers'].items()]
-    components = [row for index, row in candidate_neurons['Components'].items()]
-    neuron_ids = [row for index, row in candidate_neurons['Neuron_ids'].items()]
-    
+    layer_ids  = [row for index, row in df_nie['Layers'].items()]
+    components = [row for index, row in df_nie['Components'].items()]
+    neuron_ids = [row for index, row in df_nie['Neuron_ids'].items()]
+ 
     layer_ids  =   layer_ids[:neuron_num]
     components =  components[:neuron_num]
     neuron_ids =  neuron_ids[:neuron_num]
+
     do = config['treatment']
     counter = 0
     INTERVENTION_CLASS = config['intervention_class'][0]
     probs = {'null': [], 'intervene': []}
 
-    
     # collect Null model 
     for batch_idx, (sentences, labels) in (t := tqdm(enumerate(nie_dataloader))):
         t.set_description(f"NIE_dataloader:Null mode: batch_idx : {batch_idx}")
