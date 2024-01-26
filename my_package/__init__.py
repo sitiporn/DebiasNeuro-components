@@ -3,7 +3,7 @@ from .data import CustomDataset
 from .data import get_analysis 
 from .data import rank_losses
 from .cma import get_candidate_neurons 
-from .data import ExperimentDataset, Dev, get_conditional_inferences, eval_model, print_config
+from .data import ExperimentDataset, Dev, get_conditional_inferences, eval_model, print_config, eval_model_qqp
 from .optimization_utils import trace_optimized_params, initial_partition_params
 from .optimization import partition_param_train, restore_original_weight
 from .intervention import intervene, high_level_intervention
