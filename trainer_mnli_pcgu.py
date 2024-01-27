@@ -78,7 +78,8 @@ parser.add_argument("--intervention_class", type=str, help="class used to comput
 parser.add_argument("--intervention_type", type=str, help="tye of neuron intervention") 
 parser.add_argument("--top_neuron_mode", type=str, help="mode select neurons to perform gradients unlearning") 
 parser.add_argument("--grad_direction", type=str, help="moving gradient directoin used to learn or unlearn") 
-parser.add_argument("--k", type=int, default=5, help="the percentage of total number of neurons") 
+parser.add_argument("--k", type=int, default=None, help="the percentage of total number of top neurons") 
+parser.add_argument("--top_neuron_num", type=int, default=None, help="the number of top neurons") 
 parser.add_argument("--compare_frozen_weight", type=bool, default=True, help="compare weight to reference model to restore back to model during training at each step")	
 parser.add_argument("--is_averaged_embeddings", type=bool, default=True, help="Average representation across samples")	
 parser.add_argument("--DEBUG", type=int, default=0, help="Mode used to debug")	
@@ -113,6 +114,7 @@ config['intervention_type']  = args.intervention_type
 config['top_neuron_mode'] = args.top_neuron_mode
 config['grad_direction'] = args.grad_direction
 config['k'] = args.k
+config['top_neuron_num'] = args.top_neuron_num
 config['compare_frozen_weight'] = args.compare_frozen_weight
 config['is_averaged_embeddings'] = args.is_averaged_embeddings
 config["DEBUG"] = args.DEBUG

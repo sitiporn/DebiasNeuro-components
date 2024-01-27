@@ -119,9 +119,12 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
         print(f'saving NIE scores into : {NIE_path}')
 
 
-def get_topk(config, k=None, num_top_neurons=None):
-    if config['eval_candidates']:
-        topk = {'percent': k / 100}
+def get_topk(config, k=None, top_neuron_num=None):
+    if config['eval_candidates']: # Using  hyperparameter from config
+        if k is not None:
+            topk = {'percent': k / 100}
+        elif top_neuron_num is not None:
+            topk = {'neurons': top_neuron_num}
     else: # ******************** Hyperparameter search ********************
         params  = get_params(config)
         total_neurons = get_num_neurons(config)
@@ -146,6 +149,7 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
 
     # select candidates  based on percentage
     k = config['k']
+    top_neuron_num = config['top_neuron_num']
     mode = config['top_neuron_mode']
     print(f'get_candidate_neurons: {mode}')
     # select candidates based on the number of neurons
@@ -153,8 +157,7 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
     top_neuron_path = f'../pickles/top_neurons/{method_name}/'
     if not os.path.exists(top_neuron_path): os.mkdir(top_neuron_path)
     top_neurons = {}
-    num_neurons = None
-    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    topk = get_topk(config, k=k, top_neuron_num=top_neuron_num)
     key = list(topk.keys())[0]
     layers = config['layers'] if config['computed_all_layers'] else config['layer']
     from my_package.cma_utils import get_avg_nie

@@ -32,16 +32,18 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
     total_params = {}
     seed = config['seed'] if seed is None else seed
     k = config['k']
+    top_neuron_num = config['top_neuron_num']
     mode = config['top_neuron_mode']
     collect_param = config['collect_param']
     num_neurons = None
-    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    topk = get_topk(config, k=k, top_neuron_num=top_neuron_num)
     key = list(topk.keys())[0]
     mediators  = get_mediators(model)
     # dev_set = Dev(config['dev_path'], config['dev_json'])
     # dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
     component_keys = ['query', 'key', 'value', 'attention.output', 'intermediate', 'output']
-    num_neuron_groups = [config['k'] / 100 ] 
+
+    num_neuron_groups = [ k / 100  if k is not None else top_neuron_num] 
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     if config['computed_all_layers']:
         if mode == 'sorted':
@@ -153,7 +155,6 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
             print(f"saving {layer}'s components into {cur_restore_path}")
     
     print(f'initial_partition_params mode : {mode}') 
-    
     return model
 
 def trace_optimized_params(model, config, DEVICE, is_load_optimized_model=False , DEBUG=False):
