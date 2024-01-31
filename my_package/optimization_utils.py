@@ -45,20 +45,26 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
 
     num_neuron_groups = [ k / 100  if k is not None else top_neuron_num] 
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    if config['computed_all_layers']:
-        if mode == 'sorted':
-            path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
-        elif mode == 'random':
-            path = f'../pickles/top_neurons/{method_name}/random_top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
-        layers = config['layers']
-    else: 
-        path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
+
+    if config['top_neuron_layer'] is not None:
+        opt_layer = config['top_neuron_layer'] 
         layer = config['layer']
+    elif config['computed_all_layers']:
+        opt_layer = 'all_layers'
+        layers = config['layers']
+
+    top_neuron_path = f'../pickles/top_neurons/{method_name}/'
+        
+    if config['is_averaged_embeddings']:
+        save_path = os.path.join(top_neuron_path, f'{mode}_top_neuron_{seed}_{key}_{do}_{opt_layer}.pickle')
+    elif config['is_group_by_class']:
+        save_path = os.path.join(top_neuron_path, f'{mode}_top_neuron_{seed}_{key}_{do}_{opt_layer}_class_level.pickle')
     
+    # '../pickles/top_neurons/nie_recent_baseline/sorted_top_neuron_1548_neurons_High-overlap_11.pickle' 
     # candidate neurons existed bias 
-    with open(path, 'rb') as handle: 
+    with open(save_path, 'rb') as handle: 
         top_neuron = pickle.load(handle) 
-        print(f'loading top neurons : {path}')
+        print(f'loading top neurons : {save_path}')
     
     for k, v in zip(component_keys, mediators.keys()): component_mappings[k] = v
     # unfreeze all parameters
@@ -140,7 +146,10 @@ def initial_partition_params(config, method_name, model, do, collect_param=False
 
     restore_path = f'../pickles/restore_weight/{method_name}/'
     if not os.path.exists(restore_path): os.mkdir(restore_path)
-    
+    # refresh everytime before training  
+    # using 
+    # train: intervene gradient
+    # freeze: using to restore orginal weight in custom optimizer
     for layer in range(len(encoder_params)): 
         cur_restore_path = os.path.join(restore_path, f'masking-{value}')
         if not os.path.exists(cur_restore_path): os.mkdir(cur_restore_path)
