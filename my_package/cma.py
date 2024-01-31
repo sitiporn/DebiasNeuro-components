@@ -160,6 +160,7 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
     topk = get_topk(config, k=k, top_neuron_num=top_neuron_num)
     key = list(topk.keys())[0]
     layers = config['layers'] if config['computed_all_layers'] else config['layer']
+    save_path = None
     from my_package.cma_utils import get_avg_nie
     
     # compute average NIE
@@ -170,43 +171,43 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
         NIE, counter, df_nie = get_avg_nie(config, cur_path, layers)
         from my_package.cma_utils import combine_pos
         df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
-        # df_nie.sort_values(by = ['NIE'], ascending = False)
+        # select candidate group (specific layer or all layers)
+
+        if config['top_neuron_layer'] is not None: df_nie = df_nie[df_nie.Layers == config['top_neuron_layer']]
+        
         ranking_nie = {row['combine_pos']: row['NIE'] for index, row in df_nie.iterrows()}
-        # sort globally
-        if config['computed_all_layers']:
-            if not isinstance(topk[key], list): topk[key] = [topk[key]]
-            # ********  write it to pickle *********
-            for value in topk[key]:
-                num_neurons =  value * df_nie.shape[0] if key == 'percent' else value
-                num_neurons = int(num_neurons)
-                print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
-                if mode == 'random':
-                    from operator import itemgetter
-                    cur_neurons =  [(k, v) for k, v in ranking_nie.items()]
-                    random.shuffle(cur_neurons)
-                    top_neurons[round(value, 4) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
-                elif mode == 'sorted':
-                    top_neurons[round(value, 4) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
-            # ********  write it to pickle *********
+        if not isinstance(topk[key], list): topk[key] = [topk[key]]
+        
+        for value in topk[key]:
+            num_neurons =  value * df_nie.shape[0] if key == 'percent' else value
+            num_neurons = int(num_neurons)
+            
+            print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
             if mode == 'random':
-                if config['is_averaged_embeddings']:
-                    save_path = os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers.pickle')
-                elif config['is_group_by_class']:
-                    save_path = os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers_class_level.pickle')
+                from operator import itemgetter
+                cur_neurons =  [(k, v) for k, v in ranking_nie.items()]
+                random.shuffle(cur_neurons)
                 
-                with open(save_path, 'wb') as handle:
-                    pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    print(f"Done saving random top neurons into pickle! : {save_path}") 
+                top_neurons[round(value, 4) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
             elif mode == 'sorted':
-                if config['is_averaged_embeddings']:
-                    save_path = os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_all_layers.pickle')
-                elif config['is_group_by_class']:
-                    save_path = os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_all_layers_class_level.pickle')
-                
-                with open(save_path, 'wb') as handle:
-                    pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    print(f"Done saving top neurons into pickle!: {save_path}") 
+                top_neurons[round(value, 4) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+            
+        # ********  write it to pickle *********
+        if config['top_neuron_layer'] is not None:
+            opt_layer = config['top_neuron_layer'] 
+        elif config['computed_all_layers']:
+            opt_layer = 'all_layers'
+
+        if config['is_averaged_embeddings']:
+            save_path = os.path.join(top_neuron_path, f'{mode}_top_neuron_{seed}_{key}_{do}_{opt_layer}.pickle')
+        elif config['is_group_by_class']:
+            save_path = os.path.join(top_neuron_path, f'{mode}_top_neuron_{seed}_{key}_{do}_{opt_layer}_class_level.pickle')
+            
+        with open(save_path, 'wb') as handle:
+            pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"Done saving {mode} top neurons into pickle! : {save_path}") 
     
+
 def evalutate_counterfactual(experiment_set, dataloader, config, model, tokenizer, label_maps, DEVICE, all_model_paths, DEBUG=False, summarize=False):
     """ To see the difference between High-overlap and Low-overlap score whether our counterfactuals have huge different."""
     from my_package.cma_utils import foward_hooks
@@ -499,7 +500,7 @@ def get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug
     k = config['k']
     mode = config['top_neuron_mode']
     num_neurons = None
-    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    topk = get_topk(config, k=k, top_neuron_num=num_neurons)
     key = list(topk.keys())[0]
     layers = config['layers'] if config['computed_all_layers'] else config['layer']
     sorted_local = {}
@@ -562,8 +563,7 @@ def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, mode
     step = int(step)
     point_num = 20
     import math
-    # 
-
+    
     cls = get_hidden_representations(config, counterfactual_paths, method_name, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     
     if seed is not None:
