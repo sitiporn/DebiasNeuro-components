@@ -88,7 +88,7 @@ def intervene_grad(model, hooks, method_name, config, collect_param=False, DEBUG
         # masking grad hooks : 144
         # reverse grad hooks : 134
     print(f'Reverse grad mode: {mode}')
-    print(f"Gradient directoin: {grad_direction}")
+    print(f"Gradient direction: {grad_direction}")
     print(f'#Total train  neuron : {acc_train_num // 2}')
     print(f'#Total frozen neuron : {acc_frozen_num // 2}')
     
