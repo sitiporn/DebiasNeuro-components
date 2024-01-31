@@ -224,7 +224,7 @@ def intervene(dataloader, components, mediators, cls, NIE, counter, probs, count
                                     for hook in hooks: hook.remove() 
                                     
  
-def ablation_intervention(config, hooks, model, nie_dataloader, neuron_num, df_nie, step, group, mediators, cls, label_maps, tokenizer, DEVICE):
+def ablation_intervention(config, hooks, model, nie_dataloader, neuron_num, df_nie, group, mediators, cls, label_maps, tokenizer, DEVICE):
     """ used for single intervention"""
 
     layer_ids  = [row for index, row in df_nie['Layers'].items()]

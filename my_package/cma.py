@@ -612,7 +612,7 @@ def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, mode
                 NIE[neuron_num] = {}
             
             hooks = []
-            NIE[neuron_num][group] = ablation_intervention(config, hooks, _model, nie_dataloader, neuron_num, candidate_neurons, step, group, mediators, cls,  label_maps, tokenizer, DEVICE)
+            NIE[neuron_num][group] = ablation_intervention(config, hooks, _model, nie_dataloader, neuron_num, candidate_neurons, group, mediators, cls,  label_maps, tokenizer, DEVICE)
             for hook in hooks: hook.remove()
             del hooks
 
