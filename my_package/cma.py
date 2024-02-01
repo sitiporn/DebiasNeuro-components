@@ -119,15 +119,18 @@ def cma_analysis(config, model_path, method_name, seed, counterfactual_paths, NI
         print(f'saving NIE scores into : {NIE_path}')
 
 
-def get_topk(config, k=None, num_top_neurons=None):
-    if config['eval_candidates']:
-        topk = {'percent': k / 100}
+def get_topk(config, k=None, top_neuron_num=None):
+    if config['eval_candidates']: # Using  hyperparameter from config
+        if k is not None:
+            topk = {'percent': k / 100}
+        elif top_neuron_num is not None:
+            topk = {'neurons': top_neuron_num}
     else: # ******************** Hyperparameter search ********************
         params  = get_params(config)
         total_neurons = get_num_neurons(config)
         if k is not None: topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
-        if num_top_neurons is not None:
-            topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()} 
+        if top_neuron_num is not None:
+            topk = {"neurons": (torch.tensor(list(range(0, top_neuron_num+1, 5)))).tolist()} 
         else: 
             topk = {'percent': [config['masking_rate']] if config['masking_rate'] else params['percent']}
     return topk
@@ -146,17 +149,16 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
 
     # select candidates  based on percentage
     k = config['k']
+    top_neuron_num = config['top_neuron_num']
     mode = config['top_neuron_mode']
     print(f'get_candidate_neurons: {mode}')
-    # select candidates based on the number of neurons
-    num_top_neurons = config['num_top_neurons']
     top_neuron_path = f'../pickles/top_neurons/{method_name}/'
     if not os.path.exists(top_neuron_path): os.mkdir(top_neuron_path)
     top_neurons = {}
-    num_neurons = None
-    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    topk = get_topk(config, k=k, top_neuron_num=top_neuron_num)
     key = list(topk.keys())[0]
     layers = config['layers'] if config['computed_all_layers'] else config['layer']
+    save_path = None
     from my_package.cma_utils import get_avg_nie
     
     # compute average NIE
@@ -167,43 +169,43 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
         NIE, counter, df_nie = get_avg_nie(config, cur_path, layers)
         from my_package.cma_utils import combine_pos
         df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
-        # df_nie.sort_values(by = ['NIE'], ascending = False)
+        # select candidate group (specific layer or all layers)
+
+        if config['top_neuron_layer'] is not None: df_nie = df_nie[df_nie.Layers == config['top_neuron_layer']]
+        
         ranking_nie = {row['combine_pos']: row['NIE'] for index, row in df_nie.iterrows()}
-        # sort globally
-        if config['computed_all_layers']:
-            if not isinstance(topk[key], list): topk[key] = [topk[key]]
-            # ********  write it to pickle *********
-            for value in topk[key]:
-                num_neurons =  value * df_nie.shape[0] if key == 'percent' else value
-                num_neurons = int(num_neurons)
-                print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
-                if mode == 'random':
-                    from operator import itemgetter
-                    cur_neurons =  [(k, v) for k, v in ranking_nie.items()]
-                    random.shuffle(cur_neurons)
-                    top_neurons[round(value, 4) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
-                elif mode == 'sorted':
-                    top_neurons[round(value, 4) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
-            # ********  write it to pickle *********
+        if not isinstance(topk[key], list): topk[key] = [topk[key]]
+        
+        for value in topk[key]:
+            num_neurons =  value * df_nie.shape[0] if key == 'percent' else value
+            num_neurons = int(num_neurons)
+            
+            print(f"++++++++ Component-Neuron_id: {round(value, 4) if key == 'percent' else num_neurons} neurons :+++++++++")
             if mode == 'random':
-                if config['is_averaged_embeddings']:
-                    save_path = os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers.pickle')
-                elif config['is_group_by_class']:
-                    save_path = os.path.join(top_neuron_path, f'random_top_neuron_{seed}_{key}_{do}_all_layers_class_level.pickle')
+                from operator import itemgetter
+                cur_neurons =  [(k, v) for k, v in ranking_nie.items()]
+                random.shuffle(cur_neurons)
                 
-                with open(save_path, 'wb') as handle:
-                    pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    print(f"Done saving random top neurons into pickle! : {save_path}") 
+                top_neurons[round(value, 4) if key == 'percent' else value] = dict(cur_neurons[:num_neurons])
             elif mode == 'sorted':
-                if config['is_averaged_embeddings']:
-                    save_path = os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_all_layers.pickle')
-                elif config['is_group_by_class']:
-                    save_path = os.path.join(top_neuron_path, f'top_neuron_{seed}_{key}_{do}_all_layers_class_level.pickle')
-                
-                with open(save_path, 'wb') as handle:
-                    pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    print(f"Done saving top neurons into pickle!: {save_path}") 
+                top_neurons[round(value, 4) if key == 'percent' else value] = dict(sorted(ranking_nie.items(), key=operator.itemgetter(1), reverse=True)[:num_neurons])
+            
+        # ********  write it to pickle *********
+        if config['top_neuron_layer'] is not None:
+            opt_layer = config['top_neuron_layer'] 
+        elif config['computed_all_layers']:
+            opt_layer = 'all_layers'
+
+        if config['is_averaged_embeddings']:
+            save_path = os.path.join(top_neuron_path, f'{mode}_top_neuron_{seed}_{key}_{do}_{opt_layer}.pickle')
+        elif config['is_group_by_class']:
+            save_path = os.path.join(top_neuron_path, f'{mode}_top_neuron_{seed}_{key}_{do}_{opt_layer}_class_level.pickle')
+            
+        with open(save_path, 'wb') as handle:
+            pickle.dump(top_neurons, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"Done saving {mode} top neurons into pickle! : {save_path}") 
     
+
 def evalutate_counterfactual(experiment_set, dataloader, config, model, tokenizer, label_maps, DEVICE, all_model_paths, DEBUG=False, summarize=False):
     """ To see the difference between High-overlap and Low-overlap score whether our counterfactuals have huge different."""
     from my_package.cma_utils import foward_hooks
@@ -419,10 +421,10 @@ def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted
     # select candidates  based on percentage
     k = config['k']
     # select candidates based on the number of neurons
-    num_top_neurons = config['num_top_neurons']
+    top_neuron_num = config['top_neuron_num']
     top_neurons = {}
     num_neurons = None
-    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    topk = get_topk(config, k=k, top_neuron_num=num_neurons)
     key = list(topk.keys())[0]
     # rank for NIE
     layers = config['layers'] if config['computed_all_layers'] else config['layer']
@@ -496,7 +498,7 @@ def get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug
     k = config['k']
     mode = config['top_neuron_mode']
     num_neurons = None
-    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    topk = get_topk(config, k=k, top_neuron_num=num_neurons)
     key = list(topk.keys())[0]
     layers = config['layers'] if config['computed_all_layers'] else config['layer']
     sorted_local = {}
@@ -550,15 +552,16 @@ def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, mode
     print(f'Seed : {seed}')
     assert len(NIE_paths) == 1, f'Expect len 1 but found :{len(NIE_paths)}'
    
-    topk = get_topk(config, k=k, num_top_neurons=None)
+    topk = get_topk(config, k=k, top_neuron_num=None)
     key = list(topk.keys())[0]
     cur_path = NIE_paths[0]
     NIE, counter, df_nie = get_avg_nie(config, cur_path, layers)
     df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
     step = df_nie[df_nie.Layers == 0].shape[0] / 5 # follow papers
     step = int(step)
-    breakpoint()
-
+    point_num = 20
+    import math
+    
     cls = get_hidden_representations(config, counterfactual_paths, method_name, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     
     if seed is not None:
@@ -585,17 +588,32 @@ def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, mode
     mediators  = get_mediators(_model)
     NIE = {}
     
-    for neuron_num in range(step,  df_nie.shape[0], step): 
-        print(f'{neuron_num} / {df_nie.shape[0]}')
-        NIE[neuron_num] = {}
+    for pt in range(point_num): 
+        neuron_num = int(math.pow(10, pt/5) * 10)
+        next_neuron_num = int(math.pow(10, (pt+1) / 5) * 10)
+         
+        print(f'************')
         for group in [10, 11, 'all']:
-            if group != 'all' and  neuron_num >= df_nie[df_nie.Layers == 0].shape[0]: continue
+            if group != 'all' and  neuron_num > df_nie[df_nie.Layers == 0].shape[0]: continue
+            
+            candidate_neurons = df_nie[df_nie.Layers == group].copy() if group != 'all' else  df_nie.copy()
+            #sorted 
+            candidate_neurons = candidate_neurons.sort_values(by=['NIE'], ascending=False)
+            candidate_neurons = candidate_neurons.reset_index(drop=True)
+
+            if neuron_num <= candidate_neurons.shape[0] and  next_neuron_num >= candidate_neurons.shape[0]:
+                print(f'{neuron_num} -> {candidate_neurons.shape[0]}')
+                neuron_num = candidate_neurons.shape[0]
+            
+            print(f'{group}: {neuron_num} / {df_nie.shape[0]}, {candidate_neurons.shape[0]}')
+            if neuron_num not in NIE.keys():
+                NIE[neuron_num] = {}
+            
             hooks = []
-            NIE[neuron_num][group] = ablation_intervention(config, hooks, _model, nie_dataloader, neuron_num, df_nie, step, group, mediators, cls,  label_maps, tokenizer, DEVICE)
+            NIE[neuron_num][group] = ablation_intervention(config, hooks, _model, nie_dataloader, neuron_num, candidate_neurons, group, mediators, cls,  label_maps, tokenizer, DEVICE)
             for hook in hooks: hook.remove()
             del hooks
 
-    
     path = f'../NIE/{method_name}/'
     if not os.path.exists(path): os.mkdir(path) 
     path = os.path.join(path, "seed_"+ str(config['seed'] if seed is None else seed ) )

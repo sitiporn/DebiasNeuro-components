@@ -121,6 +121,7 @@ class ExperimentDataset(Dataset):
         pprint(thresholds)
         self.df_exp_set = {"High-overlap": self.get_high_shortcut(),
                            "Low-overlap":  self.get_low_shortcut()}
+        
         for do in self.treatments:
             for type in config['label_maps'].keys():
 

@@ -27,7 +27,7 @@ def intervene_grad(model, hooks, method_name, config, collect_param=False, DEBUG
     seed = config['seed']
     component_mappings = {}
     restore_path = f'../pickles/restore_weight/{method_name}/'
-    value = config['k'] / 100
+    value = config['k'] / 100 if config['k'] is not None else config['top_neuron_num']
     mode = config['top_neuron_mode']
     restore_path = os.path.join(restore_path, f'masking-{value}')
     mediators  = get_mediators(model)
@@ -88,7 +88,7 @@ def intervene_grad(model, hooks, method_name, config, collect_param=False, DEBUG
         # masking grad hooks : 144
         # reverse grad hooks : 134
     print(f'Reverse grad mode: {mode}')
-    print(f"Gradient directoin: {grad_direction}")
+    print(f"Gradient direction: {grad_direction}")
     print(f'#Total train  neuron : {acc_train_num // 2}')
     print(f'#Total frozen neuron : {acc_frozen_num // 2}')
     
@@ -296,7 +296,7 @@ class CustomAdamW(Optimizer):
         defaults = {"lr": lr, "betas": betas, "eps": eps, "weight_decay": weight_decay, "correct_bias": correct_bias}
         super().__init__(params, defaults)
         self.original_model = original_model
-        value = config['k'] / 100
+        value = config['k'] / 100 if config['k'] is not None else config['top_neuron_num'] 
         restore_path = f'../pickles/restore_weight/{method_name}/'
         self.restore_path = os.path.join(restore_path, f'masking-{value}')
         self.seed = seed 

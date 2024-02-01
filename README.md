@@ -1,17 +1,12 @@
 # Debias Neuro-components leveraging Causal mediation analysis
 
 ### Todo
-- [x] Perform EDA on MNNLI-matched set to select to advantaged samples(preferred by bias model)
-- [x] recheck model(ishan/bert-base-uncased-mnli) weaken rate noted in config testing on dev-mm and HANS to find where a result increases
-* checking neuron positions between High and Low overlap treatment if they are the same
-  * same entail neurons position
-  * bugs in some components 
-    * nie shouldnt be the same because different representations
-    * checking representation values between two components
-*  
-* implement group by class in get_hidden_representations
-* extend counterfactual set from validation to training set
-* Recheck bugs in getitem of ExperimentDataset as used as counterfactual datasets
+
+- [x] Checking Custom optimizer vs Original Optimizer
+- [ ] Document CMA Module
+- [ ] Document gradient unlearning
+
+
 
 ## Open questions
 
@@ -62,25 +57,7 @@
      2. less preferred by bias model
      3. reweight perspective: high scalers -> higher loss to update main model parameters
 
-*** optimize step:
-   - decreasing maximal probability of advantaged term
 
-2. Ours:
-   1. Calculate NIE scores on (valid set) multinli_1.0_dev_matched.jsonl to find bias neurons
-   2. training set to tune models (masked language models) 
-     2.1 perform EDA ~ to find representative threshold for a1 and a2 
-     2.2 decreasing maximal probability of advantaged and increase the probability of disadvantaged 
-     2.3 components: 
-         In encoder: Update bias-only parameters, the rest is frozen
-         outside encoder's components are also updated eg. classifier, pooler, embeddings are also update     
-
-Ours vs PCGU using resources:
----
-  1. ranking bias sources on 
-     - valid set vs training set
-     - using trained model ishan/bert-base-uncased-mnli  vs masked language models
-  2. optimize masked language model on 
-     - training set vs traing set
 
 
 
