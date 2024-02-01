@@ -129,8 +129,8 @@ def get_topk(config, k=None, top_neuron_num=None):
         params  = get_params(config)
         total_neurons = get_num_neurons(config)
         if k is not None: topk = {"percent": (torch.tensor(list(range(1, k+1))) / 100).tolist()}
-        if num_top_neurons is not None:
-            topk = {"neurons": (torch.tensor(list(range(0, num_top_neurons+1, 5)))).tolist()} 
+        if top_neuron_num is not None:
+            topk = {"neurons": (torch.tensor(list(range(0, top_neuron_num+1, 5)))).tolist()} 
         else: 
             topk = {'percent': [config['masking_rate']] if config['masking_rate'] else params['percent']}
     return topk
@@ -152,8 +152,6 @@ def get_candidate_neurons(config, method_name, NIE_paths, treatments, debug=Fals
     top_neuron_num = config['top_neuron_num']
     mode = config['top_neuron_mode']
     print(f'get_candidate_neurons: {mode}')
-    # select candidates based on the number of neurons
-    num_top_neurons = config['num_top_neurons']
     top_neuron_path = f'../pickles/top_neurons/{method_name}/'
     if not os.path.exists(top_neuron_path): os.mkdir(top_neuron_path)
     top_neurons = {}
@@ -423,10 +421,10 @@ def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted
     # select candidates  based on percentage
     k = config['k']
     # select candidates based on the number of neurons
-    num_top_neurons = config['num_top_neurons']
+    top_neuron_num = config['top_neuron_num']
     top_neurons = {}
     num_neurons = None
-    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    topk = get_topk(config, k=k, top_neuron_num=num_neurons)
     key = list(topk.keys())[0]
     # rank for NIE
     layers = config['layers'] if config['computed_all_layers'] else config['layer']
@@ -554,7 +552,7 @@ def get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, mode
     print(f'Seed : {seed}')
     assert len(NIE_paths) == 1, f'Expect len 1 but found :{len(NIE_paths)}'
    
-    topk = get_topk(config, k=k, num_top_neurons=None)
+    topk = get_topk(config, k=k, top_neuron_num=None)
     key = list(topk.keys())[0]
     cur_path = NIE_paths[0]
     NIE, counter, df_nie = get_avg_nie(config, cur_path, layers)
