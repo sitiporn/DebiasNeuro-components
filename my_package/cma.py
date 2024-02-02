@@ -478,8 +478,6 @@ def scaling_nie_scores(config, method_name, NIE_paths, debug=False, mode='sorted
                     pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     print(f"Done saving NIE table into {nie_table_path} !")
 
-    return df
-
 def get_top_neurons_layer_each(config, method_name, NIE_paths, treatments, debug=False):
     # random seed
     seed = config['seed'] 
