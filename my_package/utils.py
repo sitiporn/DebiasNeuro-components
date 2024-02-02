@@ -374,6 +374,40 @@ def compute_acc(raw_distribution_path, label_maps):
     
     return acc
 
+def compute_maf1(raw_distribution_path, label_maps):
+    label_remaps = {v:k for k, v in label_maps.items()}
+    with open(raw_distribution_path, 'rb') as handle: 
+        distributions = pickle.load(handle)
+        golden_answers = pickle.load(handle)
+        print(f'loading distributions and labels from : {raw_distribution_path}')
+    maf1 = {} 
+    if isinstance(distributions, dict):
+        modes = list(distributions.keys())
+    else:
+        modes = ['Null']
+        distributions  = {'Null': distributions}
+        golden_answers = {'Null': golden_answers}
+    
+    print(f'compute_maf1 modes:{modes}') # Intervene, Null
+     
+    for mode in modes:
+        maf1[mode] = {k: [] for k in (['all'] + list(label_maps.keys()))}
+        y_pred = [int(torch.argmax(y)) for y in distributions[mode]]
+        y_true = [int(y) for y in golden_answers[mode]]
+        maf1[mode]['all'] = f1_score(y_true, y_pred, average='macro')
+        for value in label_maps.values():
+            maf1[mode][label_remaps[value]] = f1_score(y_true, y_pred, labels=[0,1],average=None)[value]
+            maf1[mode][label_remaps[value]] = f1_score(y_true, y_pred, labels=[0,1],average=None)[value]
+        # to_pop = []
+        # for key in maf1[mode].keys():
+        #     if len(maf1[mode][key])==0:
+        #         to_pop.append(key)
+        # for p in to_pop:
+        #     maf1[mode].pop(p, None)
+    
+    return maf1    
+
+
 def get_num_neurons(config):
 
     label_maps = config['label_maps']

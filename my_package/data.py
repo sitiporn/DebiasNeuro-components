@@ -1,5 +1,6 @@
 import os
 import os.path
+import re
 import pandas as pd
 import random
 import pickle
@@ -30,6 +31,8 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from my_package.utils import load_model
 from my_package.utils import compare_frozen_weight, prunning_biased_neurons
+from my_package.get_bias_samples_fever import get_ngram_doc, get_ngram_docs, vanilla_tokenize
+from my_package.counter import count_negations 
 
 class ExperimentDataset(Dataset):
     def __init__(self, config, encode, dataset_name, seed=None, DEBUG=False) -> None: 
@@ -84,12 +87,35 @@ class ExperimentDataset(Dataset):
         self.df['pair_label'] = pair_and_label
         # Todo: 
         # from counter import count_negations
-        thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound, dataset_name)
         
+        if config['dataset_name'] == 'fever': 
+            self.df['count_negations']  = self.df['claim'].apply(count_negations)
+            claim_1_gram = get_ngram_docs(self.df.claim.tolist(), 1) 
+            claim_2_gram = get_ngram_docs(self.df.claim.tolist(), 2) 
+            # evidence_1_gram = get_ngram_docs(self.df.evidence.tolist(), 1)
+            # evidence_2_gram = get_ngram_docs(self.df.evidence.tolist(), 2)
+            with open('top_lmi_sent1.pickle', 'rb') as handle:
+                top_lmi_sent1 = pickle.load(handle)#claim
+            # with open('top_lmi_sent2.pickle', 'rb') as handle:
+            #     top_lmi_sent2 = pickle.load(handle)#evidence  
+            
+            claim_support = []
+            for i in claim_2_gram:
+                claim_support_count = 0
+                for j in i:
+                    if j in top_lmi_sent1[2]['SUPPORTS'].keys():
+                        claim_support_count += 1
+                claim_support.append(claim_support_count)
+            self.df['claim_support_count'] = claim_support
+            self.df['claim_support_count'] = self.df['claim_support_count'] - self.df['count_negations']*100
+        thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound, dataset_name)  
+                             
         # get HOL and LOL set
+        
         self.df['Treatment'] = self.df.apply(lambda row: group_by_treatment(
             thresholds, 
-            row.count_negations if dataset_name == 'fever' else row.overlap_scores, row.gold_label), axis=1)
+            row.claim_support_count if dataset_name == 'fever' else row.overlap_scores, row.gold_label), axis=1)
+            # row.count_negations if dataset_name == 'fever' else row.overlap_scores, row.gold_label), axis=1)
 
         print(f"== statistic ==")
         pprint(thresholds)
