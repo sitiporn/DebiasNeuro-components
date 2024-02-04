@@ -31,7 +31,7 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from my_package.utils import load_model
 from my_package.utils import compare_frozen_weight, prunning_biased_neurons
-# from my_package.get_bias_samples_fever import get_ngram_doc, get_ngram_docs, vanilla_tokenize
+from my_package.get_bias_samples_fever import get_ngram_doc, get_ngram_docs, vanilla_tokenize
 from my_package.counter import count_negations 
 
 class ExperimentDataset(Dataset):
