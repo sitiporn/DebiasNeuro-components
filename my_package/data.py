@@ -325,16 +325,17 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
     select_neuron_mode = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
     
-    if config['dataset_name'] == 'mnli':
-        path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
-    elif config['dataset_name'] == 'fever': 
-        path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
+    # if config['dataset_name'] == 'mnli':
+    #     path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
+    # elif config['dataset_name'] == 'fever': 
+    #     path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
     
     # why top neurons dont chage according to get_top_k
     # get position of top neurons 
-    with open(path, 'rb') as handle: 
-        top_neuron = pickle.load(handle) 
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
+    # with open(path, 'rb') as handle: 
+        # top_neuron = pickle.load(handle) 
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else  [config['masking_rate']] 
+    # num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     if config['masking_rate_search']: num_neuron_groups = params['percent']
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
     NIE_paths = {path.split('/')[3].split('_')[-1]:path for path in NIE_paths}
@@ -820,12 +821,12 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     do = config["eval"]["do"]
     if config['computed_all_layers']:  
         if config['dataset_name'] == 'mnli': neuron_path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
-        elif config['dataset_name'] == 'fever': neuron_path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_all_layers.pickle'  
+        # elif config['dataset_name'] == 'fever': neuron_path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_all_layers.pickle'  
     else:                                                       
         neuron_path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
-    with open(neuron_path, 'rb') as handle: 
-        top_neuron = pickle.load(handle)
-        print(f'neuron path: {neuron_path}')
+    # with open(neuron_path, 'rb') as handle: 
+    #     top_neuron = pickle.load(handle)
+    #     print(f'neuron path: {neuron_path}')
     # with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle: top_neuron = pickle.load(handle)
     topk_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
     params = get_params(config)
@@ -837,8 +838,8 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     # def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
     if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits, method_name, do, seed)
     # if config['to_text']: convert_to_text_ans(config, top_neuron, method_name, params, do, seed)
- 
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else [config['masking_rate']]
+    # num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
     if config['masking_rate_search']: num_neuron_groups = params['percent']
 
     for idx, epsilon in enumerate(t := tqdm(params['epsilons'])):  
@@ -915,13 +916,13 @@ def get_condition_inference_scores_fever(config, model, method_name, seed=None):
     topk = get_topk(config, k=k, num_top_neurons=num_neurons)
     key = list(topk.keys())[0] # masking model eg. percent, k, num_neurons
     do = config["eval"]["do"]
-    if config['computed_all_layers']: 
-        neuron_path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_all_layers.pickle'  
-    else:                                                       
-        neuron_path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_{layer}.pickle'
-    with open(neuron_path, 'rb') as handle: 
-        top_neuron = pickle.load(handle)
-        print(f'neuron path: {neuron_path}')
+    # if config['computed_all_layers']: 
+    #     neuron_path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_all_layers.pickle'  
+    # else:                                                       
+    #     neuron_path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_{layer}.pickle'
+    # with open(neuron_path, 'rb') as handle: 
+    #     top_neuron = pickle.load(handle)
+    #     print(f'neuron path: {neuron_path}')
     # with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle: top_neuron = pickle.load(handle)
     topk_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
     params = get_params(config)
@@ -931,10 +932,10 @@ def get_condition_inference_scores_fever(config, model, method_name, seed=None):
     # ********** original function **********
     # required distribution of hans
     # def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
-    if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits, method_name, do, seed)
+    # if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits, method_name, do, seed)
     # if config['to_text']: convert_to_text_ans(config, top_neuron, method_name, params, do, seed)
- 
-    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else [config['masking_rate']] 
+    # num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
     if config['masking_rate_search']: num_neuron_groups = params['percent']
 
     for idx, epsilon in enumerate(t := tqdm(params['epsilons'])):  
@@ -946,7 +947,7 @@ def get_condition_inference_scores_fever(config, model, method_name, seed=None):
         if epsilon not in all_symm2_scores.keys():  all_symm2_scores[epsilon]  = {}
 
         for group in num_neuron_groups:
-            hans_scores = {}
+            # hans_scores = {}
             for mode in ['Null','Intervene']:
                 # after convert to txt answer 
                 text_answer_path = f'txt_answer_{topk_mode}_{mode}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
