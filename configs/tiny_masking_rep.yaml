@@ -55,7 +55,7 @@
   "compute_nie_scores": False,
   # ******************** soft masking neurons ********************
   # we mask top 5% neurons
-  "weaken_rate": 0.0, # best score on has (0.6299)
+  "weaken_rate": 0, # best score on has (0.6299)
   # "weaken_rate": 0.1,
   # "weaken_rate": 0.97,
   # "weaken_rate": 1.0,
@@ -106,7 +106,7 @@
   # test set
   # "dev-name": "mismatched",
   # challenge set
-  "dev-name": "hans",
+  "dev-name": "symm",
   # this set uses matched dataset
   # "dev-name": "reweight",
   # "dev-name": "matched",

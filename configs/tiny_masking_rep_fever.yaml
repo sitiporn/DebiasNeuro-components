@@ -62,8 +62,8 @@
   # "weaken_rate": null,
   "get_masking_value": False,
   # percent of neurons to mask
-  "masking_rate": 0.05,
-  "scaler": False,
+  "masking_rate": 0.01,
+  "scaler": True,
   # number of neurons to mask
   "neuron_group": null,
   "rank_losses": False, 

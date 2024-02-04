@@ -21,7 +21,7 @@ from pprint import pprint
 #    ModelPatchingCoordinator,
 #)
 from my_package.utils import  LayerParams
-from my_package.cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations
+from my_package.cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations, get_avg_nie
 from my_package.intervention import Intervention, neuron_intervention, get_mediators
 from my_package.utils import get_ans, compute_acc
 from my_package.utils import get_num_neurons, get_params, relabel, give_weight
@@ -318,13 +318,18 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
     total_neurons = get_num_neurons(config)
     epsilons = params['epsilons']
     if not isinstance(epsilons, list): epsilons = epsilons.tolist()
-    
-    dev_set = Dev(config['dev_path'], config['dev_json'])
+    if config['dataset_name'] == 'fever':  dev_set = DevFever(config['dev_path'], config['dev_json'])
+    elif config['dataset_name'] == 'mnli':  dev_set = Dev(config['dev_path'], config['dev_json'])
     dev_loader = DataLoader(dev_set, batch_size = 32, shuffle = False, num_workers=0)
     key = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     select_neuron_mode = 'percent' if config['k'] is not None  else config['weaken_rate'] if config['weaken_rate'] is not None else 'neurons'
     top_k_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
-    path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
+    
+    if config['dataset_name'] == 'mnli':
+        path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
+    elif config['dataset_name'] == 'fever': 
+        path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_all_layers.pickle' if config['computed_all_layers'] else f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{do}_{layer}_.pickle'
+    
     # why top neurons dont chage according to get_top_k
     # get position of top neurons 
     with open(path, 'rb') as handle: 
@@ -332,18 +337,28 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ( [config['masking_rate']] if config['masking_rate'] is not None else list(top_neuron.keys()))
     if config['masking_rate_search']: num_neuron_groups = params['percent']
     top_k_mode =  'percent' if config['range_percents'] else ( 'k' if config['k'] else 'neurons')
-
-    nie_table_df = scaling_nie_scores(config, method_name, NIE_paths, debug=False)
-    neuron_ids_copy = nie_table_df['Neuron_ids'].tolist()
-    random.shuffle(neuron_ids_copy)
-    if config['random_mask']: nie_table_df['Neuron_ids'] = neuron_ids_copy # for random ablation experiment
-    m = {row['Neuron_ids']: row['M_MinMax'] for index, row in nie_table_df.iterrows()} 
+    NIE_paths = {path.split('/')[3].split('_')[-1]:path for path in NIE_paths}
+    # nie_table_df0 = scaling_nie_scores(config, method_name, NIE_paths, debug=False)
+    #
+    cur_path = NIE_paths[seed]
+    NIE, counter, nie_table_df = get_avg_nie(config, cur_path, layers)
+    nie_table_df=nie_table_df.sort_values(by=['NIE'],ascending=False)
+    nie_table_df.rename(columns = {'Neuron_ids':'neuron_id'}, inplace = True)
+    nie_table_df.rename(columns = {'Components':'component_id'}, inplace = True) 
+    nie_table_df.rename(columns = {'Layers':'layer_id'}, inplace = True)  
+    if config['random_mask']: 
+        neuron_ids_copy = nie_table_df['neuron_id'].tolist()
+        random.shuffle(neuron_ids_copy)
+        nie_table_df['neuron_id'] = neuron_ids_copy # for random ablation experiment
+    # m = {row['neuron_id']: row['M_MinMax'] for index, row in nie_table_df.iterrows()} 
 
     # cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     cls = get_hidden_representations(config, counterfactual_paths, method_name, seed, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
     cls = cls[seed]
     # iterate throught all weaken rates
     for eps_id, epsilon in enumerate(t := tqdm(epsilons)): 
+        prediction_path = f'../pickles/prediction/{method_name}/'
+        if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         prediction_path = f'../pickles/prediction/{method_name}/seed_{seed}/' 
         if not os.path.isdir(prediction_path): os.mkdir(prediction_path) 
         # where to save modifying activation results
@@ -357,19 +372,24 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
             cur_num_neurons = int(cur_num_neurons)
             acc = {}
             top_nie_table_df = nie_table_df[:cur_num_neurons]
-            top_nie_table_df['layer_id']=top_nie_table_df.apply(lambda x: x['Neuron_ids'].split('-')[1],axis=1)
-            top_nie_table_df['component_id']=top_nie_table_df.apply(lambda x: x['Neuron_ids'].split('-')[2],axis=1)
-            top_nie_table_df['neuron_id']=top_nie_table_df.apply(lambda x: x['Neuron_ids'].split('-')[3],axis=1)
+            # top_nie_table_df['layer_id']=top_nie_table_df.apply(lambda x: x['Neuron_ids'].split('-')[1],axis=1)
+            # top_nie_table_df['component_id']=top_nie_table_df.apply(lambda x: x['Neuron_ids'].split('-')[2],axis=1)
+            # top_nie_table_df['neuron_id']=top_nie_table_df.apply(lambda x: x['Neuron_ids'].split('-')[3],axis=1)
             mask_count_df = top_nie_table_df.value_counts(['layer_id','component_id']).reset_index()
             layer_component_to_mask =  [(comp['layer_id'], comp['component_id']) for row, comp in mask_count_df.iterrows()]
             if config['computed_all_layers']:
-                layer_ids  = [neuron['Neuron_ids'].split('-')[1] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
-                components = [neuron['Neuron_ids'].split('-')[2] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
-                neuron_ids = [neuron['Neuron_ids'].split('-')[3] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+                layer_ids  = [neuron['layer_id'] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+                components = [neuron['component_id']  for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+                neuron_ids = [neuron['neuron_id']  for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+                # layer_ids  = [neuron['Neuron_ids'].split('-')[1] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+                # components = [neuron['Neuron_ids'].split('-')[2] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
+                # neuron_ids = [neuron['Neuron_ids'].split('-')[3] for row, neuron in nie_table_df[:cur_num_neurons].iterrows()]
             else:
                 # Todo: customize for specific layers
-                components = [neuron['Neuron_ids'].split('-')[0] for row, neuron in nie_table_df.iterrows()]
-                neuron_ids = [neuron['Neuron_ids'].split('-')[1] for row, neuron in nie_table_df.iterrows()]
+                components = [neuron['component_id'] for row, neuron in nie_table_df.iterrows()]
+                neuron_ids = [neuron['neuron_id'] for row, neuron in nie_table_df.iterrows()]
+                # components = [neuron['Neuron_ids'].split('-')[0] for row, neuron in nie_table_df.iterrows()]
+                # neuron_ids = [neuron['Neuron_ids'].split('-')[1] for row, neuron in nie_table_df.iterrows()]
                 layer_ids  = [layer] * len(components)
 
             if config['single_neuron']: 
@@ -395,7 +415,8 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
                 b.set_description(f"batch_idx: {batch_idx}")
                 cur_inputs = {} 
                 for idx, (cur_inp, cur_col) in enumerate(zip(inputs, list(dev_set.df.keys()))): cur_inputs[cur_col] = cur_inp
-                pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+                if config['dataset_name'] == 'mnli': pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['sentence1'], cur_inputs['sentence2'])]
+                elif config['dataset_name'] == 'fever': pair_sentences = [[premise, hypo] for premise, hypo in zip(cur_inputs['evidence_sentence'], cur_inputs['claim'])]
                 pair_sentences = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
                 pair_sentences = {k: v.to(DEVICE) for k,v in pair_sentences.items()}
 
@@ -798,7 +819,8 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     key = list(topk.keys())[0] # masking model eg. percent, k, num_neurons
     do = config["eval"]["do"]
     if config['computed_all_layers']:  
-        neuron_path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
+        if config['dataset_name'] == 'mnli': neuron_path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_all_layers.pickle' 
+        elif config['dataset_name'] == 'fever': neuron_path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_all_layers.pickle'  
     else:                                                       
         neuron_path = f'../pickles/top_neurons/{method_name}/top_neuron_{seed}_{key}_{do}_{layer}.pickle'
     with open(neuron_path, 'rb') as handle: 
@@ -875,6 +897,106 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
         pickle.dump(all_valid_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(all_test_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(all_hans_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f'saving all scores into : {all_masking_score_path}')
+
+def get_condition_inference_scores_fever(config, model, method_name, seed=None): 
+    """ getting scores on modifiying activations on fever and symm1&2"""
+    eval_path = f'../pickles/evaluations/{method_name}/'
+    prediction_path = f'../pickles/prediction/{method_name}/' 
+    all_test_scores = {}
+    all_symm1_scores = {}
+    all_symm2_scores = {}
+    # top_mode =  'percent' if config['range_percents'] else ('k' if config['k'] else 'neurons')
+    seed = config['seed'] if seed is None else str(seed)
+    layer = config["layer"]
+    k = config['k']
+    num_neurons = None
+    from my_package.cma import get_topk
+    topk = get_topk(config, k=k, num_top_neurons=num_neurons)
+    key = list(topk.keys())[0] # masking model eg. percent, k, num_neurons
+    do = config["eval"]["do"]
+    if config['computed_all_layers']: 
+        neuron_path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_all_layers.pickle'  
+    else:                                                       
+        neuron_path = f'../pickles/top_neurons/{method_name}/sorted_top_neuron_{seed}_{key}_{do}_{layer}.pickle'
+    with open(neuron_path, 'rb') as handle: 
+        top_neuron = pickle.load(handle)
+        print(f'neuron path: {neuron_path}')
+    # with open(f'../pickles/top_neurons/top_neuron_{seed}_{key}_{do}_all_layers.pickle', 'wb') as handle: top_neuron = pickle.load(handle)
+    topk_mode = 'percent' if config['k'] is not None  else config['weaken'] if config['weaken'] is not None else 'neurons'
+    params = get_params(config)
+    digits = [ len(str(epsilon).split('.')[-1]) for epsilon in params['epsilons'] ]
+
+    # ********** follow **********
+    # ********** original function **********
+    # required distribution of hans
+    # def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
+    if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits, method_name, do, seed)
+    # if config['to_text']: convert_to_text_ans(config, top_neuron, method_name, params, do, seed)
+ 
+    num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
+    if config['masking_rate_search']: num_neuron_groups = params['percent']
+
+    for idx, epsilon in enumerate(t := tqdm(params['epsilons'])):  
+        epsilon_path = f'esp-{round(epsilon, digits[idx])}'
+        t.set_description(f"epsilon : {epsilon} ")
+
+        if epsilon not in all_test_scores.keys():  all_test_scores[epsilon]  = {}
+        if epsilon not in all_symm1_scores.keys():  all_symm1_scores[epsilon]  = {}
+        if epsilon not in all_symm2_scores.keys():  all_symm2_scores[epsilon]  = {}
+
+        for group in num_neuron_groups:
+            hans_scores = {}
+            for mode in ['Null','Intervene']:
+                # after convert to txt answer 
+                text_answer_path = f'txt_answer_{topk_mode}_{mode}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                result_path = f'result_{topk_mode}_{mode}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+
+                if config['eval']['all_layers']: text_answer_path = f'txt_answer_{topk_mode}_{mode}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+                if config['eval']['all_layers']: result_path = f'result_{topk_mode}_{mode}_all_layers_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
+
+                config['evaluations'][group] = {}
+                # text_answer_path = os.path.join(os.path.join(prediction_path, epsilon_path),  text_answer_path)
+                text_answer_path  = os.path.join(os.path.join(prediction_path, f'seed_{seed}' ,epsilon_path), text_answer_path)
+                result_path = os.path.join(os.path.join(eval_path, f'seed_{seed}',epsilon_path),  result_path)
+                # vv = '../pickles/prediction/seed_None/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt'
+                # get_hans_result(cur_raw_distribution_path, config)
+               
+                # convert_text_to_hans_scores(text_answer_path, config, result_path, group)
+                # hans_scores[mode] = get_avg_score(result_path)
+
+            test_result = f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_test.pickle'
+            symm1_result =  f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_symm1.pickle'
+            symm2_result =  f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_symm2.pickle'
+            test_result =   os.path.join(eval_path, f'seed_{seed}', epsilon_path, test_result)
+            symm1_result =  os.path.join(eval_path, f'seed_{seed}', epsilon_path, symm1_result)
+            symm2_result =  os.path.join(eval_path, f'seed_{seed}', epsilon_path, symm2_result)
+            # f'../pickles/evaluations/seed_None/v-0.9/percent_0.05_High-overlap_weaken_matched.pickle'
+            # f'../pickles/evaluations/seed_None/v-0.9/percent_0.05_High-overlap_weaken_mismatched.pickle'
+            with open(test_result,'rb') as handle: test_acc = pickle.load(handle)
+            with open(symm1_result,'rb') as handle: symm1_acc = pickle.load(handle)
+            with open(symm2_result,'rb') as handle: symm2_acc = pickle.load(handle)
+            print(f"*********** esp: {epsilon}, masking rate : {group} **************",  f'seed_{seed}')
+            print(f"Fever Test :")
+            print(f"-- Intervene  : {test_acc[group]['Intervene']['all']*100:.2f}")
+            print(f"-- Null : {test_acc[group]['Null']['all']*100:.2f}")
+            print(f"Symm1 :")
+            print(f"-- Intervene  : {symm1_acc[group]['Intervene']['all']*100:.2f}")
+            print(f"-- Null : {symm1_acc[group]['Null']['all']*100:.2f}")
+            print(f'Symm2 : ')
+            print(f"-- Intervene  : {symm2_acc[group]['Intervene']['all']*100:.2f}")
+            print(f"-- Null : {symm2_acc[group]['Null']['all']*100:.2f}")
+            if  group not in all_test_scores.keys():   all_test_scores[epsilon][group]  = test_acc[group]
+            if  group not in all_symm1_scores.keys():   all_symm1_scores[epsilon][group]  = symm1_acc[group]
+            if  group not in all_symm2_scores.keys():   all_symm2_scores[epsilon][group]  = symm2_acc[group]
+
+    all_masking_score_path = os.path.join(eval_path, f'seed_{seed}', 'all_masking_scores.pickle')
+    
+    
+    with open(all_masking_score_path, 'wb') as handle: 
+        pickle.dump(all_test_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(all_symm1_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(all_symm2_scores, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving all scores into : {all_masking_score_path}')
 
 def rank_losses(config, do):  
@@ -1337,14 +1459,20 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
     model = copy.deepcopy(model)
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
-    group_counterfactual_paths = {} 
-    json_files = ['multinli_1.0_dev_matched.jsonl', 'multinli_1.0_dev_mismatched.jsonl', 'heuristics_evaluation_set.jsonl']
-    dataset_names = ['matched', 'mismatched', 'hans']
+    group_counterfactual_paths = {}
+    dataset_name = config['dataset_name']
+    if dataset_name == "fever": 
+        json_files = ['fever.dev.jsonl','fever_symmetric_v0.1.test.jsonl', 'fever_symmetric_v0.1.test.jsonl ']
+        dataset_names = ['test', 'symm1', 'symm2']
+    elif dataset_name == "mnli": 
+        json_files = ['multinli_1.0_dev_matched.jsonl', 'multinli_1.0_dev_mismatched.jsonl', 'heuristics_evaluation_set.jsonl']
+        dataset_names = ['matched', 'mismatched', 'hans']
+        null_mm = []
+        intervene_mm = []
+        null_hans = []
+        inteverne_hans = []
     if not config['compute_all_seeds']: all_paths = {str(config["seed"]):all_paths[str(config['seed'])]} 
-    null_mm = []
-    intervene_mm = []
-    null_hans = []
-    inteverne_hans = []
+
     for path in counterfactual_paths: 
         cur_seed = path.split('/')[3]
         if  cur_seed not in group_counterfactual_paths.keys(): group_counterfactual_paths[cur_seed] = []
@@ -1373,7 +1501,7 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
         pickle_file.close()
         print(f'HAN scores : ')
         print(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Null'].item(), all_hans_scores[config['weaken_rate']][config['masking_rate']]['Intervene'].item())
-        get_condition_inference_scores(config, model, method_name, seed)
+        # get_condition_inference_scores(config, model, method_name, seed)
         null_mm.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
         intervene_mm.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
         null_hans.append(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Null'].item())
@@ -1383,10 +1511,82 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
     print("intervene_mm:")
     print(sum(intervene_mm) / len(intervene_mm), intervene_mm )
     print("null_hans:")
-    print(sum(null_hans) / len(null_hans), null_hans )
+    print(sum(null_hans) / len(inteverne_hans), null_hans )
     print("inteverne_hans:")
     print(sum(inteverne_hans) / len(inteverne_hans), inteverne_hans )
 
+
+
+def masking_representation_exp_quick_fever(config, model, method_name, experiment_set, dataloader, NIE_paths, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True):
+    """ """
+    # load model 
+    # prepare biased neuron positions
+    import copy
+    from my_package.cma_utils import collect_counterfactuals
+    eval_path = f'../pickles/evaluations/{method_name}/'
+    model = copy.deepcopy(model)
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    mode = ["High-overlap"]  if config['treatment'] else  ["Low-overlap"] 
+    group_counterfactual_paths = {}
+    dataset_name  = config['dataset_name']
+    if dataset_name == "fever": 
+        json_files = ['fever.dev.jsonl','fever_symmetric_v0.1.test.jsonl', 'fever_symmetric_v0.2.test.jsonl ']
+        dataset_names = ['test', 'symm1', 'symm2']
+        null_test = []
+        intervene_test = []
+        null_symm1 = []
+        intervene_symm1 = []
+        null_symm2 = []
+        intervene_symm2 = []
+    if not config['compute_all_seeds']: all_paths = {str(config["seed"]):all_paths[str(config['seed'])]} 
+
+    for path in counterfactual_paths: 
+        cur_seed = path.split('/')[3]
+        if  cur_seed not in group_counterfactual_paths.keys(): group_counterfactual_paths[cur_seed] = []
+        group_counterfactual_paths[cur_seed].append(path)
+    for seed, path in all_paths.items():
+        hooks = []
+        # model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
+        model_path = path
+        config["dev_json"] = {}
+        config['dev-name'] = None
+        # hans only
+        # try 0 on small numbers of top neurons
+        for dataset_name,  json_file in zip(dataset_names, json_files):
+            config['dev-name'] = dataset_name
+            config["dev_json"][dataset_name] = json_file
+            get_conditional_inferences_mask(config, mode[0], model_path, model, method_name, NIE_paths, group_counterfactual_paths[f'seed_{seed}'], tokenizer, DEVICE, seed, debug = False)
+            config["dev_json"].pop(f'{dataset_name}')
+        get_condition_inference_scores_fever(config, model, method_name, seed)
+        all_masking_score_path = os.path.join(eval_path, f'seed_{seed}', 'all_masking_scores.pickle')
+        pickle_file = open(all_masking_score_path,'rb')
+        all_test_scores = pickle.load(pickle_file)
+        all_symm1_scores = pickle.load(pickle_file)
+        all_symm2_scores = pickle.load(pickle_file)
+        pickle_file.close()
+        print(f'Symm1 scores : ')
+        print(all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'], all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
+        print(f'Symm2 scores : ')
+        print(all_symm2_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'], all_symm2_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
+        # get_condition_inference_scores(config, model, method_name, seed)
+        null_test.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
+        intervene_test.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
+        null_symm1.append(all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
+        intervene_symm1.append(all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
+        null_symm2.append(all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
+        intervene_symm2.append(all_symm2_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])        
+    print("null_test:")
+    print(sum(null_test) / len(null_test), null_test )
+    print("intervene_test:")
+    print(sum(intervene_test) / len(intervene_test), intervene_test )
+    print("null_symm1:")
+    print(sum(null_symm1) / len(null_symm1), null_symm1)
+    print("inteverne_symm1:")
+    print(sum(intervene_symm1) / len(intervene_symm1), intervene_symm1 )
+    print("null_symm2:")
+    print(sum(null_symm2) / len(null_symm2), null_symm2)
+    print("inteverne_symm2:")
+    print(sum(intervene_symm2) / len(intervene_symm2), intervene_symm2 )
 
 def convert_text_to_hans_scores(text_answer_path, config, result_path, group): 
     tables = {}
@@ -1882,6 +2082,7 @@ class DevFever(Dataset):
         # dev_path = os.path.join(os.path.join(dev_path, file))
         self.dev_name = list(json_file.keys())[0] if isinstance(json_file, dict) else json_file.split('_')[0] + '_' + json_file.split('_')[-1].split('.')[0]
         data_path = os.path.join(data_path, json_file[self.dev_name] if isinstance(json_file, dict) else json_file)
+        data_path = data_path.strip() 
         self.df = pd.read_json(data_path, lines=True)
         self.df.rename(columns = {'evidence':'evidence_sentence'}, inplace = True)
         if 'gold_label' not in self.df.columns: self.df.rename(columns = {'label':'gold_label'}, inplace = True)

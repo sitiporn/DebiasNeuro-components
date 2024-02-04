@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import numpy as np
+import pandas as pd
 import gc
 import os
 import os.path
@@ -651,3 +652,68 @@ def swap_hierarchy(cur_dict):
             res[key_in][key] = val_in
 
     return res
+
+def combine_nie(row, config):
+    sum_nie = 0
+    
+    for label_text in config['label_maps']:
+        sum_nie += row[f'{label_text}_NIE'] 
+        if config['DEBUG'] == 3:
+            print(f'{label_text}_NIE: {row[f"{label_text}_NIE"]}')
+
+    avg_nie = sum_nie / len(config['label_maps'])
+    if config['DEBUG'] == 3: print(f'averaged nie : {avg_nie}')
+
+    return avg_nie
+
+def get_avg_nie(config, cur_path, layers):
+    seed = cur_path.split('/')[3].split('_')[-1]
+    do = cur_path.split('/')[-1].split('_')[2 if config['is_averaged_embeddings'] else 3 ]
+
+    if config['is_averaged_embeddings']:
+        df_nie = {'Layers': [], 'Components': [], 'Neuron_ids': [], 'NIE': [], 'Treatments': []}
+    elif config['is_group_by_class']:
+        df_nie = {'Layers': [], 'Components': [], 'Neuron_ids': [], 'Treatments': []}
+        # generalize to any dataset
+        for label_text in config['label_maps'].keys():
+            df_nie[f'{label_text}_NIE'] = []
+    
+    with open(cur_path, 'rb') as handle:
+        NIE = pickle.load(handle)
+        counter = pickle.load(handle)
+        print(f"loading NIE : {cur_path}")
+    
+    if do in NIE.keys():
+        NIE = swap_hierarchy(NIE)
+        counter = swap_hierarchy(counter)
+    
+    for component in NIE.keys():
+        for layer in layers:
+            mode = f"L-{layer}-" if config['computed_all_layers'] else ""
+            if config['is_averaged_embeddings']:
+                for neuron_id in NIE[component][do][layer].keys():
+                    assert counter[component][do][layer][neuron_id] == config['num_samples']
+                    NIE[component][do][layer][neuron_id] = NIE[component][do][layer][neuron_id] / counter[component][do][layer][neuron_id]
+                    df_nie['Layers'].append(layer) 
+                    df_nie['Components'].append(component) 
+                    df_nie['Neuron_ids'].append(neuron_id) 
+                    df_nie['NIE'].append(NIE[component][do][layer][neuron_id].cpu()) 
+                    df_nie['Treatments'].append(do) 
+            elif config['is_group_by_class']:
+                for label_text in config['label_maps']:
+                    for neuron_id in NIE[component][do][layer][label_text].keys():
+                        assert counter[component][do][layer][label_text][neuron_id] == (config['num_samples'] // len(config['label_maps']))
+                        NIE[component][do][layer][label_text][neuron_id] = NIE[component][do][layer][label_text][neuron_id] / counter[component][do][layer][label_text][neuron_id]
+                        df_nie[f'{label_text}_NIE'].append(NIE[component][do][layer][label_text][neuron_id].cpu()) 
+                        if label_text == config['intervention_class'][0]: 
+                            df_nie['Layers'].append(layer) 
+                            df_nie['Components'].append(component) 
+                            df_nie['Neuron_ids'].append(neuron_id) 
+                            df_nie['Treatments'].append(do) 
+    
+    
+    df_nie = pd.DataFrame.from_dict(df_nie)
+    if config['is_group_by_class']:
+        df_nie['NIE'] = df_nie.apply(lambda row: combine_nie(row, config), axis=1)
+
+    return NIE, counter, df_nie
