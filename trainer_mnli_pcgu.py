@@ -73,6 +73,7 @@ parser.add_argument("--random_adv", type=bool,  default=False,  help="The random
 parser.add_argument("--collect_adv", type=bool, default=False,  help="collect advanated samples")	
 parser.add_argument("--correct_pred", type=bool, default=True, help="model to filter advantaged samples")	
 parser.add_argument("--num_epochs", type=int, default=15, help="Total number of training epochs.")
+parser.add_argument("--save_steps", type=int, default=500, help="the number of step to save model")
 parser.add_argument("--candidated_class", type=str, help="class used to filter advantaged samples") 
 parser.add_argument("--intervention_class", type=str, help="class used to compute NIE scores") 
 parser.add_argument("--intervention_type", type=str, help="tye of neuron intervention") 
@@ -80,9 +81,12 @@ parser.add_argument("--top_neuron_mode", type=str, help="mode select neurons to 
 parser.add_argument("--grad_direction", type=str, help="moving gradient directoin used to learn or unlearn") 
 parser.add_argument("--k", type=int, default=None, help="the percentage of total number of top neurons") 
 parser.add_argument("--top_neuron_num", type=int, default=None, help="the number of top neurons") 
+parser.add_argument("--top_neuron_layer", type=int, default=None, help="a layer used to optimize") 
 parser.add_argument("--compare_frozen_weight", type=bool, default=True, help="compare weight to reference model to restore back to model during training at each step")	
 parser.add_argument("--is_averaged_embeddings", type=bool, default=True, help="Average representation across samples")	
 parser.add_argument("--DEBUG", type=int, default=0, help="Mode used to debug")	
+parser.add_argument("--scale_lr", type=float, default=1.0, help="scale_learning_rate")	
+
 
 args = parser.parse_args()
 print(args)
@@ -108,13 +112,16 @@ config['random_adv'] = args.random_adv
 config['collect_adv'] = args.collect_adv
 config['correct_pred'] = args.correct_pred
 config['num_epochs'] =  args.num_epochs
+config['save_steps'] = args.save_steps
 config['candidated_class'] =  [args.candidated_class]
 config['intervention_class'] =  [args.intervention_class]
 config['intervention_type']  = args.intervention_type
 config['top_neuron_mode'] = args.top_neuron_mode
 config['grad_direction'] = args.grad_direction
+config['scale_lr'] = args.scale_lr
 config['k'] = args.k
 config['top_neuron_num'] = args.top_neuron_num
+config['top_neuron_layer'] = args.top_neuron_layer
 config['compare_frozen_weight'] = args.compare_frozen_weight
 config['is_averaged_embeddings'] = args.is_averaged_embeddings
 config["DEBUG"] = args.DEBUG
@@ -136,7 +143,7 @@ model_path = config['seed'] if config['seed'] is None else all_model_paths[str(c
 tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
 # path to save NIE scores
 NIE_paths, _ = geting_NIE_paths(config, method_name, mode)
-print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
+print(f'Loading path for single at seed:{config["seed"]}')
 print(f'NIE_paths: {NIE_paths}')
 
 # random seed
@@ -203,7 +210,7 @@ pcgu_epochs = 15
 pcgu_num_batch_per_epoch = 4
 pcgu_batch_size = 64
 our_samples = len(advantaged_bias) * config['num_epochs']
-pcgu_samples = (pcgu_batch_size * pcgu_num_batch_per_epoch * pcgu_epochs)
+pcgu_samples = (pcgu_batch_size * pcgu_num_batch_per_epoch * pcgu_epochs) * config['scale_lr']
 lr = (pcgu_samples /  our_samples) * lr
 
 print(f'Our Learning samples : {our_samples}')
@@ -215,6 +222,8 @@ print(f'top neruon mode : {config["top_neuron_mode"]}')
 print(f'#advantaged sampled len: {len(advantaged_bias)}')
 print(f'Predict candidated class correct : {config["correct_pred"]}')
 print(f'intervention type : {config["intervention_type"]}')
+print(f'save steps : {config["save_steps"]}')
+print(f'scale lr : {config["scale_lr"]}')
 
 training_args = TrainingArguments(output_dir = output_dir,
                                 report_to="none",
@@ -223,6 +232,7 @@ training_args = TrainingArguments(output_dir = output_dir,
                                 evaluation_strategy=config['evaluation_strategy'],
                                 # num of steps
                                 eval_steps=config['eval_steps'],
+                                save_steps=config['save_steps'],
                                 learning_rate = float(config['optimizer']['lr']),
                                 weight_decay = config['optimizer']['weight_decay'],
                                 per_device_train_batch_size = config["data_loader"]["batch_sampler"]["batch_size"],
