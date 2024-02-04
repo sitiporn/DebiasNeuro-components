@@ -1616,3 +1616,58 @@ class DevFever(Dataset):
         return tuple([self.inputs[df_col][idx] for  df_col in list(self.df.keys())])
 
         # return pair_sentence , labelp
+
+def analyze_nie(config, method_name, NIE_paths, treatments):
+    seed = config['seed'] 
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+    else: 
+        seed = str(seed)
+
+    # select candidates  based on percentage
+    k = config['k']
+    top_neuron_num = config['top_neuron_num']
+    mode = config['top_neuron_mode']
+    print(f'get_candidate_neurons: {mode}')
+    scaler_path = f'../pickles/scale_grad/{method_name}/'
+    if not os.path.exists(scaler_path): os.mkdir(scaler_path)
+    
+    top_neurons = {}
+    from my_package.cma import get_topk
+    topk = get_topk(config, k=k, top_neuron_num=top_neuron_num)
+    key = list(topk.keys())[0]
+    layers = config['layers'] if config['computed_all_layers'] else config['layer']
+    save_path = None
+    from my_package.cma_utils import get_avg_nie
+    from sklearn.preprocessing import MinMaxScaler
+    scaler = MinMaxScaler()
+
+    cur_path = NIE_paths[0]
+    seed = cur_path.split('/')[3].split('_')[-1]
+    do = cur_path.split('/')[-1].split('_')[2 if config['is_averaged_embeddings'] else 3]
+    NIE, counter, df_nie = get_avg_nie(config, cur_path, layers)
+    from my_package.cma_utils import combine_pos
+    from sklearn.preprocessing import QuantileTransformer
+    df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
+    df_nie = df_nie.sort_values(by='NIE', ascending=False)
+    scaler.fit(df_nie['NIE'].to_numpy().reshape(-1, 1))
+    df_nie['norm'] = scaler.transform(df_nie['NIE'].to_numpy().reshape(-1, 1))
+    df_nie['reweight'] = df_nie['norm'].apply(lambda w: 1/(1-w+1e-1))
+
+    if config['top_neuron_layer'] is not None:
+        opt_layer = config['top_neuron_layer'] 
+    elif config['computed_all_layers']:
+        opt_layer = 'all_layers'
+
+    if config['is_averaged_embeddings']:
+        save_path = os.path.join(scaler_path, f'{mode}_scaler_{seed}_{key}_{do}_{opt_layer}.pickle')
+    elif config['is_group_by_class']:
+        save_path = os.path.join(scaler_path, f'{mode}_scaler_{seed}_{key}_{do}_{opt_layer}_class_level.pickle')
+        
+    with open(save_path, 'wb') as handle:
+        pickle.dump(df_nie, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"Done saving {mode} gradient scalers into pickle! : {save_path}") 
+
