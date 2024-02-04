@@ -31,7 +31,7 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from my_package.utils import load_model
 from my_package.utils import compare_frozen_weight, prunning_biased_neurons
-from my_package.get_bias_samples_fever import get_ngram_doc, get_ngram_docs, vanilla_tokenize
+# from my_package.get_bias_samples_fever import get_ngram_doc, get_ngram_docs, vanilla_tokenize
 from my_package.counter import count_negations 
 
 class ExperimentDataset(Dataset):
@@ -915,7 +915,7 @@ def get_all_model_paths(LOAD_MODEL_PATH):
     # assert len(clean_model_files) == num_seeds, f"is not {num_seeds} runs"
     return {path.split('/')[3].split('_')[-1]: path for path in clean_model_files}
     
-def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, is_load_model=True, is_optimized_set = False):
+def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
@@ -941,7 +941,6 @@ def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, met
     # item= all_paths.pop(seed)
     # print("Popped value is:",item)
     # print("The dictionary is:" , all_paths.keys())
-    NIE_paths = {path.split('/')[3].split('_')[-1]:path for path in NIE_paths}
     acc_in= []
     acc_out = [] 
     for seed, path in all_paths.items():
@@ -950,14 +949,6 @@ def eval_model(model, NIE_paths, config, tokenizer, DEVICE, LOAD_MODEL_PATH, met
             model = load_model(path=path, model=model)
         else:
             print(f'Using original model')
-        
-        if config['prunning']:
-            from my_package.optimization_utils import initial_partition_params 
-            path = [NIE_paths[seed]]
-            do = "High-overlap"  if config['treatment'] else  "Low-overlap"
-            model = initial_partition_params(config, method_name, model, do=do, collect_param=config['collect_param'],seed=seed ,mode=config['top_neuron_mode']) 
-            model, hooks = prunning_biased_neurons(model, seed, path, config, method_name, hooks, DEBUG=False)
-            print(f'eval model using prunning mode')
         
         for cur_json in json_sets:
             name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
