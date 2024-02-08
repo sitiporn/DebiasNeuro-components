@@ -23,7 +23,7 @@ from pprint import pprint
 from my_package.utils import  LayerParams
 from my_package.cma_utils import get_overlap_thresholds, group_by_treatment, get_hidden_representations, get_avg_nie
 from my_package.intervention import Intervention, neuron_intervention, get_mediators
-from my_package.utils import get_ans, compute_acc
+from my_package.utils import get_ans, compute_acc, compute_maf1
 from my_package.utils import get_num_neurons, get_params, relabel, give_weight
 from torch.optim import Adam
 from transformers import AutoTokenizer, BertForSequenceClassification
@@ -349,9 +349,10 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
     nie_table_df.rename(columns = {'Components':'component_id'}, inplace = True) 
     nie_table_df.rename(columns = {'Layers':'layer_id'}, inplace = True)  
     if config['random_mask']: 
-        neuron_ids_copy = nie_table_df['neuron_id'].tolist()
-        random.shuffle(neuron_ids_copy)
-        nie_table_df['neuron_id'] = neuron_ids_copy # for random ablation experiment
+        nie_table_df = nie_table_df.sample(frac=1).reset_index()
+        # neuron_ids_copy = nie_table_df['neuron_id'].tolist()
+        # random.shuffle(neuron_ids_copy)
+        # nie_table_df['neuron_id'] = neuron_ids_copy # for random ablation experiment
     # m = {row['neuron_id']: row['M_MinMax'] for index, row in nie_table_df.iterrows()} 
 
     # cls = get_hidden_representations(counterfactual_paths, layers, config['is_group_by_class'], config['is_averaged_embeddings'])
@@ -474,7 +475,7 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
                     distributions[mode].extend(cur_dist[mode])
                     golden_answers[mode].extend(label_ids if label_ids is not None else cur_inputs['gold_label']) 
                     if config['dev-name'] != 'hans': losses[mode].extend(loss) 
-
+            
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
 
             with open(raw_distribution_path, 'wb') as handle: 
@@ -484,7 +485,8 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
                 print(f'saving distributions and labels into : {raw_distribution_path}')
             
             if dev_set.dev_name != 'hans': 
-                acc[masking_rate] = compute_acc(raw_distribution_path, config["label_maps"])
+                if config['dataset_name']=='qqp': acc[masking_rate] = compute_maf1(raw_distribution_path, config["label_maps"])
+                else: acc[masking_rate] = compute_acc(raw_distribution_path, config["label_maps"])
 
                 eval_path  = get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, masking_rate, do)
             
@@ -639,7 +641,6 @@ def get_conditional_inferences(config, do,  model_path, model, method_name, NIE_
                     if config['dev-name'] != 'hans': losses[mode].extend(loss) 
 
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
-
             with open(raw_distribution_path, 'wb') as handle: 
                 pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -838,7 +839,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
     # ********** original function **********
     # required distribution of hans
     # def convert_to_text_ans(config, neuron_path, params, digits, text_answer_path = None, raw_distribution_path = None):
-    # if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits, method_name, do, seed)
+    if config['to_text']: convert_to_text_ans(config, neuron_path, params, digits, method_name, do, seed)
     # if config['to_text']: convert_to_text_ans(config, top_neuron, method_name, params, do, seed)
     num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else [config['masking_rate']]
     # num_neuron_groups = [config['neuron_group']] if config['neuron_group'] is not None else ([config['masking_rate']] if config['masking_rate'] else list(top_neuron.keys()))
@@ -864,6 +865,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
 
                 config['evaluations'][group] = {}
                 # text_answer_path = os.path.join(os.path.join(prediction_path, epsilon_path),  text_answer_path)
+                print(epsilon_path)
                 text_answer_path  = os.path.join(os.path.join(prediction_path, f'seed_{seed}' ,epsilon_path), text_answer_path)
                 result_path = os.path.join(os.path.join(eval_path, f'seed_{seed}',epsilon_path),  result_path)
                 # vv = '../pickles/prediction/seed_None/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt'
@@ -1003,7 +1005,7 @@ def get_condition_inference_scores_fever(config, model, method_name, seed=None):
         print(f'saving all scores into : {all_masking_score_path}')
 
 def get_condition_inference_scores_qqp(config, model, method_name, seed=None): 
-    """ getting scores on modifiying activations on fever and symm1&2"""
+    """ maf1 scores"""
     eval_path = f'../pickles/evaluations/{method_name}/'
     prediction_path = f'../pickles/prediction/{method_name}/' 
     all_test_scores = {}
@@ -1550,7 +1552,9 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
     elif dataset_name == "mnli": 
         json_files = ['multinli_1.0_dev_matched.jsonl', 'multinli_1.0_dev_mismatched.jsonl', 'heuristics_evaluation_set.jsonl']
         dataset_names = ['matched', 'mismatched', 'hans']
+        null_m = []
         null_mm = []
+        intervene_m = []
         intervene_mm = []
         null_hans = []
         inteverne_hans = []
@@ -1585,10 +1589,16 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
         print(f'HAN scores : ')
         print(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Null'].item(), all_hans_scores[config['weaken_rate']][config['masking_rate']]['Intervene'].item())
         # get_condition_inference_scores(config, model, method_name, seed)
+        null_m.append(all_valid_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
+        intervene_m.append(all_valid_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
         null_mm.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
         intervene_mm.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
         null_hans.append(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Null'].item())
         inteverne_hans.append(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Intervene'].item())
+    print("null_m:")
+    print(sum(null_m) / len(null_m), null_m )
+    print("intervene_m:")
+    print(sum(intervene_m) / len(intervene_m), intervene_m )    
     print("null_mm:")
     print(sum(null_mm) / len(null_mm), null_mm )
     print("intervene_mm:")
@@ -1656,7 +1666,7 @@ def masking_representation_exp_quick_fever(config, model, method_name, experimen
         intervene_test.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
         null_symm1.append(all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
         intervene_symm1.append(all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
-        null_symm2.append(all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
+        null_symm2.append(all_symm2_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
         intervene_symm2.append(all_symm2_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])        
     print("null_test:")
     print(sum(null_test) / len(null_test), null_test )
