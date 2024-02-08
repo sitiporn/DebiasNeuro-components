@@ -31,7 +31,7 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from my_package.utils import load_model
 from my_package.utils import compare_frozen_weight, prunning_biased_neurons
-# from my_package.get_bias_samples_fever import get_ngram_doc, get_ngram_docs, vanilla_tokenize
+from my_package.get_bias_samples_fever import get_ngram_doc, get_ngram_docs, vanilla_tokenize
 from my_package.counter import count_negations 
 
 class ExperimentDataset(Dataset):
@@ -925,26 +925,41 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, i
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
+    VALIDATION_SET_JSONL = 'multinli_1.0_dev_matched.jsonl'
     IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
-    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
-    acc_avg = 0
-    entail_avg = 0
-    contradiction_avg = 0
-    neutral_avg = 0
+    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [VALIDATION_SET_JSONL, IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
+    # valid and test set
+    acc_avg = {}
+    entail_avg = {}
+    contradiction_avg = {}
+    neutral_avg = {}
+    computed_acc_count = {}
+    # challenge set  
     hans_avg = 0
-    computed_acc_count = 0
     computed_hans_count = 0
+    # collect 
+    acc_in = {}
+    acc_out = [] 
+
+    for cur_json in json_sets:
+        name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+        if name_set == 'multinli': name_set = name_set + '_' + cur_json.split("_")[-1].split('.')[0]
+        if 'multinli' not in name_set: continue
+        acc_avg[name_set] = 0
+        entail_avg[name_set] = 0
+        contradiction_avg[name_set] = 0
+        neutral_avg[name_set] = 0
+        computed_acc_count[name_set] = 0
+        acc_in[name_set] = []
+    
     seed = str(config['seed'])
     if not config['compute_all_seeds']:  all_paths = {seed: all_paths[seed]}
     # item= all_paths.pop(seed)
     # print("Popped value is:",item)
     # print("The dictionary is:" , all_paths.keys())
-    acc_in= []
-    acc_out = [] 
     for seed, path in all_paths.items():
-        hooks = []
         if is_load_model:
             model = load_model(path=path, model=model)
         else:
@@ -952,6 +967,7 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, i
         
         for cur_json in json_sets:
             name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+            if name_set == 'multinli': name_set = name_set + '_' + cur_json.split("_")[-1].split('.')[0]
             distributions = []
             losses = []
             golden_answers = []
@@ -992,17 +1008,17 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, i
                 if 'Null' in acc.keys():
                     acc = acc['Null']
 
-                acc_in.append(acc['all'])    
+                acc_in[name_set].append(acc['all'])    
                 print(f"overall acc : {acc['all']}")
                 print(f"contradiction acc : {acc['contradiction']}")
                 print(f"entailment acc : {acc['entailment']}")
                 print(f"neutral acc : {acc['neutral']}")
 
-                acc_avg += acc['all']
-                entail_avg += acc['entailment']
-                neutral_avg += acc['neutral']
-                contradiction_avg += acc['contradiction']
-                computed_acc_count += 1
+                acc_avg[name_set] += acc['all']
+                entail_avg[name_set] += acc['entailment']
+                neutral_avg[name_set] += acc['neutral']
+                contradiction_avg[name_set] += acc['contradiction']
+                computed_acc_count[name_set] += 1
 
             elif config['get_hans_result'] and 'heuristics'in cur_json: 
                 cur_hans_score = get_hans_result(cur_raw_distribution_path, config)
@@ -1012,14 +1028,16 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, i
                 acc_out.append(cur_hans_score.item())
     
     print(f'==================== Avearge scores ===================')
-    print(acc_in)
-    print(f"average overall acc : {acc_avg / len(all_paths)}")
-    print(f"averge contradiction acc : {contradiction_avg / len(all_paths)}")
-    print(f"average entailment acc : {entail_avg   / len(all_paths)}")
-    print(f"average neutral acc : {neutral_avg /  len(all_paths)}")
-    print(acc_out)
+
+    for name_set in acc_in.keys():
+        print(f"average {name_set} overall acc : {acc_avg[name_set] / len(all_paths)}")
+        print(f"averge contradiction acc : {contradiction_avg[name_set] / len(all_paths)}")
+        print(f"average entailment acc : {entail_avg[name_set]   / len(all_paths)}")
+        print(f"average neutral acc : {neutral_avg[name_set] /  len(all_paths)}")
+        print(acc_in[name_set])
+    
     print(f'avarge hans score : { hans_avg  / len(all_paths)}')
-    for hook in hooks: hook.remove()
+    print(acc_out)
 
 def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path):
 
