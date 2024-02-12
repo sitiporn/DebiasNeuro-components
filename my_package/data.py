@@ -31,6 +31,15 @@ from functools import partial
 from my_package.utils import load_model
 from my_package.utils import compare_frozen_weight, prunning_biased_neurons
 
+
+import functools
+
+import numpy as np
+import sklearn.metrics as skm
+from fairlearn.metrics import MetricFrame
+from fairlearn.metrics import demographic_parity_difference
+
+
 class ExperimentDataset(Dataset):
     def __init__(self, config, encode, dataset_name, seed=None, DEBUG=False) -> None: 
         
@@ -222,11 +231,23 @@ class Dev(Dataset):
             self.df['sentence1'] = self.df.premise 
             self.df['sentence2'] = self.df.hypothesis
         
-        for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
+       
         # self.sentences1 = self.df.sentence1.tolist() if self.dev_name == "mismatched" else self.df.premise.tolist()
         # self.hypos = self.df.sentence2.tolist() if self.dev_name == "mismatched" else self.df.hypothesis.tolist()
         # self.labels = self.df.gold_label.tolist()
-
+        ### for fairness stuff
+        pair_and_label = []
+        dataset_name = "mnli"
+        for i in range(len(self.df)):
+            pair_and_label.append(
+                (self.df['sentence1'][i], 
+                 self.df['sentence2'][i], 
+                 self.df['gold_label'][i]))
+        self.df['pair_label'] = pair_and_label
+        thresholds = get_overlap_thresholds(self.df, 99, 5, dataset_name)
+        self.df['Treatment'] = self.df.apply(lambda row: group_by_treatment(
+        thresholds, row.overlap_scores, row.gold_label), axis=1)
+        for  df_col in list(self.df.keys()): self.inputs[df_col] = self.df[df_col].tolist()
     def __len__(self): return self.df.shape[0]
 
     def __getitem__(self, idx):
@@ -409,11 +430,14 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
             distributions = {}
             losses = {}
             golden_answers = {}
+            treatments = {}
+            predictions = {}
             
             for mode in ["Null", "Intervene"]: 
                 distributions[mode] = []
                 golden_answers[mode] = []
                 losses[mode] = []
+                treatments[mode] = []
             for batch_idx, (inputs) in enumerate(b:=tqdm(dev_loader)):
                 b.set_description(f"batch_idx: {batch_idx}")
                 cur_inputs = {} 
@@ -474,10 +498,25 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
 
                     distributions[mode].extend(cur_dist[mode])
                     golden_answers[mode].extend(label_ids if label_ids is not None else cur_inputs['gold_label']) 
+                    if config['dataset_name']=='mnli':treatments[mode].extend(cur_inputs['Treatment'])
                     if config['dev-name'] != 'hans': losses[mode].extend(loss) 
             
+            predictions['Null'] = [int(torch.argmax(dist)) for dist in distributions['Null']]
+            predictions['Intervene'] = [int(torch.argmax(dist)) for dist in distributions['Intervene']]
             raw_distribution_path = os.path.join(prediction_path,  raw_distribution_path)
-
+            if config['dataset_name']=='mnli' and config['dev-name'] != 'hans':
+                golden_int = [int(i) for i in golden_answers['Null']]
+                dev_set.df['pred_null'] =  predictions['Null'] 
+                dev_set.df['pred_intervene'] =  predictions['Intervene'] 
+                dev_set.df['golden_int'] =  golden_int
+                grouped = dev_set.df.groupby('Treatment')
+                conf_mat = functools.partial(skm.confusion_matrix, labels=np.unique(golden_int))
+                recall = functools.partial(skm.recall_score, average="macro")
+                # dpd = functools.partial(demographic_parity_difference, sensitive_features=dev_set.df['Treatment'] )
+                mf_null = MetricFrame( metrics={"conf_mat": conf_mat, "recall":recall}, y_true=golden_int, y_pred=dev_set.df['pred_null'], sensitive_features=dev_set.df['Treatment'] )
+                mf_mask = MetricFrame( metrics={"conf_mat": conf_mat, "recall":recall}, y_true=golden_int, y_pred=dev_set.df['pred_intervene'], sensitive_features=dev_set.df['Treatment'] )
+                print('null_diff', mf_null.difference())
+                print('mask_diff', mf_mask.difference())
             with open(raw_distribution_path, 'wb') as handle: 
                 pickle.dump(distributions, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 pickle.dump(golden_answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -487,11 +526,12 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
             if dev_set.dev_name != 'hans': 
                 if config['dataset_name']=='qqp': acc[masking_rate] = compute_maf1(raw_distribution_path, config["label_maps"])
                 else: acc[masking_rate] = compute_acc(raw_distribution_path, config["label_maps"])
-
                 eval_path  = get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, masking_rate, do)
             
                 with open(eval_path,'wb') as handle:
                     pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    # pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    # pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     print(f"saving all accuracies into {eval_path} ")
 
 

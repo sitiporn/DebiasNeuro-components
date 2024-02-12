@@ -379,7 +379,6 @@ def compute_acc(raw_distribution_path, label_maps):
         for p in to_pop:
             acc[mode].pop(p, None)
         acc[mode] = { k: sum(acc[mode][k]) / len(acc[mode][k]) for k in list(acc[mode].keys())}
-    
     return acc
 
 def compute_maf1(raw_distribution_path, label_maps):
