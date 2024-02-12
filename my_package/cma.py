@@ -229,7 +229,7 @@ def evalutate_counterfactual(experiment_set, dataloader, config, model, tokenize
         # distribution[seed] = [] if config["is_averaged_embeddings"] else {}
         classifier = Classifier(model=_model)
         # treatments = ['High-overlap'] if config['dataset_name'] == 'fever' else ['High-overlap','Low-overlap']
-        treatments =['High-overlap','Low-overlap']
+        treatments = ['High-overlap','Low-overlap']
         counterfactuals = CounterfactualRepresentation(label_maps, tokenizer=tokenizer, is_group_by_class=config["is_group_by_class"])
         distribution[seed] = {}
         print(f'*********** {seed} ***********')
@@ -237,14 +237,16 @@ def evalutate_counterfactual(experiment_set, dataloader, config, model, tokenize
         for do in treatments:
             if config["is_averaged_embeddings"]:
                 counter, average_representation = foward_hooks(do, tokenizer, dataloader, _model ,DEVICE, eval=config["eval_counterfactuals"],DEBUG=config['DEBUG'])
-                out = classifier(average_representation.T).squeeze(dim=0)
+                with torch.no_grad():  
+                    out = classifier(average_representation.T).squeeze(dim=0)
                 distribution[seed][do] = F.softmax(out, dim=-1).cpu()
                 for label_text, label_id in label_maps.items(): print(f'{do}: {label_text}, { distribution[seed][do][label_id]}')
             elif config["is_group_by_class"]:
                 distribution[seed][do] = {}
                 for group in config['label_maps'].keys():
                     counter, average_representation = foward_hooks(do, tokenizer, dataloader, _model, DEVICE, class_name=group, eval=config["eval_counterfactuals"],DEBUG=config['DEBUG'])
-                    out = classifier(average_representation.T).squeeze(dim=0)
+                    with torch.no_grad():  
+                        out = classifier(average_representation.T).squeeze(dim=0)
                     distribution[seed][do][group] = F.softmax(out, dim=-1).cpu()
                     print(f":{group} Group:")
                     for label_text, label_id in label_maps.items(): print(f'{do}: {label_text}, { distribution[seed][do][group][label_id]}')
