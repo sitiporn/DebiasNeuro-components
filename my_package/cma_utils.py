@@ -230,8 +230,8 @@ def get_overlap_thresholds(df, upper_bound, lower_bound, dataset_name):
         df['overlap_scores'] = df['pair_label'].apply(get_overlap_score)
         
     biased_scores = df['count_negations'] if dataset_name == 'fever'  else df['overlap_scores'] 
-    thresholds["Low-overlap"]  = 0.0 if dataset_name == 'fever' else np.percentile(biased_scores, lower_bound)
-    thresholds["High-overlap"] = 1.0 if dataset_name == 'fever' else np.percentile(biased_scores, upper_bound)
+    thresholds["Low-overlap"]  = -1.0 if dataset_name == 'fever' else np.percentile(biased_scores, lower_bound)
+    thresholds["High-overlap"] = 2.0 if dataset_name == 'fever' else np.percentile(biased_scores, upper_bound)
 
     return thresholds
     

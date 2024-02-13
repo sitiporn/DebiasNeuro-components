@@ -108,8 +108,7 @@ class ExperimentDataset(Dataset):
                 claim_support.append(claim_support_count)
             self.df['claim_support_count'] = claim_support
             self.df['claim_support_count'] = self.df['claim_support_count'] - self.df['count_negations']*100
-        thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound, dataset_name)  
-                             
+        thresholds = get_overlap_thresholds(self.df, upper_bound, lower_bound, dataset_name)             
         # get HOL and LOL set
         
         self.df['Treatment'] = self.df.apply(lambda row: group_by_treatment(
