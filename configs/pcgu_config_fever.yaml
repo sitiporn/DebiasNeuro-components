@@ -3,27 +3,16 @@
   "collect_representation": False,
   "DEBUG": True,
   "debug": False, 
-  # the number of exclude mode samples 
-  "dataset_name": 'fever',
-  # Both support 
-  "candidated_class": ["SUPPORTS"], #["REFUTES"], 
-  "intervention_class": ["SUPPORTS"],  #["REFUTES"], 
-  "num_samples": 300,
   "upper_bound": 95,
   "lower_bound": 5,
+  "num_samples": 300,
   "label_maps": {"SUPPORTS": 0, "REFUTES": 1, "NOT ENOUGH INFO": 2}, # ours
   "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   "collect_param": False,
   "claim_only": False,
-  # Here
-  "correct_pred": True,
-  "collect_adv": False,
-  "random_adv": False,
   # ******************** PATH ********************
-  "num_top_neurons": null, 
   "range_percents": True, 
-  'neurons': True, 
   "model_name": "../bert-base-uncased-mnli/",
   "dev_path": "../data/fact_verification/",
   # validation set
@@ -35,12 +24,7 @@
   "is_NIE_exist": [],
   "is_counterfactual_exist": [],
   # ************ Identifying Bias: Causal Mediation Analysis *************
-  # experiment set 
-  "k":  5, 
-  # "k":  1, 
-  # rank based on nie scores 
   "eval_candidates": True,
-  "layer": 11,
   "treatment": True,
   "is_group_by_class": False,
   "is_averaged_embeddings": True,
@@ -50,19 +34,6 @@
   "print_config": False,
   "top_neuron_mode": "sorted",
   "prunning": True,
-  # methods select candidate neurons
-  # topk - percentage over all neurons eg. top 1%, top 5% 
-  # num_neurons - the number of neurons eg. 2, 5, 10, 20, ..., 100
-  "criterion": 'topk',
-  # 2, 5, 10, 20, 30, 40, 50, ..,80
-  "num_neurons": 10,
-  "seeds": [ 1548, 3099, 3785, 3990, 409], 
-  # [*1548, 3099, *3785, 3990, 409] for experiments
-  # "seed": 3099, #409, # set to null when using ishan/bert-base-uncased-mnli
-  "seed": 409, # set to null when using ishan/bert-base-uncased-mnli
-  # default
-  # "topk_neurons": True,
-  # together with compute all seeds
   "get_candidate_neurons": True,
   "distribution": False,
   # To get counterfactual
@@ -70,21 +41,11 @@
   "eval_counterfactual": True,
   "getting_counterfactual": False,
   "compute_nie_scores": False,
-  # ******************** Unlearn Bias ********************
-  "training_json":  multinli_1.0_train.jsonl, 
-  "partition_params": False,
   # ******************** soft masking neurons ********************
-  # we mask top 5% neurons
-  # "weaken_rate": 0.9, # best score on has (0.6299)
-  # "weaken_rate": 0.1,
-  # "weaken_rate": 0.97,
-  # "weaken_rate": 1.0,
   "weaken_rate": null,
   "get_masking_value": False,
   # percent of neurons to mask
   "masking_rate": 0.05, 
-  # "masking_rate": 0.01, # this parameters related to 
-  # number of neurons to mask
   "neuron_group": null,
   "rank_losses": False, 
   # range 0.0 to 0.10, step = 0.01
@@ -121,17 +82,7 @@
   # "diag": True,
   "test_traced_params": False,
   "debias_test": False,
-  # "dev-name": "matched",
-  # test set
-  # "dev-name": "mismatched",
-  # challenge set
-  "dev-name": "hans",
-  # this set uses matched dataset
-  # "dev-name": "reweight",
-  # "dev-name": "matched",
-  # if know best params
-  # "weaken": null,
-
+  
   # evaluate hans
   "eval": {
     "do": 'High-overlap',
@@ -176,10 +127,13 @@
     "max_length": 512
   },
   
+  
   # dataset
-  "data_path": "../data/fact_verification/",
+  "data_path": "../data/fact_verification",
   "train_data": "fever_claim_only.train.jsonl",
-  "validation_data": "fever_claim_only.val.jsonl",
+  # "train_data": "weighted_feverv2.train.jsonl",
+  "validation_data": "fever_claim_only.val.jsonl", 
+  # "validation_data": "weighted_feverv2.val.jsonl", 
   "test_data": "fever_claim_only.dev.jsonl",
   
   # dataloader

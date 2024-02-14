@@ -176,7 +176,7 @@ class ExperimentDataset(Dataset):
                                         sentences1 = self.sentences1[do],
                                         sentences2 = self.sentences2[do]
                                     )
-                
+    
     def get_high_shortcut(self):
         # get high overlap score pairs
         return self.df[self.df['Treatment'] == "HOL"]
@@ -924,26 +924,41 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, i
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
+    VALIDATION_SET_JSONL = 'multinli_1.0_dev_matched.jsonl'
     IN_DISTRIBUTION_SET_JSONL = 'multinli_1.0_dev_mismatched.jsonl'
     CHALLENGE_SET_JSONL = 'heuristics_evaluation_set.jsonl' 
     RESULT_PATH = f'../pickles/performances/'
-    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
-    acc_avg = 0
-    entail_avg = 0
-    contradiction_avg = 0
-    neutral_avg = 0
+    json_sets = [OPTIMIZED_SET_JSONL] if is_optimized_set else [VALIDATION_SET_JSONL, IN_DISTRIBUTION_SET_JSONL, CHALLENGE_SET_JSONL]
+    # valid and test set
+    acc_avg = {}
+    entail_avg = {}
+    contradiction_avg = {}
+    neutral_avg = {}
+    computed_acc_count = {}
+    # challenge set  
     hans_avg = 0
-    computed_acc_count = 0
     computed_hans_count = 0
+    # collect 
+    acc_in = {}
+    acc_out = [] 
+
+    for cur_json in json_sets:
+        name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+        if name_set == 'multinli': name_set = name_set + '_' + cur_json.split("_")[-1].split('.')[0]
+        if 'multinli' not in name_set: continue
+        acc_avg[name_set] = 0
+        entail_avg[name_set] = 0
+        contradiction_avg[name_set] = 0
+        neutral_avg[name_set] = 0
+        computed_acc_count[name_set] = 0
+        acc_in[name_set] = []
+    
     seed = str(config['seed'])
     if not config['compute_all_seeds']:  all_paths = {seed: all_paths[seed]}
     # item= all_paths.pop(seed)
     # print("Popped value is:",item)
     # print("The dictionary is:" , all_paths.keys())
-    acc_in= []
-    acc_out = [] 
     for seed, path in all_paths.items():
-        hooks = []
         if is_load_model:
             model = load_model(path=path, model=model)
         else:
@@ -951,6 +966,7 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, i
         
         for cur_json in json_sets:
             name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
+            if name_set == 'multinli': name_set = name_set + '_' + cur_json.split("_")[-1].split('.')[0]
             distributions = []
             losses = []
             golden_answers = []
@@ -991,34 +1007,36 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, i
                 if 'Null' in acc.keys():
                     acc = acc['Null']
 
-                acc_in.append(acc['all'])    
+                acc_in[name_set].append(acc['all'])    
                 print(f"overall acc : {acc['all']}")
                 print(f"contradiction acc : {acc['contradiction']}")
                 print(f"entailment acc : {acc['entailment']}")
                 print(f"neutral acc : {acc['neutral']}")
 
-                acc_avg += acc['all']
-                entail_avg += acc['entailment']
-                neutral_avg += acc['neutral']
-                contradiction_avg += acc['contradiction']
-                computed_acc_count += 1
+                acc_avg[name_set] += acc['all']
+                entail_avg[name_set] += acc['entailment']
+                neutral_avg[name_set] += acc['neutral']
+                contradiction_avg[name_set] += acc['contradiction']
+                computed_acc_count[name_set] += 1
 
             elif config['get_hans_result'] and 'heuristics'in cur_json: 
-                cur_hans_score = get_hans_result(cur_raw_distribution_path, config)
+                cur_hans_score, _, _ = get_hans_result(cur_raw_distribution_path, config)
                 hans_avg += cur_hans_score
                 computed_hans_count +=1
                 print(f'has score :{cur_hans_score}')
                 acc_out.append(cur_hans_score.item())
     
     print(f'==================== Avearge scores ===================')
-    print(acc_in)
-    print(f"average overall acc : {acc_avg / len(all_paths)}")
-    print(f"averge contradiction acc : {contradiction_avg / len(all_paths)}")
-    print(f"average entailment acc : {entail_avg   / len(all_paths)}")
-    print(f"average neutral acc : {neutral_avg /  len(all_paths)}")
-    print(acc_out)
+
+    for name_set in acc_in.keys():
+        print(f"average {name_set} overall acc : {acc_avg[name_set] / len(all_paths)}")
+        print(f"averge contradiction acc : {contradiction_avg[name_set] / len(all_paths)}")
+        print(f"average entailment acc : {entail_avg[name_set]   / len(all_paths)}")
+        print(f"average neutral acc : {neutral_avg[name_set] /  len(all_paths)}")
+        print(acc_in[name_set])
+    
     print(f'avarge hans score : { hans_avg  / len(all_paths)}')
-    for hook in hooks: hook.remove()
+    print(acc_out)
 
 def convert_text_to_answer_base(config, raw_distribution_path, text_answer_path):
 
@@ -1169,15 +1187,15 @@ def get_hans_result(raw_distribution_path, config):
 
             config["evaluations"][cur_class][heuristic] = percent
 
-    
     with open(score_path, 'wb') as handle: 
         pickle.dump(config["evaluations"], handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving evaluation predictoins into : {score_path}')
 
-    avg_score = get_avg_score(score_path)
-    print(f'average score : {avg_score}')
+    avg_score, entail_score,  non_entailed_score = get_avg_score(score_path)
+     
+    # print(f'avg_score : {avg_score}')
 
-    return avg_score
+    return avg_score, entail_score,  non_entailed_score
 
 
 def get_avg_score(score_path):
@@ -1195,8 +1213,12 @@ def get_avg_score(score_path):
         for score in ['lexical_overlap', 'subsequence','constituent']: class_score.append(current_score[type][score])
 
         cur_score.append(class_score)
-
-    return torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
+    
+    entail_score = torch.Tensor(cur_score).mean(dim=-1)[0]
+    non_entailed_score = torch.Tensor(cur_score).mean(dim=-1)[1]
+    avg_score = torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
+    
+    return avg_score, entail_score, non_entailed_score
 
 def get_specific_component(splited_name, component_mappings):
 
@@ -1321,6 +1343,11 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
     computed_acc_count = 0
     computed_symm1_count = 0
     computed_symm2_count = 0
+
+    acc_in = []
+    symm1_out =  []
+    symm2_out =  []
+
     for seed, path in all_paths.items():
         if is_load_model:
             from my_package.utils import load_model
@@ -1390,6 +1417,7 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 print(f"overall acc : {acc['all']}")
                 print(f"REFUTES acc : {acc['REFUTES']}")
                 print(f"SUPPORTS acc : {acc['SUPPORTS']}")
+                acc_in.append(acc['all'])
                 # print(f"neutral acc : {acc['neutral']}")
 
                 acc_avg += acc['all']
@@ -1405,6 +1433,7 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 print(f"REFUTES symm1 acc : {acc_symm['REFUTES']}")
                 print(f"SUPPORTS symm1 acc : {acc_symm['SUPPORTS']}")
                 # print(f"neutral acc : {acc['neutral']}")
+                symm1_out.append(acc_symm['all'])
 
                 symm1_avg += acc_symm['all']
                 symm1_refute_avg += acc_symm['REFUTES']
@@ -1420,6 +1449,7 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 print(f"REFUTES symm2 acc : {acc_symm['REFUTES']}")
                 print(f"SUPPORTS symm2 acc : {acc_symm['SUPPORTS']}")
                 # print(f"neutral acc : {acc['neutral']}")
+                symm2_out.append(acc_symm['all'])
 
                 symm2_avg += acc_symm['all']
                 symm2_refute_avg += acc_symm['REFUTES']
@@ -1427,25 +1457,27 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 computed_symm2_count += 1
     
     print(f'==================== Average scores ===================')
-    print(acc_avg)
     print(f"average overall acc : {acc_avg / len(all_paths)}")
     print(f"averge REFUTES acc : {refute_avg / len(all_paths)}")
     print(f"average SUPPORTS acc : {support_avg   / len(all_paths)}")
-    print(symm1_avg)
+    print(acc_in)
+    print(acc_avg)
     print(f'avarge symm1 score : { symm1_avg  / len(all_paths)}')
     print(f"averge symm1 REFUTES acc : {symm1_refute_avg / len(all_paths)}")
     print(f"average symm1 SUPPORTS acc : {symm1_support_avg   / len(all_paths)}") 
-    print(symm2_avg)
+    print(symm1_avg)
+    print(symm1_out)
     print(f'avarge symm2 score : { symm2_avg  / len(all_paths)}')
     print(f"averge symm2 REFUTES acc : {symm2_refute_avg / len(all_paths)}")
     print(f"average symm2 SUPPORTS acc : {symm2_support_avg   / len(all_paths)}") 
+    print(symm2_avg)
+    print(symm2_out)
 
 def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
     golden_answers = {}
-
     
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
@@ -1462,6 +1494,9 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
     paws_avg = 0
     computed_maf1_count = 0
     computed_paws_count = 0
+    acc_in = []
+    acc_out = []
+    
     for seed, path in all_paths.items():
         if is_load_model:
             from my_package.utils import load_model
@@ -1525,6 +1560,7 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
                 print(f"not_duplicate maf1 : {maf1['not_duplicate']}")
                 # print(f"neutral acc : {acc['neutral']}")
                 maf1_avg += maf1['all']
+                acc_in.append(maf1['all'])
                 is_dup_avg += maf1['duplicate']
                 not_dup_avg += maf1['not_duplicate']
                 computed_maf1_count += 1
@@ -1539,6 +1575,7 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
                 # print(f"neutral acc : {acc['neutral']}")
 
                 paws_avg += maf1_paws['all']
+                acc_out.append(maf1_paws['all'])
                 paws_not_dup_avg += maf1_paws['not_duplicate']
                 paws_is_dup_avg += maf1_paws['duplicate']
                 computed_paws_count += 1
@@ -1551,9 +1588,11 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
     print(f"average overall maf1 : {maf1_avg / len(all_paths)}")
     print(f"averge not dup maf1 : {not_dup_avg / len(all_paths)}")
     print(f"average is dup maf1 : {is_dup_avg   / len(all_paths)}")
+    print(acc_in)
     print(f'avarge paws score : { paws_avg  / len(all_paths)}')
     print(f"averge paws not dup maf1 : {paws_not_dup_avg / len(all_paths)}")
     print(f"average paws dup SUPPORTS maf1 : {paws_is_dup_avg   / len(all_paths)}") 
+    print(acc_out)
 
 
 class DevQQP(Dataset):
@@ -1616,7 +1655,8 @@ class DevFever(Dataset):
 
         # return pair_sentence , labelp
 
-def analyze_nie(config, method_name, NIE_paths, treatments):
+def reweight_nie(config, method_name, NIE_paths, treatments):
+    """ Reweight nie; this computation run by single seed at a time"""
     seed = config['seed'] 
     if seed is not None:
         random.seed(seed)
@@ -1626,6 +1666,8 @@ def analyze_nie(config, method_name, NIE_paths, treatments):
     else: 
         seed = str(seed)
 
+    from my_package.cma_utils import combine_pos
+    from sklearn.preprocessing import QuantileTransformer
     # select candidates  based on percentage
     k = config['k']
     top_neuron_num = config['top_neuron_num']
@@ -1643,30 +1685,18 @@ def analyze_nie(config, method_name, NIE_paths, treatments):
     from my_package.cma_utils import get_avg_nie
     from sklearn.preprocessing import MinMaxScaler
     scaler = MinMaxScaler()
-
+    assert len(NIE_paths) == 1, f'Expected NIE paths len 1 but found {len(NIE_paths)}'
     cur_path = NIE_paths[0]
+    
     seed = cur_path.split('/')[3].split('_')[-1]
     do = cur_path.split('/')[-1].split('_')[2 if config['is_averaged_embeddings'] else 3]
     NIE, counter, df_nie = get_avg_nie(config, cur_path, layers)
-    from my_package.cma_utils import combine_pos
-    from sklearn.preprocessing import QuantileTransformer
     df_nie['combine_pos'] = df_nie.apply(lambda row: combine_pos(row), axis=1)
-    df_nie = df_nie.sort_values(by='NIE', ascending=False)
+    
     scaler.fit(df_nie['NIE'].to_numpy().reshape(-1, 1))
+    
     df_nie['norm'] = scaler.transform(df_nie['NIE'].to_numpy().reshape(-1, 1))
     df_nie['reweight'] = df_nie['norm'].apply(lambda w: 1/(1-w+1e-1))
 
-    if config['top_neuron_layer'] is not None:
-        opt_layer = config['top_neuron_layer'] 
-    elif config['computed_all_layers']:
-        opt_layer = 'all_layers'
-
-    if config['is_averaged_embeddings']:
-        save_path = os.path.join(scaler_path, f'{mode}_scaler_{seed}_{key}_{do}_{opt_layer}.pickle')
-    elif config['is_group_by_class']:
-        save_path = os.path.join(scaler_path, f'{mode}_scaler_{seed}_{key}_{do}_{opt_layer}_class_level.pickle')
-        
-    with open(save_path, 'wb') as handle:
-        pickle.dump(df_nie, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"Done saving {mode} gradient scalers into pickle! : {save_path}") 
-
+    return df_nie
+ 

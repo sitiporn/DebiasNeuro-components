@@ -52,6 +52,7 @@ from transformers import BertConfig, BertModel
 from transformers.data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
 from transformers import TrainingArguments, Trainer, DataCollatorWithPadding
 from trainer_package.custom_trainer import CustomTrainer
+from my_package.data import reweight_nie
 
 def compute_metrics(eval_pred):
     logits, labels = eval_pred
@@ -188,7 +189,6 @@ if config['model']['is_load_trained_model']:
     print(f'Loading reference model from : {path} done!')
 else:
     print(f'Using original model to optimize on PCGU')
-
 
 get_candidate_neurons(config, method_name, NIE_paths, treatments=mode, debug=False) 
 model = initial_partition_params(config, method_name, model, do=mode[0])

@@ -139,7 +139,6 @@ def collect_counterfactuals(model, model_path, dataset_name, method_name, seed, 
     layer_modules = get_mediators(_model)
     representations = get_component_names(config)
     treatments = [config["treatment"]]
-
     for do in treatments:
         if config["is_averaged_embeddings"]:
             hooks = []

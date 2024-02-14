@@ -277,8 +277,8 @@ def reverse_grad(grad_direction:str , neuron_ids:int, param_name:str, DEBUG:bool
        mask[neuron_ids] = 1
 
     if DEBUG >= 4: print(f'call back {grad_direction} gradient func: {param_name}, {grad.shape}, {mask[neuron_ids].shape}')
-
-    return grad  * mask
+    
+    return grad  * mask 
 
 def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load_model, method_name, device, collect=False):
     seed = config['seed'] 
@@ -317,6 +317,7 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
             print(f'Loading model from : {path}')
         else:
             print(f'Using original model')
+        
         # # ************* Biased model **************
         for index, row in biased_df.iterrows():
             prediction =  biased_label_remaps[int(torch.argmax(torch.Tensor(row['bias_probs']), dim=0))]
@@ -381,6 +382,7 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
         main_df['results'] = main_df['results'].apply(lambda row: bool(row))
         print(f'bias shape : {biased_df.shape }')
         print(f'main shape : {main_df.shape}')
+        breakpoint()
         # select samples base on main model and bias model inferences
         advantaged  = []
         for idx in range(main_df.shape[0]):

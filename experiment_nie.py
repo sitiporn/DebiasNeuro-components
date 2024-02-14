@@ -104,6 +104,8 @@ parser.add_argument("--method_name", type=str, help="method of model to interven
 parser.add_argument("--model_load_path", type=str, default=None, required=True, help="The directory where the model checkpoints will be read to train.")
 parser.add_argument('--treatment', type=str, choices=['High-overlap', 'Low-overlap'], required=True, help="The type of treatment to use as counterfactuals")
 parser.add_argument("--k", type=int, default=5, help="the percentage of total number of neurons") 
+parser.add_argument("--top_neuron_num", type=int, default=None, help="the number of top neurons") 
+parser.add_argument("--top_neuron_layer", type=int, default=None, help="a layer used to optimize") 
 parser.add_argument("--DEBUG", type=int, default=0, help="Mode used to debug")	
 
 args = parser.parse_args()
@@ -114,7 +116,8 @@ if args.dataset_name == 'mnli':
 elif args.dataset_name == 'qqp':
     config_path = "./configs/cma_qqp_experiment.yaml"
 elif args.dataset_name == 'fever':
-    pass
+    # Todo: create new config files 
+    config_path = "./configs/pcgu_config_fever.yaml"
 
 with open(config_path, "r") as yamlfile:
     config = yaml.load(yamlfile, Loader=yaml.FullLoader)
@@ -137,6 +140,8 @@ config["model_load_path"] = args.model_load_path
 config["treatment"] = args.treatment
 config["DEBUG"] = args.DEBUG
 config['k'] = args.k
+config['top_neuron_num'] = args.top_neuron_num
+config['top_neuron_layer'] = args.top_neuron_layer
 
 
 dataset = {}
@@ -166,13 +171,12 @@ if not os.path.isfile(save_nie_set_path): get_nie_set(config, experiment_set, sa
 counterfactual_paths, _ = geting_counterfactual_paths(config, method_name)
 # path to save NIE scores
 NIE_paths, _ = geting_NIE_paths(config, method_name, treatments)
-print(f'Loading path for single at seed:{config["seed"]}, layer: {config["layer"]}')
 for path in counterfactual_paths: 
     component = path.split('/')[-1].split('_')[1 if config["is_averaged_embeddings"] else 2]
     print(f"{component}: {path}")
+
 print(f'NIE_paths: {NIE_paths}')
 
-# random seed
 seed = config['seed']
 if seed is not None:
     random.seed(seed)
@@ -243,6 +247,5 @@ if args.get_top_neurons_layer_each:
 if args.get_top_seq_candidate_neurons:
     from my_package.cma import get_sequential_neurons
     get_sequential_neurons(config, save_nie_set_path, counterfactual_paths, model_path, model, method_name, NIE_paths, tokenizer, DEVICE, debug=False)
-    
 
 

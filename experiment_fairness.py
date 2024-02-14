@@ -43,23 +43,10 @@ from my_package.optimization import intervene_grad
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_save_path", type=str, default=None, required=True, help="The output directory where the model checkpoints will be written.")
 parser.add_argument("--model_load_path", type=str, default=None, required=True, help="The directory where the model checkpoints will be read to train.")
 parser.add_argument("--dataset_name", type=str, help="dataset name to train") 
 parser.add_argument("--method_name", type=str, help="method to train") 
 parser.add_argument("--seed", type=int, default=1548, help="The random seed value")	
-parser.add_argument("--random_adv", type=bool,  default=False,  help="The random advanated samples")	
-parser.add_argument("--collect_adv", type=bool, default=False,  help="collect advanated samples")	
-parser.add_argument("--correct_pred", type=bool, default=True, help="model to filter advantaged samples")	
-parser.add_argument("--num_epochs", type=int, default=15, help="Total number of training epochs.")
-parser.add_argument("--candidated_class", type=str, help="class used to filter advantaged samples") 
-parser.add_argument("--intervention_class", type=str, help="class used to compute NIE scores") 
-parser.add_argument("--intervention_type", type=str, help="tye of neuron intervention") 
-parser.add_argument("--top_neuron_mode", type=str, help="mode select neurons to perform gradients unlearning") 
-parser.add_argument("--grad_direction", type=str, help="moving gradient directoin used to learn or unlearn") 
-parser.add_argument("--k", type=int, default=5, help="the percentage of total number of neurons") 
-parser.add_argument("--compare_frozen_weight", type=bool, default=True, help="compare weight to reference model to restore back to model during training at each step")	
-parser.add_argument("--is_averaged_embeddings", type=bool, default=True, help="Average representation across samples")	
 
 args = parser.parse_args()
 print(args)
@@ -77,47 +64,37 @@ with open(config_path, "r") as yamlfile:
     print(f'config: {config_path}')
 
 LOAD_MODEL_PATH = args.model_load_path
-output_dir = args.model_save_path
 method_name =  args.method_name
 config['seed'] = args.seed 
-method_name = args.method_name 
 config['dataset_name'] = args.dataset_name
-config['random_adv'] = args.random_adv
-config['collect_adv'] = args.collect_adv
-config['correct_pred'] = args.correct_pred
-config['num_epochs'] =  args.num_epochs
-config['candidated_class'] =  [args.candidated_class]
-config['intervention_class'] =  [args.intervention_class]
-config['intervention_type']  = args.intervention_type
-config['top_neuron_mode'] = args.top_neuron_mode
-config['grad_direction'] = args.grad_direction
-config['k'] = args.k
-config['compare_frozen_weight'] = args.compare_frozen_weight
-config['is_averaged_embeddings'] = args.is_averaged_embeddings
 
-DEBUG = True
-debug = False # for tracing top counterfactual 
-group_path_by_seed = {}
-# torch.manual_seed(config['seed'])
+
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
 model = BertForSequenceClassification.from_pretrained(config['tokens']['model_name'], num_labels = len(config['label_maps'].keys()))
 model = model.to(DEVICE)
 
 # ******************** PATH ********************
-LOAD_MODEL_PATH = '../models/recent_baseline/' 
-method_name =  f'{config["intervention_type"]}_intervention_{LOAD_MODEL_PATH.split("/")[-2]}'
-LOAD_MODEL_PATH = output_dir
 
-# ******************** test  stuff ********************
-if config['eval_model']: 
-    if args.dataset_name == 'mnli':
-        eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, method_name=method_name, is_load_model= True, is_optimized_set=False)
-    elif args.dataset_name == 'qqp':
-        eval_model_qqp(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model= True, is_optimized_set=False)
-    elif args.dataset_name == 'fever':
-        eval_model_fever(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model= True, is_optimized_set=False)
+"""
+ACC: 
+1.MNLI: 
+  |Entailment - Contradiction|, |Entailment -Neutral|  แล้วเอามาเฉีล่ย
+  1.1 HANS   |Entailment-Nonentailment|
+2. FEVER: support vs nonsupport
 
+MAF1: 
+3. QQP: paraphrase vs nonparaphrase 
+    
+Baseline: MNLI, FEVER, QQP
+PCGU:
+"""
 
+from my_package.fairness import eval_fairness_mnli, eval_fairness_qqp, eval_fairness_fever
 
-
+if args.dataset_name == 'mnli':
+    eval_fairness_mnli(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, method_name=method_name, is_load_model= True, is_optimized_set=False)
+elif args.dataset_name == 'qqp':
+    eval_fairness_qqp(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model= True, is_optimized_set=False)
+elif args.dataset_name == 'fever':
+    eval_fairness_fever(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model= True, is_optimized_set=False)

@@ -22,6 +22,7 @@
   "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   "collect_param": False,
+  "claim_only": False,
   # ******************** PATH ********************
   "num_top_neurons": null, 
   "range_percents": True, 
