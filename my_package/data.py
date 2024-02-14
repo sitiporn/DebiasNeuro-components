@@ -178,6 +178,7 @@ class ExperimentDataset(Dataset):
                                         sentences1 = self.sentences1[do],
                                         sentences2 = self.sentences2[do]
                                     )
+    
     def get_high_shortcut(self):
         # get high overlap score pairs
         return self.df[self.df['Treatment'] == "HOL"]
@@ -1021,7 +1022,7 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, i
                 computed_acc_count[name_set] += 1
 
             elif config['get_hans_result'] and 'heuristics'in cur_json: 
-                cur_hans_score = get_hans_result(cur_raw_distribution_path, config)
+                cur_hans_score, _, _ = get_hans_result(cur_raw_distribution_path, config)
                 hans_avg += cur_hans_score
                 computed_hans_count +=1
                 print(f'has score :{cur_hans_score}')
@@ -1188,15 +1189,15 @@ def get_hans_result(raw_distribution_path, config):
 
             config["evaluations"][cur_class][heuristic] = percent
 
-    
     with open(score_path, 'wb') as handle: 
         pickle.dump(config["evaluations"], handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving evaluation predictoins into : {score_path}')
 
-    avg_score = get_avg_score(score_path)
-    print(f'average score : {avg_score}')
+    avg_score, entail_score,  non_entailed_score = get_avg_score(score_path)
+     
+    # print(f'avg_score : {avg_score}')
 
-    return avg_score
+    return avg_score, entail_score,  non_entailed_score
 
 
 def get_avg_score(score_path):
@@ -1214,8 +1215,12 @@ def get_avg_score(score_path):
         for score in ['lexical_overlap', 'subsequence','constituent']: class_score.append(current_score[type][score])
 
         cur_score.append(class_score)
-
-    return torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
+    
+    entail_score = torch.Tensor(cur_score).mean(dim=-1)[0]
+    non_entailed_score = torch.Tensor(cur_score).mean(dim=-1)[1]
+    avg_score = torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
+    
+    return avg_score, entail_score, non_entailed_score
 
 def get_specific_component(splited_name, component_mappings):
 
@@ -1340,6 +1345,11 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
     computed_acc_count = 0
     computed_symm1_count = 0
     computed_symm2_count = 0
+
+    acc_in = []
+    symm1_out =  []
+    symm2_out =  []
+
     for seed, path in all_paths.items():
         if is_load_model:
             from my_package.utils import load_model
@@ -1409,6 +1419,7 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 print(f"overall acc : {acc['all']}")
                 print(f"REFUTES acc : {acc['REFUTES']}")
                 print(f"SUPPORTS acc : {acc['SUPPORTS']}")
+                acc_in.append(acc['all'])
                 # print(f"neutral acc : {acc['neutral']}")
 
                 acc_avg += acc['all']
@@ -1424,6 +1435,7 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 print(f"REFUTES symm1 acc : {acc_symm['REFUTES']}")
                 print(f"SUPPORTS symm1 acc : {acc_symm['SUPPORTS']}")
                 # print(f"neutral acc : {acc['neutral']}")
+                symm1_out.append(acc_symm['all'])
 
                 symm1_avg += acc_symm['all']
                 symm1_refute_avg += acc_symm['REFUTES']
@@ -1439,6 +1451,7 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 print(f"REFUTES symm2 acc : {acc_symm['REFUTES']}")
                 print(f"SUPPORTS symm2 acc : {acc_symm['SUPPORTS']}")
                 # print(f"neutral acc : {acc['neutral']}")
+                symm2_out.append(acc_symm['all'])
 
                 symm2_avg += acc_symm['all']
                 symm2_refute_avg += acc_symm['REFUTES']
@@ -1446,25 +1459,27 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
                 computed_symm2_count += 1
     
     print(f'==================== Average scores ===================')
-    print(acc_avg)
     print(f"average overall acc : {acc_avg / len(all_paths)}")
     print(f"averge REFUTES acc : {refute_avg / len(all_paths)}")
     print(f"average SUPPORTS acc : {support_avg   / len(all_paths)}")
-    print(symm1_avg)
+    print(acc_in)
+    print(acc_avg)
     print(f'avarge symm1 score : { symm1_avg  / len(all_paths)}')
     print(f"averge symm1 REFUTES acc : {symm1_refute_avg / len(all_paths)}")
     print(f"average symm1 SUPPORTS acc : {symm1_support_avg   / len(all_paths)}") 
-    print(symm2_avg)
+    print(symm1_avg)
+    print(symm1_out)
     print(f'avarge symm2 score : { symm2_avg  / len(all_paths)}')
     print(f"averge symm2 REFUTES acc : {symm2_refute_avg / len(all_paths)}")
     print(f"average symm2 SUPPORTS acc : {symm2_support_avg   / len(all_paths)}") 
+    print(symm2_avg)
+    print(symm2_out)
 
 def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
     golden_answers = {}
-
     
     all_paths = get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
@@ -1481,6 +1496,9 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
     paws_avg = 0
     computed_maf1_count = 0
     computed_paws_count = 0
+    acc_in = []
+    acc_out = []
+    
     for seed, path in all_paths.items():
         if is_load_model:
             from my_package.utils import load_model
@@ -1544,6 +1562,7 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
                 print(f"not_duplicate maf1 : {maf1['not_duplicate']}")
                 # print(f"neutral acc : {acc['neutral']}")
                 maf1_avg += maf1['all']
+                acc_in.append(maf1['all'])
                 is_dup_avg += maf1['duplicate']
                 not_dup_avg += maf1['not_duplicate']
                 computed_maf1_count += 1
@@ -1558,6 +1577,7 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
                 # print(f"neutral acc : {acc['neutral']}")
 
                 paws_avg += maf1_paws['all']
+                acc_out.append(maf1_paws['all'])
                 paws_not_dup_avg += maf1_paws['not_duplicate']
                 paws_is_dup_avg += maf1_paws['duplicate']
                 computed_paws_count += 1
@@ -1570,9 +1590,11 @@ def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_mo
     print(f"average overall maf1 : {maf1_avg / len(all_paths)}")
     print(f"averge not dup maf1 : {not_dup_avg / len(all_paths)}")
     print(f"average is dup maf1 : {is_dup_avg   / len(all_paths)}")
+    print(acc_in)
     print(f'avarge paws score : { paws_avg  / len(all_paths)}')
     print(f"averge paws not dup maf1 : {paws_not_dup_avg / len(all_paths)}")
     print(f"average paws dup SUPPORTS maf1 : {paws_is_dup_avg   / len(all_paths)}") 
+    print(acc_out)
 
 
 class DevQQP(Dataset):
@@ -1680,4 +1702,3 @@ def reweight_nie(config, method_name, NIE_paths, treatments):
 
     return df_nie
  
-
