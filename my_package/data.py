@@ -132,7 +132,6 @@ class ExperimentDataset(Dataset):
         # get minimum size of samples
         self.type_balance = min({min(d.values()) for d in nums.values()})
         self.balance_sets = {}
-
         # Randomized Controlled Trials (RCTs)
         for do in self.treatments:
             
@@ -177,6 +176,7 @@ class ExperimentDataset(Dataset):
                                         sentences1 = self.sentences1[do],
                                         sentences2 = self.sentences2[do]
                                     )
+                
     def get_high_shortcut(self):
         # get high overlap score pairs
         return self.df[self.df['Treatment'] == "HOL"]
