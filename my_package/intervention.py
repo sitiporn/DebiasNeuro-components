@@ -236,16 +236,14 @@ def ablation_intervention(config, hooks, model, nie_dataloader, neuron_num, df_n
     neuron_ids =  neuron_ids[:neuron_num]
 
     do = config['treatment']
-    counter = 0
     INTERVENTION_CLASS = config['intervention_class'][0]
     probs = {'null': [], 'intervene': []}
 
-    # collect Null model 
+    # Collect probs in null model 
     for batch_idx, (sentences, labels) in (t := tqdm(enumerate(nie_dataloader))):
         t.set_description(f"NIE_dataloader:Null mode: batch_idx : {batch_idx}")
         premise, hypo = sentences
         pair_sentences = [[premise, hypo] for premise, hypo in zip(sentences[0], sentences[1])]
-        # distributions 
         inputs = tokenizer(pair_sentences, padding=True, truncation=True, return_tensors="pt")
         inputs = {k: v.to(DEVICE) for k,v in inputs.items()}
 

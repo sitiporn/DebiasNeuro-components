@@ -1,22 +1,11 @@
 { 
 # ************* experiment *******************
   "collect_representation": False,
-  "DEBUG": True,
-  "debug": False, 
-  # the number of exclude mode samples 
-  "dataset_name":  'qqp',
-  "candidated_class": ["duplicate"], 
-  "intervention_class": ["duplicate"], 
   "num_samples": 300,
   "upper_bound": 100,
   "lower_bound": 20,
   "label_maps": {"not_duplicate": 0, "duplicate": 1}, # ours
   "correct_pred": True,
-  "intervention_type": "weaken",
-  # "intervention_type": "replace",
-  # Here; set true
-  "collect_adv": False,
-  "random_adv": False,
   "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   "heads": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   "collect_param": False,
@@ -113,6 +102,8 @@
   "masking_rate_search": False,
   "get_condition_inferences": False,
   "get_condition_inference_scores": False,
+  "get_condition_paws_result": False,
+  "get_paws_result": True,
   # ******************** test  stuff ********************
   "eval_model": True,
   "traced": False, 

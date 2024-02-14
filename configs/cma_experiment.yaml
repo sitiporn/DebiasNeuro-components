@@ -37,12 +37,11 @@
   "is_counterfactual_exist": [],
   # ************ Identifying Bias: Causal Mediation Analysis *************
   # experiment set 
-  # 10, 5, 1
-  "k":  10, 
+  # 10, , 1
+  "k":  0.1, 
   # rank based on nie scores 
   "eval_candidates": True,
   "layer": 11,
-  "treatment": True,
   "is_group_by_class": False,
   "is_averaged_embeddings": True,
   "intervention_type": "replace",
@@ -55,8 +54,7 @@
   "num_neurons": 10,
   "seeds": [1548, 3099, 3785, 3990, 409], 
   # 1548, 3099, 3785, 3990, 409 for experiments
-  "seed": 409, # set to null when using ishan/bert-base-uncased-mnli
-  "get_candidate_neurons": True,
+  "seed": 1548, # set to null when using ishan/bert-base-uncased-mnli
   "distribution": False,
   # To get counterfactual
   "compute_all_seeds": True,
@@ -75,6 +73,13 @@
       "add_special_tokens": false
     }
   },
+
+  "model": {
+    "model_name": "../bert-base-uncased/",
+    transformer_model,
+    "max_length": 512,
+    "is_load_trained_model": True
+  },
     
   # Tokenizer
   "tokens": {
@@ -90,49 +95,7 @@
   #"multinli_1.0_train.jsonl",
   "validation_data": "multinli_1.0_dev_matched.jsonl", 
   "test_data": "multinli_1.0_dev_mismatched.jsonl",
-  
-  # dataloader
-  "data_loader": {
-    "batch_sampler": {
-       # bucket type in allenlp by grouping by length and dynamic padding
-      "group_by_length": True, 
-      "dynamic_padding": True,
-      "batch_size" : 32   #64
-    }
-  },
 
-  # models; 
-  # follow allennlp setups, the rest is the default of bert-base-uncased
-  "model": {
-    "model_name": "../bert-base-uncased-mnli/",
-    transformer_model,
-    "max_length": 512,
-    "is_load_trained_model": True
-  },
-  "dropout": 0.1,
-  "namespace": "tags",
-  
-  # Trainer
-  "num_epochs": 15,
-  # recheck in Trainer 
-  "validation_metric": "accuracy",
-  "learning_rate_scheduler": {
-    "type": "slanted_triangular", # override from allennlp
-    "cut_frac": 0.06
-  },
-  "optimizer": {
-    # using optimizer from the transformers package
-    "type": "huggingface_adamw", 
-    "lr": 2.0e-6 ,  #2.909e-07(ours), #2e-6(PCGU), #5e-5,
-    "weight_decay": 0.1,
-  },
-  "cuda_device" : 0,
-  "evaluation_strategy": "steps",
-  "eval_steps": 100,
-  "load_best_model_at_end": True,
-  "save_total_limit": 1,
-  # "use_amp" in allennlp
-  "half_precision_backend": "amp",
  # ******************** soft masking neurons ********************
   "weaken_rate": null,
   "get_masking_value": False,

@@ -3,8 +3,8 @@ import itertools
 import time
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
-from utils import collect_output_components , report_gpu
+from my_package.utils import Intervention, get_overlap_thresholds, group_by_treatment, test_mask, Classifier, get_hidden_representations
+from my_package.utils import collect_output_components , report_gpu
 from experiment import ExperimentDataset
 from tqdm import tqdm
 import os

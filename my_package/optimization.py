@@ -22,7 +22,6 @@ from transformers import AutoTokenizer, BertForSequenceClassification
 from functools import partial
 from my_package.optimization_utils import masking_grad, reverse_grad, initial_partition_params, trace_optimized_params
 
-
 def intervene_grad(model, hooks, method_name, config, collect_param=False, DEBUG = 0):
     seed = config['seed']
     component_mappings = {}

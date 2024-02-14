@@ -43,7 +43,7 @@
   "distribution": False,
   # To get counterfactual
   "compute_all_seeds": True,
-  "eval_counterfactual": False,
+  "eval_counterfactual": True,
   "getting_counterfactual": False,
   "compute_nie_scores": False,
   # ******************** Unlearn Bias ********************
@@ -69,8 +69,6 @@
   # dataset
   "data_path": "../debias_fork_clean/debias_nlu_clean/data/nli/",
   "train_data": "mnli_clark.train.jsonl",
-  # "train_data": "train_prob_korn_full_lr_overlapping_sample_weight_3class.jsonl",  
-  #"multinli_1.0_train.jsonl",
   "validation_data": "multinli_1.0_dev_matched.jsonl", 
   "test_data": "multinli_1.0_dev_mismatched.jsonl",
   
