@@ -527,7 +527,6 @@ def get_conditional_inferences_mask(config, do,  model_path, model, method_name,
                 if config['dataset_name']=='qqp': acc[masking_rate] = compute_maf1(raw_distribution_path, config["label_maps"])
                 else: acc[masking_rate] = compute_acc(raw_distribution_path, config["label_maps"])
                 eval_path  = get_eval_path(config, select_neuron_mode, method_name, seed, epsilon, digits, eps_id, masking_rate, do)
-            
                 with open(eval_path,'wb') as handle:
                     pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     # pickle.dump(acc, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -895,6 +894,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
         
         for group in num_neuron_groups:
             hans_scores = {}
+            class_diff = {}
             for mode in ['Null','Intervene']:
                 # after convert to txt answer 
                 text_answer_path = f'txt_answer_{topk_mode}_{mode}_L{config["layer"]}_{group}-k_{config["eval"]["do"]}_{config["intervention_type"]}_{config["dev-name"]}.txt'  
@@ -911,7 +911,7 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
                 # vv = '../pickles/prediction/seed_None/v-0.9/txt_answer_percent_Intervene_all_layers_0.05-k_High-overlap_weaken_hans.txt'
                 # get_hans_result(cur_raw_distribution_path, config)
                 convert_text_to_hans_scores(text_answer_path, config, result_path, group)
-                hans_scores[mode] = get_avg_score(result_path)
+                hans_scores[mode], class_diff[mode] = get_avg_score(result_path)
 
             valid_result =  f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_matched.pickle'
             dev_mm_result = f'{topk_mode}_{group}_{do}_{config["intervention_type"]}_mismatched.pickle'
@@ -934,6 +934,9 @@ def get_condition_inference_scores(config, model, method_name, seed=None):
             if  group not in all_valid_scores.keys(): all_valid_scores[epsilon][group]  = valid_acc[group]
             if  group not in all_test_scores.keys():   all_test_scores[epsilon][group]  = dev_mm_acc[group]
             if  group not in all_hans_scores.keys():   all_hans_scores[epsilon][group]  = hans_scores
+            all_test_scores[epsilon][group]['Null']['diff'+str(group)] = (abs(all_test_scores[epsilon][group]['Null']['entailment'] - all_test_scores[epsilon][group]['Null']['contradiction']) +  abs(all_test_scores[epsilon][group]['Null']['entailment'] - all_test_scores[epsilon][group]['Null']['neutral']) ) / 2
+            all_test_scores[epsilon][group]['Intervene']['diff'+str(group)] = (abs(all_test_scores[epsilon][group]['Intervene']['entailment'] - all_test_scores[epsilon][group]['Intervene']['contradiction']) +  abs(all_test_scores[epsilon][group]['Intervene']['entailment'] - all_test_scores[epsilon][group]['Intervene']['neutral']) ) / 2
+            all_hans_scores[epsilon]['diff'+str(group)] = class_diff
 
     all_masking_score_path = os.path.join(eval_path, f'seed_{seed}', 'all_masking_scores.pickle')
     
@@ -1034,6 +1037,15 @@ def get_condition_inference_scores_fever(config, model, method_name, seed=None):
             if  group not in all_test_scores.keys():   all_test_scores[epsilon][group]  = test_acc[group]
             if  group not in all_symm1_scores.keys():   all_symm1_scores[epsilon][group]  = symm1_acc[group]
             if  group not in all_symm2_scores.keys():   all_symm2_scores[epsilon][group]  = symm2_acc[group]
+            all_test_scores[epsilon]['diff'+str(group)] = {}
+            all_symm1_scores[epsilon]['diff'+str(group)] = {}
+            all_symm2_scores[epsilon]['diff'+str(group)] = {}
+            all_test_scores[epsilon]['diff'+str(group)]['Null'] = test_acc[group]['Null']['SUPPORTS']-test_acc[group]['Null']['REFUTES']
+            all_test_scores[epsilon]['diff'+str(group)]['Intervene']= test_acc[group]['Intervene']['SUPPORTS']-test_acc[group]['Intervene']['REFUTES']
+            all_symm1_scores[epsilon]['diff'+str(group)]['Null'] = symm1_acc[group]['Null']['SUPPORTS']-symm1_acc[group]['Null']['REFUTES']
+            all_symm1_scores[epsilon]['diff'+str(group)]['Intervene']= symm1_acc[group]['Intervene']['SUPPORTS']-symm1_acc[group]['Intervene']['REFUTES']
+            all_symm2_scores[epsilon]['diff'+str(group)]['Null'] = symm2_acc[group]['Null']['SUPPORTS']-symm2_acc[group]['Null']['REFUTES']
+            all_symm2_scores[epsilon]['diff'+str(group)]['Intervene']= symm2_acc[group]['Intervene']['SUPPORTS']-symm2_acc[group]['Intervene']['REFUTES']
 
     all_masking_score_path = os.path.join(eval_path, f'seed_{seed}', 'all_masking_scores.pickle')
     
@@ -1114,7 +1126,8 @@ def get_condition_inference_scores_qqp(config, model, method_name, seed=None):
             print(f"-- Null : {paws_acc[group]['Null']['all']*100:.2f}")
             if  group not in all_test_scores.keys():   all_test_scores[epsilon][group]  = test_acc[group]
             if  group not in all_paws_scores.keys():   all_paws_scores[epsilon][group]  = paws_acc[group]
-
+            print(paws_acc[group]['Intervene'])
+            print(paws_acc[group]['Null'])
     all_masking_score_path = os.path.join(eval_path, f'seed_{seed}', 'all_masking_scores.pickle')
     
     
@@ -1488,7 +1501,7 @@ def get_hans_result(raw_distribution_path, config):
         pickle.dump(config["evaluations"], handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f'saving evaluation predictoins into : {score_path}')
 
-    avg_score = get_avg_score(score_path)
+    avg_score, class_diff = get_avg_score(score_path)
     print(f'average score : {avg_score}')
 
     return avg_score
@@ -1508,8 +1521,8 @@ def get_avg_score(score_path):
         for score in ['lexical_overlap', 'subsequence','constituent']: class_score.append(current_score[type][score])
 
         cur_score.append(class_score)
-
-    return torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0)
+    class_diff = torch.abs(torch.diff(torch.mean(torch.Tensor(cur_score), dim=-1))).item()
+    return torch.mean(torch.mean(torch.Tensor(cur_score), dim=-1),dim=0), class_diff
 
 def get_specific_component(splited_name, component_mappings):
 
@@ -1598,6 +1611,10 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
         intervene_mm = []
         null_hans = []
         inteverne_hans = []
+        null_mm_diff = []
+        intervene_mm_diff = []
+        null_hans_diff = []
+        intervene_hans_diff = []
     if not config['compute_all_seeds']: all_paths = {str(config["seed"]):all_paths[str(config['seed'])]} 
 
     for path in counterfactual_paths: 
@@ -1628,25 +1645,36 @@ def masking_representation_exp_quick(config, model, method_name, experiment_set,
         pickle_file.close()
         print(f'HAN scores : ')
         print(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Null'].item(), all_hans_scores[config['weaken_rate']][config['masking_rate']]['Intervene'].item())
-        # get_condition_inference_scores(config, model, method_name, seed)
+
         null_m.append(all_valid_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
         intervene_m.append(all_valid_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
         null_mm.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
+        null_mm_diff.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Null']['diff'+str(config['masking_rate'])])
         intervene_mm.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
+        intervene_mm_diff.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['diff'+str(config['masking_rate'])])
         null_hans.append(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Null'].item())
         inteverne_hans.append(all_hans_scores[config['weaken_rate']][config['masking_rate']]['Intervene'].item())
+
+        null_hans_diff.append(all_hans_scores[config['weaken_rate']]['diff'+str(config['masking_rate'])]['Null'])
+        intervene_hans_diff.append(all_hans_scores[config['weaken_rate']]['diff'+str(config['masking_rate'])]['Intervene'])
+
     print("null_m:")
     print(sum(null_m) / len(null_m), null_m )
     print("intervene_m:")
     print(sum(intervene_m) / len(intervene_m), intervene_m )    
     print("null_mm:")
     print(sum(null_mm) / len(null_mm), null_mm )
+    print(sum(null_mm_diff) / len(null_mm_diff), null_mm_diff )
     print("intervene_mm:")
     print(sum(intervene_mm) / len(intervene_mm), intervene_mm )
+    print(sum(intervene_mm_diff) / len(intervene_mm_diff), intervene_mm_diff )
     print("null_hans:")
-    print(sum(null_hans) / len(inteverne_hans), null_hans )
+    print(sum(null_hans) / len(null_hans), null_hans )
+    print(sum(null_hans_diff) / len(null_hans_diff), null_hans_diff )
     print("inteverne_hans:")
     print(sum(inteverne_hans) / len(inteverne_hans), inteverne_hans )
+    print(sum(intervene_hans_diff) / len(intervene_hans_diff), intervene_hans_diff )
+    
 
 
 
@@ -1671,6 +1699,13 @@ def masking_representation_exp_quick_fever(config, model, method_name, experimen
         intervene_symm1 = []
         null_symm2 = []
         intervene_symm2 = []
+
+        null_test_diff = []
+        intervene_test_diff = []
+        null_symm1_diff = []
+        intervene_symm1_diff = []
+        null_symm2_diff = []
+        intervene_symm2_diff = []
     if not config['compute_all_seeds']: all_paths = {str(config["seed"]):all_paths[str(config['seed'])]} 
 
     for path in counterfactual_paths: 
@@ -1701,26 +1736,39 @@ def masking_representation_exp_quick_fever(config, model, method_name, experimen
         print(all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'], all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
         print(f'Symm2 scores : ')
         print(all_symm2_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'], all_symm2_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
-        # get_condition_inference_scores(config, model, method_name, seed)
+
         null_test.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
         intervene_test.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
         null_symm1.append(all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
         intervene_symm1.append(all_symm1_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
         null_symm2.append(all_symm2_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
         intervene_symm2.append(all_symm2_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])        
+
+        null_test_diff.append(all_test_scores[config['weaken_rate']]['diff'+str(config['masking_rate'])]['Null'])
+        intervene_test_diff.append(all_test_scores[config['weaken_rate']]['diff'+str(config['masking_rate'])]['Intervene'])
+        null_symm1_diff.append(all_symm1_scores[config['weaken_rate']]['diff'+str(config['masking_rate'])]['Null'])
+        intervene_symm1_diff.append(all_symm1_scores[config['weaken_rate']]['diff'+str(config['masking_rate'])]['Intervene'])
+        null_symm2_diff.append(all_symm2_scores[config['weaken_rate']]['diff'+str(config['masking_rate'])]['Null'])
+        intervene_symm2_diff.append(all_symm2_scores[config['weaken_rate']]['diff'+str(config['masking_rate'])]['Intervene'])           
     print("null_test:")
     print(sum(null_test) / len(null_test), null_test )
+    print(sum(null_test_diff) / len(null_test_diff), null_test_diff )
     print("intervene_test:")
     print(sum(intervene_test) / len(intervene_test), intervene_test )
+    print(sum(intervene_test_diff) / len(intervene_test_diff), intervene_test_diff )
     print("null_symm1:")
     print(sum(null_symm1) / len(null_symm1), null_symm1)
+    print(sum(null_symm1_diff) / len(null_symm1_diff), null_symm1_diff)
     print("inteverne_symm1:")
     print(sum(intervene_symm1) / len(intervene_symm1), intervene_symm1 )
+    print(sum(intervene_symm1_diff) / len(intervene_symm1_diff), intervene_symm1_diff )
     print("null_symm2:")
     print(sum(null_symm2) / len(null_symm2), null_symm2)
+    print(sum(null_symm2_diff) / len(null_symm2_diff), null_symm2_diff)
     print("inteverne_symm2:")
     print(sum(intervene_symm2) / len(intervene_symm2), intervene_symm2 )
-
+    print(sum(intervene_symm2_diff) / len(intervene_symm2_diff), intervene_symm2_diff) 
+          
 def masking_representation_exp_quick_qqp(config, model, method_name, experiment_set, dataloader, NIE_paths, LOAD_MODEL_PATH, counterfactual_paths, tokenizer, DEVICE, is_load_model=True):
     """ """
     # load model 
@@ -1740,6 +1788,13 @@ def masking_representation_exp_quick_qqp(config, model, method_name, experiment_
         intervene_test = []
         null_paws = []
         inteverne_paws = []
+
+        null_test_diff = []
+        intervene_test_diff = []
+        null_paws_diff = []
+        null_paws_diff_pair = []
+        inteverne_paws_diff = []
+
     if not config['compute_all_seeds']: all_paths = {str(config["seed"]):all_paths[str(config['seed'])]} 
 
     for path in counterfactual_paths: 
@@ -1769,19 +1824,32 @@ def masking_representation_exp_quick_qqp(config, model, method_name, experiment_
         pickle_file.close()
         print(f'PAWS scores : ')
         print(all_paws_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'], all_paws_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
-        # get_condition_inference_scores(config, model, method_name, seed)
+
         null_test.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
         intervene_test.append(all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
         null_paws.append(all_paws_scores[config['weaken_rate']][config['masking_rate']]['Null']['all'])
         inteverne_paws.append(all_paws_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['all'])
+        
+        null_test_diff.append(abs(all_test_scores[config['weaken_rate']][config['masking_rate']]['Null']['duplicate'] - all_test_scores[config['weaken_rate']][config['masking_rate']]['Null']['not_duplicate']))
+        intervene_test_diff.append(abs(all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['duplicate'] - all_test_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['not_duplicate']))
+        null_paws_diff.append(abs(all_paws_scores[config['weaken_rate']][config['masking_rate']]['Null']['duplicate'] - all_paws_scores[config['weaken_rate']][config['masking_rate']]['Null']['not_duplicate']))
+        null_paws_diff_pair.append((all_paws_scores[config['weaken_rate']][config['masking_rate']]['Null']['duplicate'], all_paws_scores[config['weaken_rate']][config['masking_rate']]['Null']['not_duplicate']))
+        inteverne_paws_diff.append(abs(all_paws_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['duplicate'] - all_paws_scores[config['weaken_rate']][config['masking_rate']]['Intervene']['not_duplicate']))
+
     print("null_test:")
     print(sum(null_test) / len(null_test), null_test )
+    print(sum(null_test_diff) / len(null_test_diff), null_test_diff )
     print("intervene_test:")
     print(sum(intervene_test) / len(intervene_test), intervene_test )
+    print(sum(intervene_test_diff) / len(intervene_test_diff), intervene_test_diff )
     print("null_paws:")
     print(sum(null_paws) / len(inteverne_paws), null_paws )
+    print(sum(null_paws_diff) / len(inteverne_paws_diff), null_paws_diff )    
+    print(null_paws_diff_pair)
     print("inteverne_paws:")
     print(sum(inteverne_paws) / len(inteverne_paws), inteverne_paws )
+    print(sum(inteverne_paws_diff) / len(inteverne_paws_diff), inteverne_paws_diff )
+
 
 
 
