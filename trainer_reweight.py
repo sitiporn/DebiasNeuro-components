@@ -8,11 +8,11 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from utils import  report_gpu
-from cma_utils import collect_counterfactuals, trace_counterfactual, geting_counterfactual_paths, get_single_representation, geting_NIE_paths
-from optimization_utils import test_restore_weight
-from optimization_utils import trace_optimized_params, initial_partition_params
-from optimization import partition_param_train, restore_original_weight
+from my_package.utils import  report_gpu
+from my_package.cma_utils import collect_counterfactuals, trace_counterfactual, geting_counterfactual_paths, get_single_representation, geting_NIE_paths
+from my_package.optimization_utils import test_restore_weight
+from my_package.optimization_utils import trace_optimized_params, initial_partition_params
+from my_package.optimization import partition_param_train, restore_original_weight
 
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
@@ -26,18 +26,18 @@ from pprint import pprint
 #    SparseTrainingArguments,
 #    ModelPatchingCoordinator,
 #)
-from data import ExperimentDataset, Dev, print_config
-from data import rank_losses
+from my_package.data import ExperimentDataset, Dev, print_config
+from my_package.data import rank_losses
 
-from intervention import intervene, high_level_intervention
-# from cma import cma_analysis, get_distribution, get_top_k
-from utils import debias_test
-from cma_utils import get_nie_set_path
+from my_package.intervention import intervene, high_level_intervention
+# from my_package.cma import cma_analysis, get_distribution, get_top_k
+from my_package.utils import debias_test
+from my_package.cma_utils import get_nie_set_path
 import yaml
-from utils import get_num_neurons, get_params, get_diagnosis
-from data import get_analysis 
+from my_package.utils import get_num_neurons, get_params, get_diagnosis
+from my_package.data import get_analysis 
 from transformers import AutoTokenizer, BertForSequenceClassification
-from optimization import exclude_grad
+from my_package.optimization import exclude_grad
 from transformers import Trainer
 # from torch.utils.data import Dataset, DataLoader
 from transformers import TrainingArguments, Trainer, AdamW, DataCollatorWithPadding
@@ -60,14 +60,14 @@ from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
 from transformers.trainer_utils import EvalPrediction, EvalLoopOutput
 from transformers.trainer_callback import TrainerCallback
-from trainer_pt_utils import CustomLabelSmoother, test_bucket_iterator
+from trainer_package.trainer_pt_utils import CustomLabelSmoother, test_bucket_iterator
 from transformers.trainer_utils import denumpify_detensorize
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from transformers.utils import logging
-from trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
+from trainer_package.trainer_pt_utils import RandomSampler, SequentialSampler, BucketBatchSampler, BatchSampler, LengthGroupedSampler
 import math
 import time
-from data import CustomDataset
+from my_package.data import CustomDataset
 from transformers.deepspeed import deepspeed_init, is_deepspeed_zero3_enabled
 from transformers.trainer_callback import (
     CallbackHandler,
@@ -172,7 +172,7 @@ class ReweightTrainer(Trainer):
                 lengths = None
             model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
 
-            from trainer_pt_utils import BucketIteratorAllennlp
+            from trainer_package.trainer_pt_utils import BucketIteratorAllennlp
 
             return BucketIteratorAllennlp(batch_size= self.args.train_batch_size * self.args.gradient_accumulation_steps, 
                                       dataset=self.train_dataset,
@@ -583,7 +583,7 @@ class ReweightTrainer(Trainer):
         else:
             labels = None
         
-        # from intervention import compute_nie
+        # from my_package.intervention import compute_nie
         outputs = model(**inputs)
         # Todo: get nie scores
         # Todo: get nie scores

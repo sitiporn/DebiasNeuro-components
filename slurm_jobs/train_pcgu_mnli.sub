@@ -1,0 +1,36 @@
+#!/bin/bash -l
+#!/bin/bash -l
+#SBATCH --output=../../../slurm_out/%j_train_mnli.out
+#SBATCH --job-name=MNLI
+#SBATCH --mem=64GB
+#SBATCH --time=48:0:0     # Runing time 
+#SBATCH --gpus=1
+#SBATCH --partition=gpu-cluster
+#SBATCH --account=scads
+
+source activate /ist-project/scads/can_sit/xcombine_env/
+export PYTHONNOUSERSITE=True
+#CUDA_VISIBLE_DEVICES=$0 # GPU device number. 
+cd ../../
+
+python trainer_mnli_pcgu.py 
+    --model_load_path ../models/recent_baseline/
+    --model_save_path ../models/pcgu_repalce_intervention_0k_recent_baseline/
+    --dataset_name mnli
+    --method_name pcgu_repalce_intervention_0k_recent_baseline
+    --seed 1548
+    # --random_adv False
+    # --collect_adv False
+    --correct_pred True
+    --num_epochs 15
+    --candidated_class entailment
+    --intervention_class entailment
+    --intervention_type replace
+    --top_neuron_mode sorted
+    --grad_direction reverse
+    --k 5
+    --compare_frozen_weight True
+    --is_averaged_embeddings True
+
+#python3 trainer_mnli_pcgu.py --model_save_path ../models/recent_baseline/ --dataset_name mnli --method_name replace_intervention_recent_baseline --seed 1548 --random_adv False --collect_adv False --correct_pred True --num_epochs 15 --candidated_class entailment --intervention_class entailment --intervention_type replace --top_neuron_mode sorted --grad_direction reverse --k 0 --label_maps {"entailment": 0, "contradiction": 1, "neutral": 2} --compare_frozen_weight True --is_averaged_embeddings True --model_load_path ../models/pcgu_repalce_intervention_0k_recent_baseline/
+
