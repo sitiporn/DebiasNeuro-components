@@ -63,26 +63,55 @@ def compute_metrics(eval_pred):
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
 
-# read config
+parser = argparse.ArgumentParser()
+parser.add_argument("--model_load_path", type=str, default=None, required=True, help="The directory where the model checkpoints will be read to train.")
+parser.add_argument("--model_save_path", type=str, default=None, required=True, help="The output directory where the model checkpoints will be written.")
+parser.add_argument("--dataset_name", type=str, help="dataset name to train") 
+parser.add_argument("--method_name", type=str, help="method to train") 
+parser.add_argument("--mask_scores_learning_rate", type=float, help="learning rate for mask")	
+parser.add_argument("--seed", type=int, default=1548, help="The random seed value")	
+parser.add_argument("--save_steps", type=int, default=500, help="the number of step to save model")
+parser.add_argument("--eval_steps", type=int, default=500, help="the number of step to save model")
+parser.add_argument("--num_epochs", type=int, default=15, help="Total number of training epochs.")
+parser.add_argument("--DEBUG", type=int, default=0, help="Mode used to debug")	
+
+args = parser.parse_args()
+print(args)
+
+output_dir = args.model_save_path
+LOAD_MODEL_PATH = args.model_load_path
+method_name =  args.method_name
+
+if args.dataset_name == 'mnli':
+    config_path = 'configs/learn_mask/train_config_mnli.yaml'
+elif args.dataset_name == 'qqp':
+    config_path = 'configs/learn_mask/train_config_qqp.yaml'
+elif args.dataset_name == 'fever':
+    config_path = 'configs/learn_mask/train_config_fever.yaml'
+else: 
+    raise Exception("Sorry, no given dataset name")
+
+with open(config_path, "r") as yamlfile: config = yaml.load(yamlfile, Loader=yaml.FullLoader)
+
+
 config_path = 'configs/learn_mask/unstructured_sigmoid.yaml'
-label_maps = {"entailment": 0, "contradiction": 1, "neutral": 2}
+with open(config_path, "r") as yamlfile: sparse_args = yaml.load(yamlfile, Loader=yaml.FullLoader)
 
-with open(config_path, "r") as yamlfile:
-    sparse_args = yaml.load(yamlfile, Loader=yaml.FullLoader)
-
-config_path = 'configs/learn_mask/train_config.yaml'
-with open(config_path, "r") as yamlfile:
-    config = yaml.load(yamlfile, Loader=yaml.FullLoader)
-
-output_dir = f'../models/debias_mask_lr_0.0025_recent_baseline/' 
-config['dataset_name'] = 'mnli'
+config['seed'] = args.seed 
+method_name = args.method_name 
+config['dataset_name'] = args.dataset_name
+config['num_epochs'] =  args.num_epochs
+config['save_steps'] = args.save_steps
+config['eval_steps'] = args.eval_steps
+config["DEBUG"] = args.DEBUG
+sparse_args["mask_scores_learning_rate"] = args.mask_scores_learning_rate
 
 is_load_model = True
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-LOAD_MODEL_PATH = '../models/recent_baseline/'
+label_maps = config['label_maps']
 
 # random seed
-seed = 1548
+seed = int(config["seed"])
 np.random.seed(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
@@ -94,7 +123,7 @@ if not os.path.exists(output_dir): os.mkdir(output_dir)
 model_name  =  '../bert-base-uncased-mnli/'
 metric = evaluate.load(config["validation_metric"])
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = SequenceClassificationTransformer.from_pretrained(model_name, num_labels = 3)
+model = SequenceClassificationTransformer.from_pretrained(model_name, num_labels = len(label_maps))
 
 from my_package.data import get_all_model_paths, get_all_checkpoints
 all_paths = get_all_model_paths(LOAD_MODEL_PATH)
@@ -103,10 +132,9 @@ path = all_paths[str(seed)]
 if is_load_model:
     from my_package.utils import load_model
     model = load_model(path=path, model=model, device=device)
-    print(f'Loading model from : {path}')
+    print(f'Load=True: Loading model from : {path}')
 else:
     print(f'Using original model')
-
 
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer) if config['data_loader']['batch_sampler']['dynamic_padding'] else None
 dataset = {}
@@ -119,6 +147,14 @@ for data_mode in ["train_data", "validation_data", "test_data"]:
 print(f'Config of dataloader') 
 print(f'Group by len : {config["data_loader"]["batch_sampler"]["group_by_length"]}')
 print(f"Dynamics padding : {config['data_loader']['batch_sampler']['dynamic_padding']}, {data_collator}")
+print(f'is_load_model: {is_load_model}')
+print(f'seed : {seed}')
+print(f"Learning_rate : {float(config['optimizer']['lr'])}")
+print(f'mask_scores_learning_rate: {sparse_args["mask_scores_learning_rate"]}')
+print(f'#Epochs : {config["num_epochs"]}')
+print(f'eval steps : {config["eval_steps"]}')
+print(f'save steps : {config["save_steps"]}')
+print(f'label maps : {label_maps}')
 
 # Todo:
 # remove magic number: number of max steps in sparse trainer 
@@ -161,9 +197,9 @@ trainer = SparseTrainer(
 trainer.train()
 
 # compile model here from all checkpoints
-checkpoints = get_all_checkpoints(trainer.args.output_dir)
-for  checkpoint_path in checkpoints: 
-    print(f'checkpoint path : {checkpoint_path}')
-    cur_model = trainer.compile_model(checkpoint_path)
-    torch.save(cur_model, checkpoint_path)
+# checkpoints = get_all_checkpoints(trainer.args.output_dir)
+# for  checkpoint_path in checkpoints: 
+#     print(f'checkpoint path : {checkpoint_path}')
+#     cur_model = trainer.compile_model(checkpoint_path)
+#     torch.save(cur_model, checkpoint_path)
 
