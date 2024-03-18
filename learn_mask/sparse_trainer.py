@@ -122,8 +122,10 @@ class SparseTrainer(Trainer):
     def freeze_non_mask(self):
         for name, param in self.model.named_parameters():
             if name.split(".")[-1] != "mask_scores":
+                # freezing weight
                 param.requires_grad = False
             else:
+                # train mask only
                 print(f'{name} : {param.shape}')
 
      
@@ -225,7 +227,7 @@ class SparseTrainer(Trainer):
 
             #0.2 * 12272 ~ 2454.4 -> 1 epoch
             total_steps = 147264
-            num_warmup_steps = 0.2 * total_steps
+            num_warmup_steps = int(0.2 * total_steps)
             print(f'Total steps : {total_steps}, Num warmp steps : {num_warmup_steps}')
             # recheck warmup_steps
             self.lr_scheduler = get_linear_schedule_with_warmup(
