@@ -223,15 +223,29 @@ class SparseTrainer(Trainer):
         Args:
             num_training_steps (int): The number of training steps to do.
         """
-        if self.lr_scheduler is None:
+        len_dataloader  = None
+        num_update_steps_per_epoch = None
+        max_steps = None
+        train_dataloader = self.get_train_dataloader()
+        
+        if has_length(train_dataloader):
+            len_dataloader = len(train_dataloader)
+            num_update_steps_per_epoch = len_dataloader // self.args.gradient_accumulation_steps
+            num_update_steps_per_epoch = max(num_update_steps_per_epoch, 1)
+            num_examples = self.num_examples(train_dataloader)
 
+            if self.args.max_steps < 0:
+                max_steps = math.ceil(self.args.num_train_epochs * num_update_steps_per_epoch)
+
+        if self.lr_scheduler is None:
             #0.2 * 12272 ~ 2454.4 -> 1 epoch
-            total_steps = 147264
-            num_warmup_steps = int(0.2 * total_steps)
-            print(f'Total steps : {total_steps}, Num warmp steps : {num_warmup_steps}')
+            print(f'***** create_scheduler  ******')
+            num_warmup_steps = int(self.args.warmup_ratio * max_steps)
+            print(f'max_steps : {max_steps}')
+            print(f'Num warmp steps : {num_warmup_steps}, warmup_ratio : {self.args.warmup_ratio}')
             # recheck warmup_steps
             self.lr_scheduler = get_linear_schedule_with_warmup(
-            optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=total_steps
+            optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=max_steps
             )
             self._created_lr_scheduler = True
         
