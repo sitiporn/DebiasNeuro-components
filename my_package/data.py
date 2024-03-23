@@ -885,7 +885,7 @@ def get_analysis(config):
     avg_dist = torch.mean(distributions, dim=0)
     print(f'average distribution of each class : {avg_dist}')
 
-def get_all_model_paths(LOAD_MODEL_PATH):
+def get_all_model_paths(LOAD_MODEL_PATH, model_type='pytorch_model'):
     import pathlib
     seed_path_ind = 3
     num_seeds = 5
@@ -897,9 +897,8 @@ def get_all_model_paths(LOAD_MODEL_PATH):
     for f in model_files.rglob("*.bin"):
         key = str(f).split("/")[seed_path_ind]
         if  key not in all_model_files.keys(): all_model_files[key] = []
-        if 'pytorch_model' not in str(f): continue
+        if model_type not in str(f): continue
         all_model_files[key].append(str(f))
-    
 
     def get_sorted_key(elem):
         return int(elem[0].split('-')[-1])
@@ -930,14 +929,14 @@ def get_all_checkpoints(output_dir):
     
 
 
-def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, is_load_model=True, is_optimized_set = False):
+def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, is_compile, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
     golden_answers = {}
 
     
-    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH, 'compile_model') if is_compile else get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
     VALIDATION_SET_JSONL = 'multinli_1.0_dev_matched.jsonl'
@@ -979,7 +978,7 @@ def eval_model(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, method_name, i
             model = load_model(path=path, model=model)
         else:
             print(f'Using original model')
-        
+    
         for cur_json in json_sets:
             name_set = list(cur_json.keys())[0] if is_optimized_set else cur_json.split("_")[0] 
             if name_set == 'multinli': name_set = name_set + '_' + cur_json.split("_")[-1].split('.')[0]
@@ -1324,14 +1323,14 @@ class FeverDatasetClaimOnly(Dataset):
             temp_dict[key]=self.tokenized_datasets[idx][key]
         # return self.tokenized_datasets[idx]    
         return temp_dict    
-def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
+def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_compile, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
     golden_answers = {}
 
     
-    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH, 'compile_model') if is_compile else get_all_model_paths(LOAD_MODEL_PATH)
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
     IN_DISTRIBUTION_SET_JSONL = 'fever.dev.jsonl'
@@ -1489,13 +1488,14 @@ def eval_model_fever(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_
     print(symm2_avg)
     print(symm2_out)
 
-def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_load_model=True, is_optimized_set = False):
+def eval_model_qqp(model, config, tokenizer, DEVICE, LOAD_MODEL_PATH, is_compile, is_load_model=True, is_optimized_set = False):
     """ to get predictions and score on test and challenge sets"""
     distributions = {}
     losses = {}
     golden_answers = {}
     
-    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH, 'compile_model') if is_compile else get_all_model_paths(LOAD_MODEL_PATH)
+    
     OPTIMIZED_SET_JSONL = config['dev_json']
     # datasets
     IN_DISTRIBUTION_SET_JSONL = 'qqp.dev.jsonl'

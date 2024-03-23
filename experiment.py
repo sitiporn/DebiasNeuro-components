@@ -112,11 +112,11 @@ LOAD_MODEL_PATH = output_dir
 # ******************** test  stuff ********************
 if config['eval_model']: 
     if args.dataset_name == 'mnli':
-        eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, method_name=method_name, is_load_model= True, is_optimized_set=False)
+        eval_model(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, method_name=method_name, is_compile=False, is_load_model= True, is_optimized_set=False)
     elif args.dataset_name == 'qqp':
-        eval_model_qqp(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model= True, is_optimized_set=False)
+        eval_model_qqp(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_compile=False,is_load_model=True, is_optimized_set=False)
     elif args.dataset_name == 'fever':
-        eval_model_fever(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model= True, is_optimized_set=False)
+        eval_model_fever(model, config=config,tokenizer=tokenizer,DEVICE=DEVICE, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_compile=False,is_load_model=True, is_optimized_set=False)
 
 
 

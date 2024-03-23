@@ -89,6 +89,7 @@ from my_package.cma import evalutate_counterfactual
 parser = argparse.ArgumentParser()
 parser.add_argument("--eval_counterfactuals", type=bool,  default=False)	
 parser.add_argument("--collect_counterfactuals", type=bool,  default=False)	
+parser.add_argument("--compile_model", type=bool,  default=False)	
 parser.add_argument("--compute_nie_scores", type=bool, default=False,  help="collect advanated samples")	
 parser.add_argument("--get_candidate_neurons", type=bool, default=False, help="get top neurons looking globally")	
 parser.add_argument("--get_top_neurons_layer_each", type=bool, default=False, help="get top neurons looking locally")	
@@ -142,6 +143,7 @@ config["DEBUG"] = args.DEBUG
 config['k'] = args.k
 config['top_neuron_num'] = args.top_neuron_num
 config['top_neuron_layer'] = args.top_neuron_layer
+config['compile_model'] = args.compile_model
 
 
 dataset = {}
@@ -160,7 +162,8 @@ elif config["is_averaged_embeddings"]:
     save_nie_set_path = f'../pickles/{dataset_name}_nie_{config["num_samples"]}_samples.pickle'
 
 tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
-if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
+# if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
+all_model_paths = get_all_model_paths(LOAD_MODEL_PATH, 'compile_model') if config['compile_model'] else get_all_model_paths(LOAD_MODEL_PATH)
 model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
 
 # prepare validation for Counterfactual Generations

@@ -67,6 +67,7 @@ global metric
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_save_path", type=str, default=None, required=True, help="The output directory where the model checkpoints will be written.")
 parser.add_argument("--model_load_path", type=str, default=None, required=True, help="The directory where the model checkpoints will be read to train.")
+parser.add_argument("--compile_model", type=bool,  default=False, help="Used for Masked Debiasing")
 parser.add_argument("--dataset_name", type=str, help="dataset name to train") 
 parser.add_argument("--method_name", type=str, help="method to train") 
 parser.add_argument("--seed", type=int, default=1548, help="The random seed value")	
@@ -126,6 +127,7 @@ config['top_neuron_layer'] = args.top_neuron_layer
 config['compare_frozen_weight'] = args.compare_frozen_weight
 config['is_averaged_embeddings'] = args.is_averaged_embeddings
 config["DEBUG"] = args.DEBUG
+config['compile_model'] = args.compile_model
 
 dataset = {}
 tokenized_datasets = {}
@@ -138,7 +140,8 @@ metric = evaluate.load(config["validation_metric"])
 
 print(f'current dataset_name: {dataset_name}')
 # ******************** PATH ********************
-if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
+# if os.path.exists(LOAD_MODEL_PATH): all_model_paths = get_all_model_paths(LOAD_MODEL_PATH)
+all_model_paths = get_all_model_paths(LOAD_MODEL_PATH, 'compile_model') if config['compile_model'] else get_all_model_paths(LOAD_MODEL_PATH)
 model_path = config['seed'] if config['seed'] is None else all_model_paths[str(config['seed'])] 
 # prepare validation for computing NIE scores
 tokenizer = AutoTokenizer.from_pretrained(config['tokens']['model_name'], model_max_length=config['tokens']['max_length'])
@@ -181,7 +184,8 @@ advantaged_bias = None
 advantaged_main, advantaged_bias = get_advantaged_samples(config, model, seed, metric=metric, LOAD_MODEL_PATH=LOAD_MODEL_PATH, is_load_model=True, method_name=method_name,device=DEVICE,collect=config['collect_adv'])
 
 if config['model']['is_load_trained_model']:
-    all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    # all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+    all_paths = get_all_model_paths(LOAD_MODEL_PATH, 'compile_model') if config['compile_model'] else get_all_model_paths(LOAD_MODEL_PATH)
     path = all_paths[str(seed)]
     model = load_model(path=path, model=model, device=DEVICE)
     print(f'Loading updated model from : {path} to optimize on PCGU done!')
@@ -224,6 +228,7 @@ print(f'Predict candidated class correct : {config["correct_pred"]}')
 print(f'intervention type : {config["intervention_type"]}')
 print(f'save steps : {config["save_steps"]}')
 print(f'scale lr : {config["scale_lr"]}')
+print(f'compile_model : {config["compile_model"]}')
 
 training_args = TrainingArguments(output_dir = output_dir,
                                 report_to="none",

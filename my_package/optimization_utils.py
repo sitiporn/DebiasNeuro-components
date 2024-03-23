@@ -309,7 +309,8 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
 
     if collect:
         from my_package.data import get_all_model_paths
-        all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+        # all_paths = get_all_model_paths(LOAD_MODEL_PATH)
+        all_paths = get_all_model_paths(LOAD_MODEL_PATH, 'compile_model') if config['compile_model'] else get_all_model_paths(LOAD_MODEL_PATH)
         path = all_paths[seed]
         if is_load_model:
             from my_package.utils import load_model
@@ -382,7 +383,6 @@ def get_advantaged_samples(config, model, seed, metric, LOAD_MODEL_PATH, is_load
         main_df['results'] = main_df['results'].apply(lambda row: bool(row))
         print(f'bias shape : {biased_df.shape }')
         print(f'main shape : {main_df.shape}')
-        breakpoint()
         # select samples base on main model and bias model inferences
         advantaged  = []
         for idx in range(main_df.shape[0]):
