@@ -93,7 +93,6 @@ else:
 
 with open(config_path, "r") as yamlfile: config = yaml.load(yamlfile, Loader=yaml.FullLoader)
 
-
 config_path = 'configs/learn_mask/unstructured_sigmoid.yaml'
 with open(config_path, "r") as yamlfile: sparse_args = yaml.load(yamlfile, Loader=yaml.FullLoader)
 
@@ -120,7 +119,7 @@ output_dir = os.path.join(output_dir, "seed_"+ str(seed))
 if not os.path.exists(output_dir): os.mkdir(output_dir) 
 # "validation_metric": "+accuracy"?
 
-model_name  =  '../bert-base-uncased-mnli/'
+model_name  =  config['model']['model_name']
 metric = evaluate.load(config["validation_metric"])
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = SequenceClassificationTransformer.from_pretrained(model_name, num_labels = len(label_maps))
@@ -168,7 +167,7 @@ training_args = TrainingArguments(output_dir = output_dir,
                                 save_steps=config['save_steps'],
                                 learning_rate = float(config['optimizer']['lr']),
                                 weight_decay = config['optimizer']['weight_decay'],
-                                # warmup_ratio = config['warmup_ratio'], 
+                                warmup_ratio = config['warmup_ratio'], 
                                 per_device_train_batch_size = config["data_loader"]["batch_sampler"]["batch_size"],
                                 per_device_eval_batch_size=config["data_loader"]["batch_sampler"]["batch_size"],
                                 num_train_epochs = config["num_epochs"],
