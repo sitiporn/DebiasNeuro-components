@@ -20,7 +20,7 @@
   
   # dataset
   "data_path": "../data/fact_verification/",
-  "train_data": "weighted_fever.train.jsonl",
+  "train_data": "fever_claim_only.train.jsonl",
   "validation_data": "fever.val.jsonl", 
   "test_data": "fever.dev.jsonl",
   
