@@ -11,4 +11,4 @@ source /ist/users/sitipornl/anaconda3/bin/activate
 source /ist/users/sitipornl/anaconda3/bin/activate  /ist/users/sitipornl/anaconda3/envs/combine_env/
 export PYTHONNOUSERSITE=True
 
-python trainer_reweight.py
+python trainer_reweight_fever.py
