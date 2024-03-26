@@ -10,7 +10,7 @@
       "add_special_tokens": false
     }
   },
-    
+  "dataset_name": "fever",
   # Tokenizer
   "tokens": {
     "type": "pretrained_transformer",
